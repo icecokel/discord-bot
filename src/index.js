@@ -24,11 +24,14 @@ client.on("messageCreate", (message) => {
   const content = message.content.toLowerCase();
 
   // 명령어 매칭 찾기
-  // commands 맵을 순회하며 keywords 배열에 content가 포함되는지 확인
+  // 메시지의 첫 단어를 추출하여 명령어로 확인
+  const args = content.split(/ +/);
+  const commandName = args[0];
+
   const command = [...client.commands.values()].find(
     (cmd) =>
       cmd.keywords &&
-      cmd.keywords.some((keyword) => content === keyword.toLowerCase()),
+      cmd.keywords.some((keyword) => commandName === keyword.toLowerCase()),
   );
 
   if (command) {
