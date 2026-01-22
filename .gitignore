@@ -5,3 +5,4 @@ dist/
 
 scripts/
 documents/
+src/data/user_preferences.json
