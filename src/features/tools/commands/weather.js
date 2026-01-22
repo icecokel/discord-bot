@@ -1,17 +1,57 @@
 const { EmbedBuilder } = require("discord.js");
 const kmaHelper = require("../../../utils/kmaHelper");
 const kmaData = require("../../../data/kma_data.json");
+const userStore = require("../../../utils/userStore");
 
 module.exports = {
   name: "weather",
   keywords: ["!weather", "!날씨", "!오늘날씨"],
-  description: "오늘의 상세 날씨 정보를 확인합니다.",
+  description: "오늘의 상세 날씨 정보를 확인하거나 기본 지역을 설정합니다.",
   async execute(message) {
     const args = message.content.split(/ +/);
-    const regionName = args[1];
+    // args[0]: !날씨, args[1]: 지역명 or "설정"
 
+    // 1. 설정 기능 (!날씨 설정 [지역])
+    if (args[1] === "설정") {
+      const newRegion = args[2];
+      if (!newRegion) {
+        return message.reply(
+          "❗ 설정할 지역명을 입력해주세요. (예: `!날씨 설정 서울`)",
+        );
+      }
+
+      // 지역명 유효성 검사 (kmaData에 있는지)
+      let isValid = kmaData[newRegion];
+      if (!isValid) {
+        const foundKey = Object.keys(kmaData).find(
+          (key) => key.includes(newRegion) || newRegion.includes(key),
+        );
+        if (foundKey) isValid = true;
+      }
+
+      if (!isValid) {
+        return message.reply(
+          `❌ **${newRegion}**은(는) 지원되지 않는 지역명입니다. 정확한 도시/구/군 이름을 입력해주세요.`,
+        );
+      }
+
+      userStore.setUserRegion(message.author.id, newRegion);
+      return message.reply(
+        `✅ 기본 지역이 **${newRegion}**(으)로 설정되었습니다! 이제 지역명 없이 \`!날씨\`만 입력해도 됩니다.`,
+      );
+    }
+
+    // 2. 조회 기능
+    let regionName = args[1];
+
+    // 지역명이 없으면 저장된 기본값 조회
     if (!regionName) {
-      return message.reply("❗ 지역명을 입력해주세요. (예: `!날씨 서울`)");
+      regionName = userStore.getUserRegion(message.author.id);
+      if (!regionName) {
+        return message.reply(
+          "❗ 지역명을 입력하거나 기본 지역을 설정해주세요.\n(사용법: `!날씨 서울` 또는 `!날씨 설정 서울`)",
+        );
+      }
     }
 
     // 데이터 조회
