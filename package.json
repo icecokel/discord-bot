@@ -7,9 +7,10 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "node scripts/generate-registry.js && esbuild src/index.js --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
-    "deploy": "tmx deploy dist/ && tmx cp package.json && tmx cp package-lock.json && tmx cp .env && tmx run 'cd ~/projects/discord-bot && npm i && npm run start:prod'",
+    "deploy": "tmx deploy dist/ && tmx cp package.json && tmx cp package-lock.json && tmx cp .env",
     "start:prod": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.27.2",
+    "husky": "^9.1.7",
     "nodemon": "^3.1.11"
   }
 }
