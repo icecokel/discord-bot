@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require("discord.js");
 const kmaHelper = require("../../../utils/kmaHelper");
 const kmaData = require("../../../data/kma_data.json");
+const userStore = require("../../../utils/userStore");
 
 module.exports = {
   name: "weather-weekly",
@@ -8,10 +9,15 @@ module.exports = {
   description: "내일부터 7일 후까지의 주간 예보를 확인합니다.",
   async execute(message) {
     const args = message.content.split(/ +/);
-    const regionName = args[1];
+    let regionName = args[1];
 
     if (!regionName) {
-      return message.reply("❗ 지역명을 입력해주세요. (예: `!주간날씨 서울`)");
+      regionName = userStore.getUserRegion(message.author.id);
+      if (!regionName) {
+        return message.reply(
+          "❗ 지역명을 입력해주세요. (예: `!주간날씨 서울`)\n(또는 `!날씨 설정 [지역]`으로 기본 지역을 등록하세요)",
+        );
+      }
     }
 
     let targetData = kmaData[regionName];
