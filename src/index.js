@@ -14,8 +14,22 @@ const client = new Client({
 // 명령어 로드
 client.commands = loadCommands();
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+
+  // 관리자에게 재시작 알림 DM 전송
+  const adminId = process.env.ADMIN_ID;
+  if (adminId) {
+    try {
+      const admin = await client.users.fetch(adminId);
+      await admin.send(
+        `🔄 **봇이 재시작되었습니다!**\n시간: ${new Date().toLocaleString("ko-KR")}`,
+      );
+      console.log(`[Startup] Admin DM sent to ${admin.tag}`);
+    } catch (error) {
+      console.error("[Startup] Failed to send admin DM:", error.message);
+    }
+  }
 });
 
 client.on("messageCreate", (message) => {
