@@ -9,7 +9,17 @@ module.exports = {
 
     // 시작 명령어
     if (["start", "시작"].includes(subCommand)) {
-      const result = WordQuizManager.startGame(message.channel.id);
+      const onTimeout = (answer) => {
+        message.channel.send(
+          `⏰ **시간 초과!** 게임이 종료되었습니다.\n정답은 **${answer}**였습니다.`,
+        );
+      };
+
+      const result = WordQuizManager.startGame(
+        message.channel.id,
+        message.author.id,
+        onTimeout,
+      );
 
       if (!result.success) {
         return message.reply(`⚠️ ${result.message}`);
@@ -30,6 +40,11 @@ module.exports = {
       const game = WordQuizManager.getGame(message.channel.id);
       if (!game) {
         return message.reply("❌ 현재 진행 중인 게임이 없습니다.");
+      }
+
+      // 시작한 유저만 종료 가능
+      if (game.initiatorId !== message.author.id) {
+        return message.reply("⚠️ 게임을 시작한 유저만 종료할 수 있습니다.");
       }
 
       WordQuizManager.endGame(message.channel.id);
