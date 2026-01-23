@@ -22,7 +22,10 @@ module.exports = {
       );
     }
 
+    console.log(message.author);
+
     const userInput = args[0];
+
     const result = WordQuizManager.processGuess(
       channelId,
       message.author.id,
