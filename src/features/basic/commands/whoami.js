@@ -26,10 +26,12 @@ module.exports = {
 
     const user = message.author;
     const member = message.member; // 길드(서버) 내 멤버 정보
+    // 서버 닉네임 우선, 없으면 글로벌 디스플레이 이름
+    const displayName = member?.displayName || user.displayName;
 
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
-      .setTitle(`👤 ${user.username}님의 정보`)
+      .setTitle(`👤 ${displayName}님의 정보`)
       .setThumbnail(user.displayAvatarURL())
       .addFields(
         { name: "사용자 태그", value: user.tag, inline: true },
