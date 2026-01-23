@@ -62,13 +62,14 @@ module.exports = {
 
     if (result.type === "CORRECT") {
       WordQuizManager.endGame(channelId, message.author.id);
+      // 서버 닉네임 우선, 없으면 글로벌 디스플레이 이름
+      const displayName =
+        message.member?.displayName || message.author.displayName;
 
       const winEmbed = new EmbedBuilder()
         .setColor("#FFD700") // Gold color
         .setTitle("🎉 정답입니다! 🎉")
-        .setDescription(
-          `**${message.author.username}**님이 정답을 맞추셨습니다!`,
-        )
+        .setDescription(`**${displayName}**님이 정답을 맞추셨습니다!`)
         .addFields(
           {
             name: "정답",
