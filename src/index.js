@@ -39,7 +39,7 @@ client.on("messageCreate", (message) => {
       console.log(
         `[Command] ${command.name} executed by ${message.author.tag} (${message.author.id})`,
       );
-      command.execute(message);
+      command.execute(message, args.slice(1));
     } catch (error) {
       console.error(error);
       message.reply("명령어를 실행하는 중에 오류가 발생했습니다.");
