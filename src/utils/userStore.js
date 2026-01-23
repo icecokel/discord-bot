@@ -46,7 +46,20 @@ const setUserRegion = (userId, region) => {
   saveData(data);
 };
 
+// 지역이 등록된 모든 유저 목록 가져오기
+const getAllUsersWithRegion = () => {
+  const data = loadData();
+  const result = [];
+  for (const userId in data) {
+    if (data[userId].defaultRegion) {
+      result.push({ userId, region: data[userId].defaultRegion });
+    }
+  }
+  return result;
+};
+
 module.exports = {
   getUserRegion,
   setUserRegion,
+  getAllUsersWithRegion,
 };

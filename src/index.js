@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./core/loader");
+const { startWeatherScheduler } = require("./core/scheduler");
 
 const client = new Client({
   intents: [
@@ -30,6 +31,9 @@ client.once("ready", async () => {
       console.error("[Startup] Failed to send admin DM:", error.message);
     }
   }
+
+  // 날씨 스케줄러 시작
+  startWeatherScheduler(client);
 });
 
 client.on("messageCreate", (message) => {
