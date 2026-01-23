@@ -6,6 +6,28 @@ module.exports = {
   keywords: ["!answer", "!정답", "!a", "!ㅈㄷ"],
   description: "단어 퀴즈의 정답을 제출합니다.",
   execute(message, args) {
+    // 0. 설명(Help) 기능
+    if (
+      args[0] &&
+      ["help", "설명", "규칙", "사용법", "가이드"].includes(args[0])
+    ) {
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle("📝 정답 제출 사용법")
+        .setDescription("진행 중인 단어 퀴즈의 정답을 제출합니다.")
+        .addFields(
+          {
+            name: "사용법",
+            value: "`!정답 [단어]`\n예: `!정답 apple`",
+          },
+          {
+            name: "주의사항",
+            value: "게임이 진행 중일 때만 사용할 수 있습니다.",
+          },
+        );
+      return message.reply({ embeds: [embed] });
+    }
+
     if (!args[0]) {
       return message.reply("⚠️ 정답을 입력해주세요! 예: `!정답 apple`");
     }
