@@ -14,7 +14,7 @@ const startWeatherScheduler = (client) => {
     async () => {
       console.log("[Scheduler] 오전 9시 날씨 알림 시작");
 
-      const users = userStore.getAllUsersWithRegion();
+      const users = userStore.getAllUsersWithNotification();
       console.log(`[Scheduler] 알림 대상 유저: ${users.length}명`);
 
       for (const { userId, region } of users) {
