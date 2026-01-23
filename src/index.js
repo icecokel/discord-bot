@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const { loadCommands } = require("./core/loader");
 const { startWeatherScheduler } = require("./core/scheduler");
 
@@ -8,14 +8,16 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages, // DM 감지 활성화
     GatewayIntentBits.MessageContent,
   ],
+  partials: [Partials.Channel], // DM 채널 처리에 필요
 });
 
 // 명령어 로드
 client.commands = loadCommands();
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
   // 날씨 스케줄러 시작
