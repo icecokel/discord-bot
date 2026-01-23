@@ -6,7 +6,7 @@ class WordQuizManager {
     this.games = new Map(); // channelId -> GameState
   }
 
-  startGame(channelId) {
+  startGame(channelId, initiatorId, onTimeout) {
     if (this.games.has(channelId)) {
       return { success: false, message: "이미 진행 중인 게임이 있습니다." };
     }
@@ -19,10 +19,22 @@ class WordQuizManager {
       startTime: Date.now(),
       participantCounts: new Map(), // userId -> count
       timer: null,
+      initiatorId: initiatorId,
     };
+
+    // 랜덤 글자 공개 (길이의 10%, 반올림, 최소 1개)
+    const revealCount = Math.max(1, Math.round(word.length * 0.1));
+    const indices = new Set();
+    while (indices.size < revealCount) {
+      indices.add(Math.floor(Math.random() * word.length));
+    }
+    indices.forEach((idx) => {
+      gameState.revealedIndices[idx] = true;
+    });
 
     // 3분 후 자동 종료
     gameState.timer = setTimeout(() => {
+      if (onTimeout) onTimeout(gameState.targetWord);
       this.endGame(channelId, null);
     }, 180 * 1000);
 
@@ -126,7 +138,8 @@ class WordQuizManager {
       .addFields(
         {
           name: "1. 게임 시작",
-          value: "`!단어퀴즈 시작` 명령어로 게임을 시작합니다.",
+          value:
+            "`!단어퀴즈 시작` 명령어로 시작시 **단어 길이의 약 10% (최소 1개)** 글자가 공개된 상태로 시작합니다.",
         },
         {
           name: "2. 정답 제출",
@@ -138,8 +151,9 @@ class WordQuizManager {
             "단어의 길이와 자릿수가 맞으면 해당 글자가 공개됩니다!\n- **위치 일치**: 해당 글자가 공개됩니다.\n- **문자 포함**: 위치는 다르지만 단어에 포함된 글자 개수를 알려줍니다.",
         },
         {
-          name: "4. 승리 조건",
-          value: "남들보다 먼저 단어를 정확히 맞추면 승리! 🏆 (제한시간 180초)",
+          name: "4. 게임 종료",
+          value:
+            "**승리**: 단어를 먼저 맞추면 즉시 종료됩니다. 🏆\n**중지**: `!단어퀴즈 중지` 명령어로 언제든 게임을 끝낼 수 있습니다.\n**타임아웃**: 180초(3분) 동안 정답자가 없으면 자동 종료됩니다.",
         },
       )
       .setFooter({ text: "즐거운 퀴즈 시간 되세요!" });
