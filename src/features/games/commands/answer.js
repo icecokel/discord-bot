@@ -88,11 +88,32 @@ module.exports = {
     }
 
     if (result.type === "INCORRECT") {
+      // 상태별 이모지 매핑
+      const statusEmoji = {
+        exact: "🟢",
+        included: "🟡",
+        none: "⬜",
+      };
+
+      // 시각적 피드백 생성
+      const inputLine = result.feedback.map((f) => f.char).join(" ");
+      const emojiLine = result.feedback
+        .map((f) => statusEmoji[f.status])
+        .join(" ");
+
+      const exactText =
+        result.exactChars.length > 0 ? result.exactChars.join(", ") : "없음";
+      const includedText =
+        result.includedChars.length > 0
+          ? result.includedChars.join(", ")
+          : "없음";
+
       return message.reply(
         `❌ **틀렸습니다!**\n` +
-          `입력: **${userInput.toUpperCase()}**\n` +
-          `위치 일치(Strike): **${result.positionMatch}**\n` +
-          `문자 포함(Ball): **${result.charMatch}**\n` +
+          `입력: ${inputLine}\n` +
+          `      ${emojiLine}\n\n` +
+          `🟢 위치 일치: ${exactText}\n` +
+          `🟡 포함됨: ${includedText}\n\n` +
           `현재 힌트: \`${result.maskedWord}\``,
       );
     }

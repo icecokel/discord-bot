@@ -79,38 +79,44 @@ class WordQuizManager {
     }
 
     // 피드백 계산
-    let positionMatch = 0; // Strike
-    let charMatch = 0; // Ball (위치는 다르지만 문자가 있는 경우)
-
-    // 단순화된 로직: 정확한 위치, 그 외 포함 여부만 판단
-    // (정확한 Bulls/Cows 복잡한 로직보다는 직관적으로)
     const targetChars = target.split("");
     const guessChars = guess.split("");
-
-    // 1. 위치 일치 확인 (Strike) 및 공개 처리
-    for (let i = 0; i < target.length; i++) {
-      if (targetChars[i] === guessChars[i]) {
-        positionMatch++;
-        game.revealedIndices[i] = true; // 위치 맞으면 공개
-      }
-    }
-
-    // 2. 문자 포함 확인 (Ball) - 중복 처리 등은 간단하게 포함 여부만
-    // 정답에 포함된 모든 문자 집합
     const targetSet = new Set(targetChars);
-    // 추측한 문자 중 위치 일치하지 않는 것들
-    let includingChars = 0;
+
+    // 각 문자별 상세 피드백
+    const feedback = [];
+    const exactChars = [];
+    const includedChars = [];
+    let positionMatch = 0;
+    let charMatch = 0;
+
     for (let i = 0; i < guess.length; i++) {
-      if (targetChars[i] !== guessChars[i] && targetSet.has(guessChars[i])) {
-        includingChars++;
+      const char = guessChars[i];
+
+      if (targetChars[i] === char) {
+        // 위치 일치 (🟢)
+        feedback.push({ char, status: "exact" });
+        if (!exactChars.includes(char)) exactChars.push(char);
+        positionMatch++;
+        game.revealedIndices[i] = true;
+      } else if (targetSet.has(char)) {
+        // 포함됨 (🟡)
+        feedback.push({ char, status: "included" });
+        if (!includedChars.includes(char)) includedChars.push(char);
+        charMatch++;
+      } else {
+        // 없음 (⬜)
+        feedback.push({ char, status: "none" });
       }
     }
-    charMatch = includingChars;
 
     return {
       type: "INCORRECT",
       positionMatch,
       charMatch,
+      feedback,
+      exactChars,
+      includedChars,
       maskedWord: this.getMaskedWord(game),
     };
   }
