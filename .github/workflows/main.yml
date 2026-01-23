@@ -5,6 +5,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: TERMUX
     steps:
       # 1. 소스 코드 체크아웃
       - name: Checkout code
