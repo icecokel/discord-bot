@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "build": "node scripts/generate-registry.js && esbuild src/index.js --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
     "deploy": "tmx deploy dist/ && tmx cp package.json && tmx cp package-lock.json && tmx cp .env",
+    "remote:reload": "tmx run \"cd ~/projects/discord-bot && npm i && (pm2 restart discord-bot || pm2 start index.js --name discord-bot)\"",
     "start:prod": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky"
@@ -18,7 +19,8 @@
   "type": "commonjs",
   "dependencies": {
     "discord.js": "^14.25.1",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "random-words": "^2.0.1"
   },
   "devDependencies": {
     "esbuild": "^0.27.2",

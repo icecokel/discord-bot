@@ -4,17 +4,21 @@
 const cmd_basic_info_0 = require('../features/basic/commands/info.js');
 const cmd_basic_ping_1 = require('../features/basic/commands/ping.js');
 const cmd_basic_whoami_2 = require('../features/basic/commands/whoami.js');
-const cmd_games_dice_3 = require('../features/games/commands/dice.js');
-const cmd_tools_weather_weekly_4 = require('../features/tools/commands/weather-weekly.js');
-const cmd_tools_weather_5 = require('../features/tools/commands/weather.js');
+const cmd_games_answer_3 = require('../features/games/commands/answer.js');
+const cmd_games_dice_4 = require('../features/games/commands/dice.js');
+const cmd_games_word_quiz_5 = require('../features/games/commands/word-quiz.js');
+const cmd_tools_weather_weekly_6 = require('../features/tools/commands/weather-weekly.js');
+const cmd_tools_weather_7 = require('../features/tools/commands/weather.js');
 
 module.exports = {
   commands: [
     cmd_basic_info_0,
     cmd_basic_ping_1,
     cmd_basic_whoami_2,
-    cmd_games_dice_3,
-    cmd_tools_weather_weekly_4,
-    cmd_tools_weather_5
+    cmd_games_answer_3,
+    cmd_games_dice_4,
+    cmd_games_word_quiz_5,
+    cmd_tools_weather_weekly_6,
+    cmd_tools_weather_7
   ]
 };
