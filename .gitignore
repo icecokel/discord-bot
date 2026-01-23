@@ -3,6 +3,6 @@ node_modules/
 dist/
 .DS_Store
 
-scripts/
+
 documents/
 src/data/user_preferences.json
