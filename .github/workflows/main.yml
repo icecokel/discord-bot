@@ -1,0 +1,48 @@
+name: Deploy to Termux (Cloudflare Tunnel)
+on:
+  push:
+    branches: ["main"]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 소스 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v3
+      # 2. Node.js 환경 설정
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+      # 3. 의존성 설치 및 빌드
+      - name: Install & Build
+        run: |
+          npm ci
+          npm run build  # webpack/esbuild 등으로 미니파이 -> dist/ 생성
+      # 4. cloudflared 설치 (터널링 접속용)
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+      # 5. SSH 설정 (ProxyCommand)
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.TERMUX_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # SSH Config에 ProxyCommand 추가
+          echo "Host ${{ secrets.TERMUX_HOST }}" >> ~/.ssh/config
+          echo "  User ${{ secrets.TERMUX_USER }}" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "  ProxyCommand cloudflared access ssh --hostname %h" >> ~/.ssh/config
+      # 6. 파일 전송 (SCP)
+      - name: Deploy Files
+        run: |
+          # dist/ 내부 파일들과 package.json을 전송
+          # (주의: 원격 경로의 디렉토리 구조에 따라 조정 필요)
+          scp -r dist/* package.json ${{ secrets.TERMUX_HOST }}:~/projects/discord-bot/
+      # 7. 앱 재시작 (SSH)
+      - name: Restart App
+        run: |
+          ssh ${{ secrets.TERMUX_HOST }} "cd ~/projects/discord-bot && npm install --production && pm2 restart discord-bot"
