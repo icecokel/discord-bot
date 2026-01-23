@@ -41,6 +41,37 @@ module.exports = {
       );
     }
 
+    // 2. 지역 설정 해제 (!날씨 해제)
+    if (["해제", "삭제", "취소"].includes(args[1])) {
+      const cleared = userStore.clearUserRegion(message.author.id);
+      userStore.disableNotification(message.author.id);
+      if (cleared) {
+        return message.reply("✅ 기본 지역 설정이 해제되었습니다.");
+      } else {
+        return message.reply("❌ 설정된 지역이 없습니다.");
+      }
+    }
+
+    // 3. 알림 설정 ON (!날씨 알림)
+    if (["알림", "구독", "알림설정"].includes(args[1])) {
+      const region = userStore.getUserRegion(message.author.id);
+      if (!region) {
+        return message.reply(
+          "❗ 먼저 지역을 설정해주세요! (예: `!날씨 설정 서울`)",
+        );
+      }
+      userStore.enableNotification(message.author.id);
+      return message.reply(
+        `🔔 날씨 알림이 활성화되었습니다!\n매일 오전 9시에 **${region}** 날씨를 DM으로 받아보실 수 있습니다.`,
+      );
+    }
+
+    // 4. 알림 설정 OFF (!날씨 알림해제)
+    if (["알림해제", "구독해제", "알림끄기"].includes(args[1])) {
+      userStore.disableNotification(message.author.id);
+      return message.reply("🔕 날씨 알림이 해제되었습니다.");
+    }
+
     // 2. 조회 기능
     let regionName = args[1];
 

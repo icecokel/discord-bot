@@ -46,12 +46,53 @@ const setUserRegion = (userId, region) => {
   saveData(data);
 };
 
-// 지역이 등록된 모든 유저 목록 가져오기
-const getAllUsersWithRegion = () => {
+// 기본 지역 해제하기
+const clearUserRegion = (userId) => {
+  const data = loadData();
+  if (data[userId]) {
+    delete data[userId].defaultRegion;
+    saveData(data);
+    return true;
+  }
+  return false;
+};
+
+// 알림 설정 가져오기
+const isNotificationEnabled = (userId) => {
+  const data = loadData();
+  return data[userId]?.notificationEnabled === true;
+};
+
+// 알림 설정 켜기
+const enableNotification = (userId) => {
+  const data = loadData();
+  if (!data[userId]) {
+    data[userId] = {};
+  }
+  data[userId].notificationEnabled = true;
+  saveData(data);
+};
+
+// 알림 설정 끄기
+const disableNotification = (userId) => {
+  const data = loadData();
+  if (data[userId]) {
+    data[userId].notificationEnabled = false;
+    saveData(data);
+    return true;
+  }
+  return false;
+};
+
+// 알림이 활성화된 유저 목록 가져오기 (지역 등록 + 알림 ON)
+const getAllUsersWithNotification = () => {
   const data = loadData();
   const result = [];
   for (const userId in data) {
-    if (data[userId].defaultRegion) {
+    if (
+      data[userId].defaultRegion &&
+      data[userId].notificationEnabled === true
+    ) {
       result.push({ userId, region: data[userId].defaultRegion });
     }
   }
@@ -61,5 +102,9 @@ const getAllUsersWithRegion = () => {
 module.exports = {
   getUserRegion,
   setUserRegion,
-  getAllUsersWithRegion,
+  clearUserRegion,
+  isNotificationEnabled,
+  enableNotification,
+  disableNotification,
+  getAllUsersWithNotification,
 };
