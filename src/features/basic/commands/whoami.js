@@ -4,7 +4,26 @@ module.exports = {
   name: "whoami",
   keywords: ["!whoami", "!내정보", "!나"],
   description: "나의 디스코드 프로필 정보를 보여줍니다.",
-  execute(message) {
+  execute(message, args) {
+    // 0. 설명(Help) 기능
+    if (
+      args &&
+      args[0] &&
+      ["help", "설명", "규칙", "사용법", "가이드"].includes(args[0])
+    ) {
+      const helpEmbed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setTitle("👤 내 정보 명령어 사용법")
+        .setDescription(
+          "명령어를 입력한 사용자의 디스코드 프로필 정보를 보여줍니다.",
+        )
+        .addFields({
+          name: "사용법",
+          value: "`!whoami`, `!내정보`, `!나`",
+        });
+      return message.reply({ embeds: [helpEmbed] });
+    }
+
     const user = message.author;
     const member = message.member; // 길드(서버) 내 멤버 정보
 

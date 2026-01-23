@@ -11,6 +11,39 @@ module.exports = {
     const args = message.content.split(/ +/);
     // args[0]: !날씨, args[1]: 지역명 or "설정"
 
+    // 0. 설명(Help) 기능
+    if (["help", "설명", "규칙", "사용법", "가이드"].includes(args[1])) {
+      const embed = new EmbedBuilder()
+        .setColor(0x0099ff)
+        .setTitle("📘 날씨 명령어 사용법")
+        .setDescription(
+          "현재 날씨와 오늘 예보를 조회하거나 기본 지역을 설정합니다.",
+        )
+        .addFields(
+          {
+            name: "📍 지역 날씨 조회",
+            value:
+              "`!날씨 [지역명]`\n예: `!날씨 서울`, `!날씨 부산 해운대구`\n국내 주요 시/군/구 단위를 지원합니다.",
+          },
+          {
+            name: "💾 기본 지역 설정",
+            value:
+              "`!날씨 설정 [지역명]`\n기본 지역을 등록하면 `!날씨`만 입력해도 해당 지역 날씨를 보여줍니다.",
+          },
+          {
+            name: "🗑️ 설정 해제",
+            value: "`!날씨 해제`\n등록된 기본 지역 정보를 삭제합니다.",
+          },
+          {
+            name: "🔔 알림 설정 (Beta)",
+            value:
+              "`!날씨 알림`, `!날씨 알림해제`\n매일 오전 9시에 기본 지역 날씨를 DM으로 보내드립니다. (설정 필요)",
+          },
+        )
+        .setFooter({ text: "기상청 데이터를 제공합니다." });
+      return message.reply({ embeds: [embed] });
+    }
+
     // 1. 설정 기능 (!날씨 설정 [지역])
     if (args[1] === "설정") {
       const newRegion = args[2];
