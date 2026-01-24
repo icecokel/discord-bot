@@ -4,7 +4,7 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "answer",
-  keywords: ["!answer", "!정답", "!a", "!ㅈㄷ"],
+  keywords: ["answer", "정답", "a", "ㅈㄷ"],
   description: "단어 퀴즈의 정답을 제출합니다.",
   execute(message, args) {
     // 0. 설명(Help) 기능

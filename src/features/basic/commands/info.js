@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "info",
-  keywords: ["!info", "!정보"],
+  keywords: ["info", "정보"],
   description: "봇의 정보를 확인합니다.",
   execute(message, args) {
     // 0. 설명(Help) 기능

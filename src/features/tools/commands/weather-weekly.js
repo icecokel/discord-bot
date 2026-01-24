@@ -5,7 +5,7 @@ const userStore = require("../../../utils/userStore");
 
 module.exports = {
   name: "weather-weekly",
-  keywords: ["!주간날씨", "!주간", "!weekly"],
+  keywords: ["주간날씨", "주간", "weekly"],
   description: "내일부터 7일 후까지의 주간 예보를 확인합니다.",
   async execute(message) {
     const args = message.content.split(/ +/);
