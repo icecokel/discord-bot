@@ -9,7 +9,7 @@ const { EmbedBuilder } = require("discord.js");
 const { registerAdminCommand } = require("../../../core/adminMiddleware");
 
 // 데이터 디렉토리 설정 (process.cwd() 기반)
-const DATA_DIR = path.join(process.cwd(), "src/data");
+const { DATA_DIR } = require("../../../utils/userStore");
 
 // 초기화 가능한 타겟 및 파일 매핑
 const RESET_TARGETS = {

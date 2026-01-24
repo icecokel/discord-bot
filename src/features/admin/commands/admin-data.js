@@ -7,7 +7,7 @@ const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 const { registerAdminCommand } = require("../../../core/adminMiddleware");
 
-const DATA_DIR = path.join(process.cwd(), "src/data");
+const { DATA_DIR } = require("../../../utils/userStore");
 
 /**
  * 데이터 파일 읽기

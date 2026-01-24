@@ -8,7 +8,7 @@ const userStore = require("../../../utils/userStore");
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(process.cwd(), "src/data");
+const { DATA_DIR } = require("../../../utils/userStore");
 const PREFS_FILE = path.join(DATA_DIR, "user_preferences.json");
 
 /**
