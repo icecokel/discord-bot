@@ -3,7 +3,7 @@ const { getDisplayName } = require("../../../utils/userUtils");
 
 module.exports = {
   name: "whoami",
-  keywords: ["!whoami", "!내정보", "!나"],
+  keywords: ["whoami", "내정보", "나"],
   description: "나의 디스코드 프로필 정보를 보여줍니다.",
   execute(message, args) {
     // 0. 설명(Help) 기능

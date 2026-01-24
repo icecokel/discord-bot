@@ -5,7 +5,7 @@ const userStore = require("../../../utils/userStore");
 
 module.exports = {
   name: "weather",
-  keywords: ["!weather", "!날씨", "!오늘날씨"],
+  keywords: ["weather", "날씨", "오늘날씨"],
   description: "오늘의 상세 날씨 정보를 확인하거나 기본 지역을 설정합니다.",
   async execute(message) {
     const args = message.content.split(/ +/);

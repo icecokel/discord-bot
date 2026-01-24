@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "help",
-  keywords: ["!help", "!도움말", "!명령어", "!사용법"],
+  keywords: ["help", "도움말", "명령어", "사용법"],
   description: "사용 가능한 모든 명령어와 설명을 보여줍니다.",
   execute(message, args) {
     // 0. 설명(Help) 기능

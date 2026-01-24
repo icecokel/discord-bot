@@ -2,7 +2,7 @@ const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
   name: "dice",
-  keywords: ["!dice", "!주사위"],
+  keywords: ["dice", "주사위"],
   description: "주사위를 굴립니다.",
   execute(message, args) {
     // 0. 설명(Help) 기능

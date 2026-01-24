@@ -2,7 +2,7 @@ const WordQuizManager = require("../word-quiz/WordQuizManager");
 
 module.exports = {
   name: "wordquiz",
-  keywords: ["!wordquiz", "!단어퀴즈"],
+  keywords: ["wordquiz", "단어퀴즈"],
   description: "단어 퀴즈 게임을 시작하거나 관리합니다.",
   execute(message, args) {
     const subCommand = args[0] ? args[0].toLowerCase() : "";
