@@ -8,6 +8,7 @@
     "dev": "nodemon src/index.js",
     "build": "node scripts/generate-registry.js && esbuild src/index.js --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
     "start:prod": "node index.js",
+    "type-check": "tsc --noEmit",
     "test": "jest",
     "prepare": "husky"
   },
@@ -23,9 +24,13 @@
     "random-words": "^2.0.1"
   },
   "devDependencies": {
+    "@types/node": "^25.0.10",
+    "@types/node-cron": "^3.0.11",
     "esbuild": "^0.27.2",
     "husky": "^9.1.7",
     "jest": "^30.2.0",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

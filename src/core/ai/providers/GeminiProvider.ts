@@ -1,11 +1,16 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-const BaseProvider = require("./BaseProvider");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { BaseProvider, IGenerationOptions } from "./BaseProvider";
 
 /**
  * Google Gemini API 공급자 구현
  */
-class GeminiProvider extends BaseProvider {
-  constructor(config = {}) {
+export class GeminiProvider extends BaseProvider {
+  private apiKey: string | undefined;
+  private genAI: GoogleGenerativeAI;
+  private defaultModel: string;
+  private defaultConfig: any;
+
+  constructor(config: any = {}) {
     super(config);
     this.apiKey = process.env.GEMINI_AI_API_KEY;
 
@@ -15,7 +20,8 @@ class GeminiProvider extends BaseProvider {
       );
     }
 
-    this.genAI = new GoogleGenerativeAI(this.apiKey);
+    // API Key가 없어도 인스턴스는 생성되도록 함 (실제 호출 시 에러 처리)
+    this.genAI = new GoogleGenerativeAI(this.apiKey || "");
     this.defaultModel = "gemini-2.0-flash";
 
     // 기본 생성 설정
@@ -29,11 +35,11 @@ class GeminiProvider extends BaseProvider {
 
   /**
    * 텍스트를 생성합니다.
-   * @param {string} prompt - 입력 프롬프트
-   * @param {Object} options - 추가 옵션
-   * @returns {Promise<string>} 생성된 텍스트
    */
-  async generateText(prompt, options = {}) {
+  async generateText(
+    prompt: string,
+    options: IGenerationOptions = {},
+  ): Promise<string> {
     try {
       if (!this.apiKey) {
         throw new Error("Gemini API 키가 유효하지 않습니다.");
@@ -51,11 +57,9 @@ class GeminiProvider extends BaseProvider {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       return response.text();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[GeminiProvider] 생성 오류: ${error.message}`);
       throw error;
     }
   }
 }
-
-module.exports = GeminiProvider;

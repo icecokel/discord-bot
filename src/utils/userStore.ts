@@ -1,25 +1,39 @@
-const { readJson, writeJson, DATA_DIR } = require("./fileManager");
+import { readJson, writeJson, DATA_DIR } from "./fileManager";
 
 const FILE_NAME = "user_preferences.json";
 
+export interface UserPreference {
+  defaultRegion?: string;
+  notificationEnabled?: boolean;
+}
+
+export interface UserPreferences {
+  [userId: string]: UserPreference;
+}
+
+export interface UserWithNotification {
+  userId: string;
+  region: string;
+}
+
 // 데이터 로드
-const loadData = () => {
-  return readJson(FILE_NAME, {});
+const loadData = (): UserPreferences => {
+  return readJson<UserPreferences>(FILE_NAME, {});
 };
 
 // 데이터 저장
-const saveData = (data) => {
+const saveData = (data: UserPreferences): void => {
   writeJson(FILE_NAME, data);
 };
 
 // 기본 지역 가져오기
-const getUserRegion = (userId) => {
+export const getUserRegion = (userId: string): string | null => {
   const data = loadData();
   return data[userId]?.defaultRegion || null;
 };
 
 // 기본 지역 설정하기
-const setUserRegion = (userId, region) => {
+export const setUserRegion = (userId: string, region: string): void => {
   const data = loadData();
   if (!data[userId]) {
     data[userId] = {};
@@ -29,7 +43,7 @@ const setUserRegion = (userId, region) => {
 };
 
 // 기본 지역 해제하기
-const clearUserRegion = (userId) => {
+export const clearUserRegion = (userId: string): boolean => {
   const data = loadData();
   if (data[userId]) {
     delete data[userId].defaultRegion;
@@ -40,13 +54,13 @@ const clearUserRegion = (userId) => {
 };
 
 // 알림 설정 가져오기
-const isNotificationEnabled = (userId) => {
+export const isNotificationEnabled = (userId: string): boolean => {
   const data = loadData();
   return data[userId]?.notificationEnabled === true;
 };
 
 // 알림 설정 켜기
-const enableNotification = (userId) => {
+export const enableNotification = (userId: string): void => {
   const data = loadData();
   if (!data[userId]) {
     data[userId] = {};
@@ -56,7 +70,7 @@ const enableNotification = (userId) => {
 };
 
 // 알림 설정 끄기
-const disableNotification = (userId) => {
+export const disableNotification = (userId: string): boolean => {
   const data = loadData();
   if (data[userId]) {
     data[userId].notificationEnabled = false;
@@ -67,27 +81,18 @@ const disableNotification = (userId) => {
 };
 
 // 알림이 활성화된 유저 목록 가져오기 (지역 등록 + 알림 ON)
-const getAllUsersWithNotification = () => {
+export const getAllUsersWithNotification = (): UserWithNotification[] => {
   const data = loadData();
-  const result = [];
+  const result: UserWithNotification[] = [];
   for (const userId in data) {
     if (
       data[userId].defaultRegion &&
       data[userId].notificationEnabled === true
     ) {
-      result.push({ userId, region: data[userId].defaultRegion });
+      result.push({ userId, region: data[userId].defaultRegion as string });
     }
   }
   return result;
 };
 
-module.exports = {
-  getUserRegion,
-  setUserRegion,
-  clearUserRegion,
-  isNotificationEnabled,
-  enableNotification,
-  disableNotification,
-  getAllUsersWithNotification,
-  DATA_DIR,
-};
+export { DATA_DIR };
