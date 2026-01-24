@@ -4,13 +4,11 @@
  * 당일 재호출 시 동일한 운세를 반환합니다.
  */
 const { EmbedBuilder } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
+const { readJson, writeJson } = require("../../../utils/fileManager");
 const { generateFortune } = require("../../../utils/geminiHelper");
 const { getDisplayName } = require("../../../utils/userUtils");
 
-// 운세 데이터 저장 경로
-const FORTUNES_FILE = path.join(__dirname, "../../../data/daily_fortunes.json");
+const FORTUNES_FILE_NAME = "daily_fortunes.json";
 
 /**
  * 오늘 날짜를 KST 기준 YYYY-MM-DD 형식으로 반환
@@ -27,32 +25,14 @@ const getTodayKST = () => {
  * 저장된 운세 데이터 로드
  */
 const loadFortunes = () => {
-  try {
-    if (!fs.existsSync(FORTUNES_FILE)) {
-      return {};
-    }
-    const data = fs.readFileSync(FORTUNES_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("[fortune] 데이터 로드 실패:", error.message);
-    return {};
-  }
+  return readJson(FORTUNES_FILE_NAME, {});
 };
 
 /**
  * 운세 데이터 저장
  */
 const saveFortunes = (data) => {
-  try {
-    // 디렉토리가 없으면 생성
-    const dir = path.dirname(FORTUNES_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(FORTUNES_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (error) {
-    console.error("[fortune] 데이터 저장 실패:", error.message);
-  }
+  writeJson(FORTUNES_FILE_NAME, data);
 };
 
 /**
