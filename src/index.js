@@ -12,6 +12,7 @@ require("./features/admin/commands/admin-data");
 require("./features/admin/commands/admin-log");
 require("./features/admin/commands/admin-notice");
 require("./features/admin/commands/admin-reset");
+require("./features/admin/commands/admin-english");
 
 const client = new Client({
   intents: [
