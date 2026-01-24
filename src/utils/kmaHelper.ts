@@ -1,11 +1,63 @@
-const getSky = (code) => {
+interface CurrentWeather {
+  temp: number | null;
+  sky: string;
+  pty: string;
+  pop: number | null;
+  desc: string;
+}
+
+interface DailySummary {
+  min: number | null;
+  max: number | null;
+  sky: string;
+}
+
+interface TodaySummary {
+  current: CurrentWeather | null;
+  min: number | null;
+  max: number | null;
+  popMax: number;
+}
+
+export interface ShortTermForecastResult {
+  today: TodaySummary;
+  tomorrow: DailySummary;
+  dayAfter: DailySummary;
+}
+
+interface KmaResponse<T> {
+  response?: {
+    header?: {
+      resultCode: string;
+      resultMsg: string;
+    };
+    body?: {
+      items?: {
+        item: T[];
+      };
+    };
+  };
+}
+
+interface ShortTermItem {
+  baseDate: string;
+  baseTime: string;
+  category: string; // TMP, SKY, PTY, POP, ...
+  fcstDate: string;
+  fcstTime: string;
+  fcstValue: string;
+  nx: number;
+  ny: number;
+}
+
+const getSky = (code: number): string => {
   if (code == 1) return "맑음 ☀️";
   if (code == 3) return "구름많음 🌥️";
   if (code == 4) return "흐림 ☁️";
   return "-";
 };
 
-const getPty = (code) => {
+const getPty = (code: number): string => {
   // 0(없음), 1(비), 2(비/눈), 3(눈), 4(소나기)
   if (code == 1) return "비 🌧️";
   if (code == 2) return "비/눈 🌨️";
@@ -41,7 +93,7 @@ const getBaseDateTime = () => {
     baseTime = 23;
   } else {
     if (minutes < 10) hours -= 1;
-    for (let t of baseTimes) {
+    for (const t of baseTimes) {
       if (hours >= t) baseTime = t;
     }
   }
@@ -50,7 +102,10 @@ const getBaseDateTime = () => {
   return { baseDate, baseTimeStr, kstTime };
 };
 
-const getShortTermForecast = async (nx, ny) => {
+export const getShortTermForecast = async (
+  nx: number,
+  ny: number,
+): Promise<ShortTermForecastResult | null> => {
   try {
     const { baseDate, baseTimeStr, kstTime } = getBaseDateTime();
     const shortEndPoint = process.env.WEATHER_SHORT_END_POINT;
@@ -59,16 +114,16 @@ const getShortTermForecast = async (nx, ny) => {
     const url = `${shortEndPoint}/getVilageFcst?serviceKey=${shortApiKey}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTimeStr}&nx=${nx}&ny=${ny}`;
 
     const res = await fetch(url);
-    const data = await res.json();
+    const data = (await res.json()) as KmaResponse<ShortTermItem>;
 
     if (data.response?.header?.resultCode !== "00") {
       throw new Error(`KMA API Error: ${data.response?.header?.resultMsg}`);
     }
 
-    const items = data.response.body.items.item;
+    const items = data.response?.body?.items?.item || [];
 
     // 날짜 문자열 생성 (YYYYMMDD)
-    const yyyymmdd = (d) =>
+    const yyyymmdd = (d: Date) =>
       `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 
     const today = new Date(kstTime);
@@ -85,32 +140,25 @@ const getShortTermForecast = async (nx, ny) => {
 
     // 데이터 가공
     // 1. 현재 상태 (가장 가까운 미래)
-    let current = null;
+    let current: CurrentWeather | null = null;
     let todayMax = -100;
     let todayMin = 100;
-    let todayPops = [];
+    const todayPops: number[] = [];
 
     // 2. 내일/모레 요약
     let tomorrowMin = 100,
-      tomorrowMax = -100,
-      tomorrowSky = {},
-      tomorrowPty = {};
+      tomorrowMax = -100;
+    const tomorrowSky: { [key: number]: number } = {};
+
     let dayAfterMin = 100,
-      dayAfterMax = -100,
-      dayAfterSky = {},
-      dayAfterPty = {};
+      dayAfterMax = -100;
+    const dayAfterSky: { [key: number]: number } = {};
 
     items.forEach((item) => {
       const val = Number(item.fcstValue);
 
       // 오늘 데이터 집계
       if (item.fcstDate === todayStr) {
-        // 현재 날씨 (현재 시간과 가장 가까운 fcstTime)
-        if (!current && item.fcstTime >= currentHourStr) {
-          // 여기서는 정확한 매칭보다, 카테고리별로 수집해야함.
-          // 구조 변경: category별로 Map에 저장 후 조합하는게 나음.
-        }
-
         if (item.category === "TMP") {
           if (val > todayMax) todayMax = val;
           if (val < todayMin) todayMin = val;
@@ -144,8 +192,6 @@ const getShortTermForecast = async (nx, ny) => {
     });
 
     // 현재 날씨 찾기 (TMP, SKY, PTY, POP 따로 찾아서 조합)
-    // items는 (Date, Time, Category) unique key
-    // Filter items for today & nearest future from now
     const currentItems = items.filter(
       (i) => i.fcstDate === todayStr && i.fcstTime >= currentHourStr,
     );
@@ -156,7 +202,7 @@ const getShortTermForecast = async (nx, ny) => {
       const nearestTime = currentItems[0].fcstTime;
       const nearestSet = currentItems.filter((i) => i.fcstTime === nearestTime);
 
-      const getVal = (cat) => {
+      const getVal = (cat: string): number | null => {
         const found = nearestSet.find((i) => i.category === cat);
         return found ? Number(found.fcstValue) : null;
       };
@@ -166,43 +212,45 @@ const getShortTermForecast = async (nx, ny) => {
       const tmp = getVal("TMP");
       const pop = getVal("POP");
 
-      current = {
-        temp: tmp,
-        sky: getSky(sky),
-        pty: getPty(pty),
-        pop: pop,
-        desc: `${getSky(sky)}${getPty(pty) ? "/" + getPty(pty) : ""}`,
-      };
+      if (sky !== null && pty !== null) {
+        current = {
+          temp: tmp,
+          sky: getSky(sky),
+          pty: getPty(pty),
+          pop: pop,
+          desc: `${getSky(sky)}${getPty(pty) ? "/" + getPty(pty) : ""}`,
+        };
+      }
     }
 
     // 최빈값 계산 헬퍼
-    const getMode = (obj) => {
-      let maxKey = null;
+    const getMode = (obj: { [key: number]: number }): number => {
+      let maxKey: string | null = null;
       let maxVal = -1;
-      for (let [k, v] of Object.entries(obj)) {
+      for (const [k, v] of Object.entries(obj)) {
         if (v > maxVal) {
           maxVal = v;
           maxKey = k;
         }
       }
-      return maxKey;
+      return maxKey ? Number(maxKey) : 0;
     };
 
-    const result = {
+    const result: ShortTermForecastResult = {
       today: {
         current: current,
-        min: todayMin === 100 ? null : todayMin, // 이미 지난 시간의 최저는 알 수 없을 수도 있음 (TMN은 06시 발표라..) -> TMP로 대략 집계
+        min: todayMin === 100 ? null : todayMin,
         max: todayMax === -100 ? null : todayMax,
         popMax: todayPops.length > 0 ? Math.max(...todayPops) : 0,
       },
       tomorrow: {
-        min: tomorrowMin,
-        max: tomorrowMax,
+        min: tomorrowMin === 100 ? null : tomorrowMin,
+        max: tomorrowMax === -100 ? null : tomorrowMax,
         sky: getSky(getMode(tomorrowSky)),
       },
       dayAfter: {
-        min: dayAfterMin,
-        max: dayAfterMax,
+        min: dayAfterMin === 100 ? null : dayAfterMin,
+        max: dayAfterMax === -100 ? null : dayAfterMax,
         sky: getSky(getMode(dayAfterSky)),
       },
     };
@@ -214,7 +262,7 @@ const getShortTermForecast = async (nx, ny) => {
   }
 };
 
-const getMidTermForecast = async (regId) => {
+export const getMidTermForecast = async (regId: string): Promise<any> => {
   if (!regId) return null;
   try {
     // 발표 시각(tmFc) 계산 (중기: 06, 18시)
@@ -244,19 +292,16 @@ const getMidTermForecast = async (regId) => {
     const url = `${midEndPoint}/getMidLandFcst?serviceKey=${midApiKey}&pageNo=1&numOfRows=10&dataType=JSON&regId=${regId}&tmFc=${tmFc}`;
 
     const res = await fetch(url);
-    const data = await res.json();
+    const data = (await res.json()) as KmaResponse<any>;
 
     if (data.response?.header?.resultCode !== "00") return null;
 
-    const item = data.response.body.items.item[0];
+    const item = data.response?.body?.items?.item
+      ? data.response.body.items.item[0]
+      : null;
     return item; // 3~10일 정보 포함
   } catch (error) {
     console.error("MidTerm API Error:", error);
     return null;
   }
-};
-
-module.exports = {
-  getShortTermForecast,
-  getMidTermForecast,
 };
