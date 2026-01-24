@@ -8,7 +8,7 @@
     "dev": "nodemon src/index.js",
     "build": "node scripts/generate-registry.js && esbuild src/index.js --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
     "start:prod": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "prepare": "husky"
   },
   "keywords": [],
@@ -25,6 +25,7 @@
   "devDependencies": {
     "esbuild": "^0.27.2",
     "husky": "^9.1.7",
+    "jest": "^30.2.0",
     "nodemon": "^3.1.11"
   }
 }
