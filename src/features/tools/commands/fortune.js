@@ -59,7 +59,9 @@ const saveFortunes = (data) => {
  */
 const execute = async (message) => {
   const userId = message.author.id;
-  const username = message.author.username;
+  const displayName = message.member
+    ? message.member.displayName
+    : message.author.username;
   const today = getTodayKST();
 
   // 저장된 데이터 로드
@@ -71,7 +73,7 @@ const execute = async (message) => {
       .setColor(0x9b59b6) // 보라색
       .setTitle("🔮 오늘의 운세")
       .setDescription(fortunes[userId].content)
-      .setFooter({ text: `${username}님의 운세 • 이미 오늘 확인하셨네요!` })
+      .setFooter({ text: `${displayName}님의 운세 • 이미 오늘 확인하셨네요!` })
       .setTimestamp();
 
     return message.reply({ embeds: [embed] });
@@ -99,7 +101,7 @@ const execute = async (message) => {
       .setColor(0xe91e63) // 핑크색
       .setTitle("🔮 오늘의 운세")
       .setDescription(fortuneContent)
-      .setFooter({ text: `${username}님의 운세 • ${today}` })
+      .setFooter({ text: `${displayName}님의 운세 • ${today}` })
       .setTimestamp();
 
     // 대기 메시지 수정
