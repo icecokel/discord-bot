@@ -1,31 +1,30 @@
-const cron = require("node-cron");
-const userStore = require("../utils/userStore");
-const kmaHelper = require("../utils/kmaHelper");
-const kmaData = require("../data/kma_data.json");
-const { EmbedBuilder } = require("discord.js");
+import cron from "node-cron";
+import { getAllUsersWithNotification } from "../utils/userStore";
+import { getShortTermForecast } from "../utils/kmaHelper";
+import kmaData from "../data/kma_data.json";
+import { EmbedBuilder, Client } from "discord.js";
 
 // 날씨 알림 스케줄러 시작
-const startWeatherScheduler = (client) => {
+export const startWeatherScheduler = (client: Client): void => {
   // 매일 오전 9시 (KST) 실행
-  // Cron: 분(0) 시(9) 일(*) 월(*) 요일(*)
-  // 서버 시간이 KST라고 가정
   cron.schedule(
     "0 9 * * *",
     async () => {
       console.log("[Scheduler] 오전 9시 날씨 알림 시작");
 
-      const users = userStore.getAllUsersWithNotification();
+      const users = getAllUsersWithNotification();
       console.log(`[Scheduler] 알림 대상 유저: ${users.length}명`);
 
       for (const { userId, region } of users) {
         try {
-          // 지역 좌표 조회
-          let targetData = kmaData[region];
+          // 지역 좌표 조회 (JSON 데이터를 any로 캐스팅하여 접근)
+          const kmaAny = kmaData as any;
+          let targetData = kmaAny[region];
           if (!targetData) {
-            const foundKey = Object.keys(kmaData).find(
+            const foundKey = Object.keys(kmaAny).find(
               (key) => key.includes(region) || region.includes(key),
             );
-            if (foundKey) targetData = kmaData[foundKey];
+            if (foundKey) targetData = kmaAny[foundKey];
           }
 
           if (!targetData) {
@@ -36,7 +35,7 @@ const startWeatherScheduler = (client) => {
           const { nx, ny } = targetData;
 
           // 날씨 데이터 조회
-          const weatherData = await kmaHelper.getShortTermForecast(nx, ny);
+          const weatherData = await getShortTermForecast(nx, ny);
           if (!weatherData) {
             console.log(`[Scheduler] ${userId}: 날씨 데이터 조회 실패`);
             continue;
@@ -74,7 +73,7 @@ const startWeatherScheduler = (client) => {
           const user = await client.users.fetch(userId);
           await user.send({ embeds: [embed] });
           console.log(`[Scheduler] ${user.tag}에게 날씨 DM 전송 완료`);
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[Scheduler] ${userId} DM 전송 실패:`, error.message);
         }
       }
@@ -93,6 +92,7 @@ const startWeatherScheduler = (client) => {
     "0 12 * * *",
     async () => {
       console.log("[Scheduler] 오후 12시 영어 알림 시작");
+      // require 유지 (Features는 아직 JS이므로 직접 require)
       const englishService = require("../features/daily_english/EnglishService");
       await englishService.sendToGeneralChannels(client);
       console.log("[Scheduler] 오후 12시 영어 알림 완료");
@@ -103,5 +103,3 @@ const startWeatherScheduler = (client) => {
   );
   console.log("[Scheduler] 영어 알림 스케줄러 등록 완료 (매일 오후 12시 KST)");
 };
-
-module.exports = { startWeatherScheduler };

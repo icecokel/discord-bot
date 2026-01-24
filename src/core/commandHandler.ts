@@ -1,13 +1,16 @@
-const logger = require("../utils/logger");
+import { Message } from "discord.js";
+import { log } from "../utils/logger";
+import { Command } from "./loader";
 
 const PREFIX = "!";
 
 /**
  * 커맨드 실행 핸들러
- * @param {Message} message - Discord 메시지 객체
- * @param {Map} commands - 로드된 커맨드 목록
  */
-const handleCommand = async (message, commands) => {
+export const handleCommand = async (
+  message: Message,
+  commands: Map<string, Command>,
+): Promise<void> => {
   const content = message.content.trim();
 
   // 1. Prefix 확인
@@ -29,7 +32,7 @@ const handleCommand = async (message, commands) => {
 
   try {
     // 4. 로그 기록
-    logger.log({
+    log({
       userId: message.author.id,
       userName: message.author.tag,
       command: command.name,
@@ -47,5 +50,3 @@ const handleCommand = async (message, commands) => {
     message.reply("명령어를 실행하는 중에 오류가 발생했습니다.");
   }
 };
-
-module.exports = { handleCommand };
