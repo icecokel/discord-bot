@@ -12,7 +12,7 @@ class WordQuizManager {
     }
 
     const word = generate({ minLength: 5, maxLength: 8 });
-    console.log(word);
+
     const gameState = {
       targetWord: word.toUpperCase(),
       revealedIndices: new Array(word.length).fill(false),
