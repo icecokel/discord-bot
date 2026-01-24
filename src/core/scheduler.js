@@ -87,6 +87,21 @@ const startWeatherScheduler = (client) => {
   );
 
   console.log("[Scheduler] 날씨 알림 스케줄러 등록 완료 (매일 오전 9시 KST)");
+
+  // 매일 오후 12시 (KST) 영어 표현 알림
+  cron.schedule(
+    "0 12 * * *",
+    async () => {
+      console.log("[Scheduler] 오후 12시 영어 알림 시작");
+      const englishService = require("../features/daily_english/EnglishService");
+      await englishService.sendToGeneralChannels(client);
+      console.log("[Scheduler] 오후 12시 영어 알림 완료");
+    },
+    {
+      timezone: "Asia/Seoul",
+    },
+  );
+  console.log("[Scheduler] 영어 알림 스케줄러 등록 완료 (매일 오후 12시 KST)");
 };
 
 module.exports = { startWeatherScheduler };
