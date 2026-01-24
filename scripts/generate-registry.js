@@ -18,6 +18,12 @@ function generateRegistry() {
   let importCounter = 0;
 
   for (const folder of featureFolders) {
+    // admin 폴더는 별도 등록 시스템 사용 (registerAdminCommand)
+    if (folder === "admin") {
+      console.log(`Skipped: ${folder}/ (uses separate registration)`);
+      continue;
+    }
+
     const commandsPath = path.join(featuresPath, folder, "commands");
 
     if (fs.existsSync(commandsPath)) {
