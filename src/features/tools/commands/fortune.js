@@ -110,6 +110,6 @@ const execute = async (message) => {
 module.exports = {
   name: "운세",
   description: "오늘의 운세를 확인합니다 (하루에 한 번 생성)",
-  keywords: ["운세", "fortune", "오늘운세"],
+  keywords: ["!운세", "!fortune", "!오늘운세"],
   execute,
 };
