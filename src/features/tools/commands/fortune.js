@@ -7,6 +7,7 @@ const { EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const { generateFortune } = require("../../../utils/geminiHelper");
+const { getDisplayName } = require("../../../utils/userUtils");
 
 // 운세 데이터 저장 경로
 const FORTUNES_FILE = path.join(__dirname, "../../../data/daily_fortunes.json");
@@ -59,9 +60,7 @@ const saveFortunes = (data) => {
  */
 const execute = async (message) => {
   const userId = message.author.id;
-  const displayName = message.member
-    ? message.member.displayName
-    : message.author.username;
+  const displayName = getDisplayName(message);
   const today = getTodayKST();
 
   // 저장된 데이터 로드
