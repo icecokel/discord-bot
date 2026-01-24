@@ -8,8 +8,9 @@ const cmd_basic_whoami_3 = require('../features/basic/commands/whoami.js');
 const cmd_games_answer_4 = require('../features/games/commands/answer.js');
 const cmd_games_dice_5 = require('../features/games/commands/dice.js');
 const cmd_games_word_quiz_6 = require('../features/games/commands/word-quiz.js');
-const cmd_tools_weather_weekly_7 = require('../features/tools/commands/weather-weekly.js');
-const cmd_tools_weather_8 = require('../features/tools/commands/weather.js');
+const cmd_tools_fortune_7 = require('../features/tools/commands/fortune.js');
+const cmd_tools_weather_weekly_8 = require('../features/tools/commands/weather-weekly.js');
+const cmd_tools_weather_9 = require('../features/tools/commands/weather.js');
 
 module.exports = {
   commands: [
@@ -20,7 +21,8 @@ module.exports = {
     cmd_games_answer_4,
     cmd_games_dice_5,
     cmd_games_word_quiz_6,
-    cmd_tools_weather_weekly_7,
-    cmd_tools_weather_8
+    cmd_tools_fortune_7,
+    cmd_tools_weather_weekly_8,
+    cmd_tools_weather_9
   ]
 };
