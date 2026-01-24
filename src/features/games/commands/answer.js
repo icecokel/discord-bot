@@ -1,4 +1,5 @@
 const WordQuizManager = require("../word-quiz/WordQuizManager");
+const { getDisplayName } = require("../../../utils/userUtils");
 const { EmbedBuilder } = require("discord.js");
 
 module.exports = {
@@ -62,9 +63,7 @@ module.exports = {
 
     if (result.type === "CORRECT") {
       WordQuizManager.endGame(channelId, message.author.id);
-      // 서버 닉네임 우선, 없으면 글로벌 디스플레이 이름
-      const displayName =
-        message.member?.displayName || message.author.displayName;
+      const displayName = getDisplayName(message);
 
       const winEmbed = new EmbedBuilder()
         .setColor("#FFD700") // Gold color

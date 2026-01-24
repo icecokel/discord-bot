@@ -10,6 +10,7 @@ const logger = require("./utils/logger");
 require("./features/admin/commands/admin-data");
 require("./features/admin/commands/admin-log");
 require("./features/admin/commands/admin-notice");
+require("./features/admin/commands/admin-reset");
 
 const client = new Client({
   intents: [

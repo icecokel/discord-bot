@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { getDisplayName } = require("../../../utils/userUtils");
 
 module.exports = {
   name: "whoami",
@@ -26,8 +27,9 @@ module.exports = {
 
     const user = message.author;
     const member = message.member; // 길드(서버) 내 멤버 정보
-    // 서버 닉네임 우선, 없으면 글로벌 디스플레이 이름
-    const displayName = member?.displayName || user.displayName;
+
+    // 유틸리티를 사용하여 표시 이름 가져오기
+    const displayName = getDisplayName(message);
 
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
