@@ -43,6 +43,11 @@ const loadFortunes = () => {
  */
 const saveFortunes = (data) => {
   try {
+    // 디렉토리가 없으면 생성
+    const dir = path.dirname(FORTUNES_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     fs.writeFileSync(FORTUNES_FILE, JSON.stringify(data, null, 2), "utf-8");
   } catch (error) {
     console.error("[fortune] 데이터 저장 실패:", error.message);
