@@ -2,29 +2,9 @@
  * /admin data - 저장된 데이터 열람
  */
 
-const fs = require("fs");
-const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 const { registerAdminCommand } = require("../../../core/adminMiddleware");
-
-const { DATA_DIR } = require("../../../utils/userStore");
-
-/**
- * 데이터 파일 읽기
- * @param {string} filename - 파일명
- * @returns {Object|null}
- */
-const readDataFile = (filename) => {
-  const filePath = path.join(DATA_DIR, filename);
-  try {
-    if (!fs.existsSync(filePath)) return null;
-    const data = fs.readFileSync(filePath, "utf8");
-    return JSON.parse(data);
-  } catch (e) {
-    console.error(`[Admin] ${filename} 읽기 오류:`, e);
-    return null;
-  }
-};
+const { readJson } = require("../../../utils/fileManager");
 
 /**
  * 데이터 명령어 핸들러
@@ -36,7 +16,7 @@ const handleData = async (message, args) => {
     .setTimestamp();
 
   // 1. user_preferences.json
-  const userPrefs = readDataFile("user_preferences.json");
+  const userPrefs = readJson("user_preferences.json", null);
   if (userPrefs) {
     const userIds = Object.keys(userPrefs);
     const usersWithRegion = userIds.filter(
@@ -76,7 +56,7 @@ const handleData = async (message, args) => {
   }
 
   // 2. daily_fortunes.json
-  const fortunes = readDataFile("daily_fortunes.json");
+  const fortunes = readJson("daily_fortunes.json", null);
   if (fortunes) {
     const fortuneCount = Object.keys(fortunes).length;
     let fortuneDetails = "";

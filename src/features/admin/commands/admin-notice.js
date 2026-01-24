@@ -4,27 +4,15 @@
 
 const { EmbedBuilder } = require("discord.js");
 const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const userStore = require("../../../utils/userStore");
-const fs = require("fs");
-const path = require("path");
-
-const { DATA_DIR } = require("../../../utils/userStore");
-const PREFS_FILE = path.join(DATA_DIR, "user_preferences.json");
+const { readJson } = require("../../../utils/fileManager");
 
 /**
  * 등록된 모든 유저 ID 가져오기
  * @returns {string[]}
  */
 const getAllUserIds = () => {
-  try {
-    if (!fs.existsSync(PREFS_FILE)) return [];
-    const data = fs.readFileSync(PREFS_FILE, "utf8");
-    const prefs = JSON.parse(data);
-    return Object.keys(prefs);
-  } catch (e) {
-    console.error("[Admin] 유저 목록 조회 오류:", e);
-    return [];
-  }
+  const prefs = readJson("user_preferences.json", {});
+  return Object.keys(prefs);
 };
 
 /**
