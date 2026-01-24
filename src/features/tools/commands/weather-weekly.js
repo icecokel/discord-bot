@@ -12,7 +12,9 @@ module.exports = {
     let regionName = args[1];
 
     // 0. 설명(Help) 기능
-    if (["help", "설명", "규칙", "사용법", "가이드"].includes(args[1])) {
+    if (
+      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(args[1])
+    ) {
       const embed = new EmbedBuilder()
         .setColor(0xffa500)
         .setTitle("📘 주간 날씨 사용법")

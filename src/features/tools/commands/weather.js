@@ -12,7 +12,9 @@ module.exports = {
     // args[0]: !날씨, args[1]: 지역명 or "설정"
 
     // 0. 설명(Help) 기능
-    if (["help", "설명", "규칙", "사용법", "가이드"].includes(args[1])) {
+    if (
+      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(args[1])
+    ) {
       const embed = new EmbedBuilder()
         .setColor(0x0099ff)
         .setTitle("📘 날씨 명령어 사용법")
