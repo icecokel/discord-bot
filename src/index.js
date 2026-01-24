@@ -3,6 +3,13 @@ require("dotenv").config();
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const { loadCommands } = require("./core/loader");
 const { startWeatherScheduler } = require("./core/scheduler");
+const { handleAdminCommand } = require("./core/adminMiddleware");
+const logger = require("./utils/logger");
+
+// 어드민 명령어 모듈 로드 (자동 등록)
+require("./features/admin/commands/admin-data");
+require("./features/admin/commands/admin-log");
+require("./features/admin/commands/admin-notice");
 
 const client = new Client({
   intents: [
@@ -24,8 +31,11 @@ client.once("clientReady", () => {
   startWeatherScheduler(client);
 });
 
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
+
+  // 어드민 DM 명령어 우선 처리
+  if (await handleAdminCommand(message)) return;
 
   const content = message.content.toLowerCase();
 
@@ -42,6 +52,14 @@ client.on("messageCreate", (message) => {
 
   if (command) {
     try {
+      // 명령어 로그 기록
+      logger.log({
+        userId: message.author.id,
+        userName: message.author.tag,
+        command: command.name,
+        args: args.slice(1),
+      });
+
       console.log(
         `[Command] ${command.name} executed by ${message.author.tag} (${message.author.id})`,
       );

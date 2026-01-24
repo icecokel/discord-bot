@@ -36,11 +36,11 @@ module.exports = {
     const fields = [];
 
     commands.forEach((cmd) => {
+      // keywords가 없는 명령어(어드민 등)는 스킵
+      if (!cmd.keywords || cmd.keywords.length === 0) return;
+
       // 대표 명령어 (첫 번째 키워드)
-      const primaryKeyword =
-        cmd.keywords && cmd.keywords.length > 0
-          ? cmd.keywords[0]
-          : `!${cmd.name}`;
+      const primaryKeyword = cmd.keywords[0];
 
       const desc = cmd.description || "설명이 없습니다.";
 
