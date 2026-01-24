@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "../data");
+const DATA_DIR = path.join(process.cwd(), "src/data");
 const FILE_PATH = path.join(DATA_DIR, "user_preferences.json");
 
 // 데이터 로드
@@ -107,4 +107,5 @@ module.exports = {
   enableNotification,
   disableNotification,
   getAllUsersWithNotification,
+  DATA_DIR,
 };
