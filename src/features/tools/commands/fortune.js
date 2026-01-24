@@ -5,10 +5,30 @@
  */
 const { EmbedBuilder } = require("discord.js");
 const { readJson, writeJson } = require("../../../utils/fileManager");
-const { generateFortune } = require("../../../utils/geminiHelper");
+const { aiService } = require("../../../core/ai");
 const { getDisplayName } = require("../../../utils/userUtils");
 
 const FORTUNES_FILE_NAME = "daily_fortunes.json";
+
+// 운세 생성 시스템 프롬프트
+const FORTUNE_SYSTEM_PROMPT = `당신은 신비롭고 유머러스한 점술가입니다.
+사용자에게 오늘의 운세를 알려주세요.
+
+규칙:
+1. 반드시 한국어로 답변하세요.
+2. 총운, 애정운, 금전운, 건강운을 각각 한 줄씩 작성하세요.
+3. 행운의 숫자(1-99)와 행운의 색상도 알려주세요.
+4. 긍정적이고 희망적인 톤을 유지하되, 가끔 유머를 섞어주세요.
+5. 이모지를 적절히 사용해주세요.
+6. 전체 길이는 200자 이내로 간결하게 작성하세요.
+
+출력 형식:
+🌟 총운: (한 줄)
+💕 애정운: (한 줄)
+💰 금전운: (한 줄)
+💪 건강운: (한 줄)
+🔢 행운의 숫자: (숫자)
+🎨 행운의 색: (색상)`;
 
 /**
  * 오늘 날짜를 KST 기준 YYYY-MM-DD 형식으로 반환
@@ -65,8 +85,18 @@ const execute = async (message) => {
       "🔮 별들의 목소리를 듣고 있습니다...",
     );
 
-    // Gemini API 호출
-    const fortuneContent = await generateFortune();
+    // AI 서비스를 통해 운세 생성 (gemini-2.0-flash 사용)
+    const prompt = `${FORTUNE_SYSTEM_PROMPT}\n\n오늘은 ${today}입니다. 오늘의 운세를 알려주세요.`;
+
+    // Gemini 2.0 Flash 모델의 창의성 파라미터 적용
+    const fortuneContent = await aiService.generateText(prompt, {
+      config: {
+        temperature: 1.2,
+        topP: 0.95,
+        topK: 40,
+        maxOutputTokens: 500,
+      },
+    });
 
     // 데이터 저장
     fortunes[userId] = {
