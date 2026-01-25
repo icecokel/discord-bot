@@ -1,5 +1,6 @@
 /**
- * /admin english - 오늘의 영어 표현 테스트 발송 (관리자 DM)
+ * /english - 오늘의 영어 표현 테스트 발송 (관리자 DM)
+ * (이전: /admin english)
  */
 
 import { registerAdminCommand } from "../../../core/adminMiddleware";
@@ -34,7 +35,8 @@ const handleEnglishTest = async (message: Message, args: string[]) => {
   }
 };
 
-// 명령어 등록 (english, 영어문장)
+// 명령어 등록
+// '/english' 또는 '!english' 등으로 호출 시 실행됨
 registerAdminCommand("english", handleEnglishTest);
 registerAdminCommand("영어문장", handleEnglishTest);
 
