@@ -1,11 +1,11 @@
-const { EmbedBuilder } = require("discord.js");
-const { getDisplayName } = require("../../../utils/userUtils");
+import { EmbedBuilder, Message, GuildMember } from "discord.js";
+import { getDisplayName } from "../../../utils/userUtils";
 
-module.exports = {
+export default {
   name: "whoami",
   keywords: ["whoami", "내정보", "나"],
   description: "나의 디스코드 프로필 정보를 보여줍니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&
@@ -26,7 +26,7 @@ module.exports = {
     }
 
     const user = message.author;
-    const member = message.member; // 길드(서버) 내 멤버 정보
+    const member = message.member as GuildMember | null; // 길드(서버) 내 멤버 정보
 
     // 유틸리티를 사용하여 표시 이름 가져오기
     const displayName = getDisplayName(message);
@@ -45,7 +45,7 @@ module.exports = {
         },
         {
           name: "서버 가입일",
-          value: member.joinedAt
+          value: member?.joinedAt
             ? member.joinedAt.toLocaleDateString()
             : "알 수 없음",
           inline: true,

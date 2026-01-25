@@ -1,10 +1,10 @@
-const { EmbedBuilder } = require("discord.js");
+import { EmbedBuilder, Message } from "discord.js";
 
-module.exports = {
+export default {
   name: "ping",
   keywords: ["ping"],
   description: "봇의 응답 속도를 확인합니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&

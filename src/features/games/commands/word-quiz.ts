@@ -1,16 +1,17 @@
-const WordQuizManager = require("../word-quiz/WordQuizManager");
+import WordQuizManager from "../word-quiz/WordQuizManager";
+import { Message } from "discord.js";
 
-module.exports = {
+export default {
   name: "wordquiz",
   keywords: ["wordquiz", "단어퀴즈"],
   description: "단어 퀴즈 게임을 시작하거나 관리합니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     const subCommand = args[0] ? args[0].toLowerCase() : "";
 
     // 시작 명령어
     if (["start", "시작"].includes(subCommand)) {
-      const onTimeout = (answer) => {
-        message.channel.send(
+      const onTimeout = (answer: string) => {
+        (message.channel as any).send(
           `⏰ **시간 초과!** 게임이 종료되었습니다.\n정답은 **${answer}**였습니다.`,
         );
       };
@@ -25,7 +26,7 @@ module.exports = {
         return message.reply(`⚠️ ${result.message}`);
       }
 
-      const game = result.data;
+      const game = result.data!;
       message.reply(
         `🎮 **단어 퀴즈 시작!** (영어 단어)\n` +
           `글자 수: **${game.targetWord.length}**글자\n` +

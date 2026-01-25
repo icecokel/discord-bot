@@ -3,12 +3,18 @@
  * target: fortune (운세), list (목록 확인)
  */
 
-const { EmbedBuilder } = require("discord.js");
-const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const { writeJson } = require("../../../utils/fileManager");
+import { EmbedBuilder, Message } from "discord.js";
+import { registerAdminCommand } from "../../../core/adminMiddleware";
+import { writeJson } from "../../../utils/fileManager";
+
+interface ResetTarget {
+  file: string;
+  desc: string;
+  defaultContent: any;
+}
 
 // 초기화 가능한 타겟 및 파일 매핑
-const RESET_TARGETS = {
+const RESET_TARGETS: { [key: string]: ResetTarget } = {
   fortune: {
     file: "daily_fortunes.json",
     desc: "오늘의 운세 데이터",
@@ -20,7 +26,7 @@ const RESET_TARGETS = {
 /**
  * 초기화 명령어 핸들러
  */
-const handleReset = async (message, args) => {
+const handleReset = async (message: Message, args: string[]) => {
   const target = args[0]?.toLowerCase();
 
   // 1. 목록 조회
@@ -76,7 +82,7 @@ const handleReset = async (message, args) => {
     console.log(
       `[Admin] 데이터 초기화 수행: ${target} (${message.author.tag})`,
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error(`[Admin] 초기화 실패 (${target}):`, error);
     await message.reply(`❌ 초기화 중 오류가 발생했습니다: ${error.message}`);
   }
@@ -85,4 +91,4 @@ const handleReset = async (message, args) => {
 // 명령어 등록
 registerAdminCommand("reset", handleReset);
 
-module.exports = { handleReset };
+export { handleReset };

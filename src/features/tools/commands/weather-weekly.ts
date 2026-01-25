@@ -1,18 +1,22 @@
-const { EmbedBuilder } = require("discord.js");
-const kmaHelper = require("../../../utils/kmaHelper");
-const kmaData = require("../../../data/kma_data.json");
-const userStore = require("../../../utils/userStore");
+import { EmbedBuilder, Message } from "discord.js";
+import {
+  getShortTermForecast,
+  getMidTermForecast,
+} from "../../../utils/kmaHelper";
+import * as userStore from "../../../utils/userStore";
+import kmaData from "../../../data/kma_data.json";
 
-module.exports = {
+export default {
   name: "weather-weekly",
   keywords: ["주간날씨", "주간", "weekly"],
   description: "내일부터 7일 후까지의 주간 예보를 확인합니다.",
-  async execute(message) {
+  async execute(message: Message) {
     const args = message.content.split(/ +/);
     let regionName = args[1];
 
     // 0. 설명(Help) 기능
     if (
+      args[1] &&
       ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(args[1])
     ) {
       const embed = new EmbedBuilder()
@@ -36,7 +40,7 @@ module.exports = {
     }
 
     if (!regionName) {
-      regionName = userStore.getUserRegion(message.author.id);
+      regionName = userStore.getUserRegion(message.author.id) || "";
       if (!regionName) {
         return message.reply(
           "❗ 지역명을 입력해주세요. (예: `!주간날씨 서울`)\n(또는 `!날씨 설정 [지역]`으로 기본 지역을 등록하세요)",
@@ -44,12 +48,13 @@ module.exports = {
       }
     }
 
-    let targetData = kmaData[regionName];
+    const kmaAny = kmaData as any;
+    let targetData = kmaAny[regionName];
     if (!targetData) {
-      const foundKey = Object.keys(kmaData).find(
+      const foundKey = Object.keys(kmaAny).find(
         (key) => key.includes(regionName) || regionName.includes(key),
       );
-      if (foundKey) targetData = kmaData[foundKey];
+      if (foundKey) targetData = kmaAny[foundKey];
     }
 
     if (!targetData) {
@@ -59,9 +64,10 @@ module.exports = {
     const { nx, ny, midCode } = targetData;
 
     // API 호출 (단기 + 중기 병행)
+    // Promise.all의 결과 타입을 명시하지 않으면 추론하기 어려울 수 있음
     const [shortData, midData] = await Promise.all([
-      kmaHelper.getShortTermForecast(nx, ny),
-      midCode ? kmaHelper.getMidTermForecast(midCode) : null,
+      getShortTermForecast(nx, ny),
+      midCode ? getMidTermForecast(midCode) : Promise.resolve(null),
     ]);
 
     if (!shortData) {
@@ -92,25 +98,26 @@ module.exports = {
 
     // 2. 중기 예보 구간 (3일~7일)
     if (midData) {
+      const anyMid = midData as any; // 중기 데이터 구조가 복잡하면 any로 접근
       // inline 정렬을 위해 빈 필드 하나 추가하거나, 줄바꿈 처리
       embed.addFields({ name: "\u200B", value: "\u200B", inline: false });
 
       const midFields = [];
       // 3일후
-      if (midData.wf3Am)
-        midFields.push(`**3일 후**: ${midData.wf3Am}/${midData.wf3Pm}`);
+      if (anyMid.wf3Am)
+        midFields.push(`**3일 후**: ${anyMid.wf3Am}/${anyMid.wf3Pm}`);
       // 4일후
-      if (midData.wf4Am)
-        midFields.push(`**4일 후**: ${midData.wf4Am}/${midData.wf4Pm}`);
+      if (anyMid.wf4Am)
+        midFields.push(`**4일 후**: ${anyMid.wf4Am}/${anyMid.wf4Pm}`);
       // 5일후
-      if (midData.wf5Am)
-        midFields.push(`**5일 후**: ${midData.wf5Am}/${midData.wf5Pm}`);
+      if (anyMid.wf5Am)
+        midFields.push(`**5일 후**: ${anyMid.wf5Am}/${anyMid.wf5Pm}`);
       // 6일후
-      if (midData.wf6Am)
-        midFields.push(`**6일 후**: ${midData.wf6Am}/${midData.wf6Pm}`);
+      if (anyMid.wf6Am)
+        midFields.push(`**6일 후**: ${anyMid.wf6Am}/${anyMid.wf6Pm}`);
       // 7일후
-      if (midData.wf7Am)
-        midFields.push(`**7일 후**: ${midData.wf7Am}/${midData.wf7Pm}`);
+      if (anyMid.wf7Am)
+        midFields.push(`**7일 후**: ${anyMid.wf7Am}/${anyMid.wf7Pm}`);
 
       embed.addFields({
         name: "중기 예보 (3일 ~ 7일)",

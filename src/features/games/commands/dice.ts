@@ -1,10 +1,10 @@
-const { EmbedBuilder } = require("discord.js");
+import { EmbedBuilder, Message } from "discord.js";
 
-module.exports = {
+export default {
   name: "dice",
   keywords: ["dice", "주사위"],
   description: "주사위를 굴립니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args[0] &&

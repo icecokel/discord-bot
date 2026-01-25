@@ -1,14 +1,24 @@
+import { EmbedBuilder, Message } from "discord.js";
+import { readJson, writeJson } from "../../../utils/fileManager";
+import { aiService } from "../../../core/ai";
+import { getDisplayName } from "../../../utils/userUtils";
+
 /**
  * 오늘의 운세 명령어
  * Gemini API를 사용하여 하루에 한 번 운세를 생성하고,
  * 당일 재호출 시 동일한 운세를 반환합니다.
  */
-const { EmbedBuilder } = require("discord.js");
-const { readJson, writeJson } = require("../../../utils/fileManager");
-const { aiService } = require("../../../core/ai");
-const { getDisplayName } = require("../../../utils/userUtils");
 
 const FORTUNES_FILE_NAME = "daily_fortunes.json";
+
+interface FortuneData {
+  date: string;
+  content: string;
+}
+
+interface FortuneMap {
+  [userId: string]: FortuneData;
+}
 
 // 운세 생성 시스템 프롬프트
 const FORTUNE_SYSTEM_PROMPT = `당신은 신비롭고 유머러스한 점술가입니다.
@@ -33,7 +43,7 @@ const FORTUNE_SYSTEM_PROMPT = `당신은 신비롭고 유머러스한 점술가�
 /**
  * 오늘 날짜를 KST 기준 YYYY-MM-DD 형식으로 반환
  */
-const getTodayKST = () => {
+const getTodayKST = (): string => {
   const now = new Date();
   // KST는 UTC+9
   const kstOffset = 9 * 60 * 60 * 1000;
@@ -44,21 +54,21 @@ const getTodayKST = () => {
 /**
  * 저장된 운세 데이터 로드
  */
-const loadFortunes = () => {
-  return readJson(FORTUNES_FILE_NAME, {});
+const loadFortunes = (): FortuneMap => {
+  return readJson<FortuneMap>(FORTUNES_FILE_NAME, {});
 };
 
 /**
  * 운세 데이터 저장
  */
-const saveFortunes = (data) => {
+const saveFortunes = (data: FortuneMap): void => {
   writeJson(FORTUNES_FILE_NAME, data);
 };
 
 /**
  * 명령어 실행
  */
-const execute = async (message) => {
+const execute = async (message: Message): Promise<void | Message> => {
   const userId = message.author.id;
   const displayName = getDisplayName(message);
   const today = getTodayKST();
@@ -115,7 +125,7 @@ const execute = async (message) => {
 
     // 대기 메시지 수정
     await waitMessage.edit({ content: null, embeds: [embed] });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[fortune] 실행 오류:", error.message);
     return message.reply(
       "❌ 운세를 불러오는 데 실패했습니다. 잠시 후 다시 시도해주세요.",
@@ -123,7 +133,7 @@ const execute = async (message) => {
   }
 };
 
-module.exports = {
+export default {
   name: "운세",
   description: "오늘의 운세를 확인합니다 (하루에 한 번 생성)",
   keywords: ["운세", "fortune", "오늘운세"],

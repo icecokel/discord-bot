@@ -1,7 +1,21 @@
-const { EmbedBuilder, ChannelType } = require("discord.js");
-const { aiService } = require("../../core/ai");
+import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
+import { aiService } from "../../core/ai";
+
+interface EnglishContent {
+  category: string;
+  content: string;
+  weekdayMsg: string;
+}
+
+interface EnglishServiceResult {
+  successCount: number;
+  embed: EmbedBuilder;
+}
 
 class EnglishService {
+  private categories: string[];
+  private weekdayMessages: { [key: number]: string };
+
   constructor() {
     this.categories = ["일상", "비즈니스", "여행", "감정 표현", "음식/주문"];
     this.weekdayMessages = {
@@ -18,7 +32,7 @@ class EnglishService {
   /**
    * 오늘의 요일 멘트 가져오기 (KST 기준)
    */
-  getWeekdayMessage() {
+  getWeekdayMessage(): string {
     const kstOffset = 9 * 60 * 60 * 1000;
     const now = new Date(new Date().getTime() + kstOffset);
     const day = now.getUTCDay();
@@ -28,7 +42,7 @@ class EnglishService {
   /**
    * 랜덤 카테고리 선택
    */
-  getRandomCategory() {
+  getRandomCategory(): string {
     const randomIndex = Math.floor(Math.random() * this.categories.length);
     return this.categories[randomIndex];
   }
@@ -36,7 +50,7 @@ class EnglishService {
   /**
    * AI를 통해 오늘의 영어 문장 생성
    */
-  async generateDailyContent() {
+  async generateDailyContent(): Promise<EnglishContent> {
     const category = this.getRandomCategory();
     const prompt = `당신은 친절한 영어 선생님입니다.
 '${category}' 상황에서 유용하게 쓸 수 있는 영어 문장을 하나 알려주세요.
@@ -85,9 +99,10 @@ class EnglishService {
 
   /**
    * 모든 길드의 'general' 또는 '일반' 채널에 메시지 전송
-   * @param {Client} client
    */
-  async sendToGeneralChannels(client) {
+  async sendToGeneralChannels(
+    client: Client,
+  ): Promise<EnglishServiceResult | null> {
     console.log("[EnglishService] 일일 영어 문장 발송 시작...");
 
     try {
@@ -114,8 +129,8 @@ class EnglishService {
               channel.type === ChannelType.GuildText &&
               (channel.name.toLowerCase().includes("general") ||
                 channel.name.includes("일반")) &&
-              channel.permissionsFor(guild.members.me).has("SendMessages"),
-          );
+              channel.permissionsFor(guild.members.me!).has("SendMessages"),
+          ) as TextChannel | undefined;
 
           if (targetChannel) {
             await targetChannel.send({ embeds: [embed] });
@@ -128,7 +143,7 @@ class EnglishService {
               `[EnglishService] 스킵: ${guild.name} (적절한 채널 없음)`,
             );
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error(
             `[EnglishService] 발송 실패 (${guild.name}):`,
             err.message,
@@ -149,4 +164,4 @@ class EnglishService {
   }
 }
 
-module.exports = new EnglishService();
+export default new EnglishService();

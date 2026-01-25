@@ -1,10 +1,10 @@
-const { EmbedBuilder } = require("discord.js");
+import { EmbedBuilder, Message } from "discord.js";
 
-module.exports = {
+export default {
   name: "info",
   keywords: ["info", "정보"],
   description: "봇의 정보를 확인합니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&
@@ -33,6 +33,6 @@ module.exports = {
       )
       .setFooter({ text: "Discord Bot Tutorial" });
 
-    message.channel.send({ embeds: [embed] });
+    (message.channel as any).send({ embeds: [embed] });
   },
 };
