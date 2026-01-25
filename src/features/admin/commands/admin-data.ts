@@ -2,22 +2,36 @@
  * /admin data - 저장된 데이터 열람
  */
 
-const { EmbedBuilder } = require("discord.js");
-const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const { readJson } = require("../../../utils/fileManager");
+import { EmbedBuilder, Message } from "discord.js";
+import { registerAdminCommand } from "../../../core/adminMiddleware";
+import { readJson } from "../../../utils/fileManager";
+
+interface UserPrefs {
+  [id: string]: {
+    defaultRegion?: string;
+    notificationEnabled?: boolean;
+  };
+}
+
+interface Fortunes {
+  [id: string]: {
+    date?: string;
+    content?: string;
+  };
+}
 
 /**
  * 데이터 명령어 핸들러
  */
-const handleData = async (message, args) => {
+const handleData = async (message: Message, args: string[]) => {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("📊 저장된 데이터 현황")
     .setTimestamp();
 
   // 1. user_preferences.json
-  const userPrefs = readJson("user_preferences.json", null);
-  if (userPrefs) {
+  const userPrefs = readJson<UserPrefs>("user_preferences.json", {});
+  if (userPrefs && Object.keys(userPrefs).length > 0) {
     const userIds = Object.keys(userPrefs);
     const usersWithRegion = userIds.filter(
       (id) => userPrefs[id]?.defaultRegion,
@@ -56,8 +70,8 @@ const handleData = async (message, args) => {
   }
 
   // 2. daily_fortunes.json
-  const fortunes = readJson("daily_fortunes.json", null);
-  if (fortunes) {
+  const fortunes = readJson<Fortunes>("daily_fortunes.json", {});
+  if (fortunes && Object.keys(fortunes).length > 0) {
     const fortuneCount = Object.keys(fortunes).length;
     let fortuneDetails = "";
 
@@ -96,4 +110,4 @@ const handleData = async (message, args) => {
 // 명령어 등록
 registerAdminCommand("data", handleData);
 
-module.exports = { handleData };
+export { handleData };

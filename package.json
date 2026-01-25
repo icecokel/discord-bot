@@ -2,12 +2,12 @@
   "name": "discord-bot",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "build": "node scripts/generate-registry.js && esbuild src/index.js --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
-    "start:prod": "node index.js",
+    "start": "ts-node src/index.ts",
+    "dev": "nodemon",
+    "build": "esbuild src/index.ts --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
+    "start:prod": "node dist/index.js",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "prepare": "husky"

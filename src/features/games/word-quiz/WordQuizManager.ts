@@ -1,19 +1,59 @@
-const { generate } = require("random-words");
-const { EmbedBuilder } = require("discord.js");
+import { generate } from "random-words";
+import { EmbedBuilder } from "discord.js";
+
+// random-words 타입이 없을 경우를 대비한 모듈 선언 (필요시)
+// declare module "random-words";
+
+export interface GameState {
+  targetWord: string;
+  revealedIndices: boolean[];
+  attempts: number;
+  startTime: number;
+  participantCounts: Map<string, number>;
+  timer: NodeJS.Timeout | null;
+  initiatorId: string;
+}
+
+export interface GuessResult {
+  type: "INVALID_LENGTH" | "CORRECT" | "INCORRECT";
+  targetLength?: number;
+  attempts?: number;
+  userAttempts?: number;
+  positionMatch?: number;
+  charMatch?: number;
+  feedback?: { char: string; status: "exact" | "included" | "none" }[];
+  exactChars?: string[];
+  includedChars?: string[];
+  maskedWord?: string;
+}
+
+export interface StartGameResult {
+  success: boolean;
+  message?: string;
+  data?: GameState;
+}
 
 class WordQuizManager {
+  private games: Map<string, GameState>;
+
   constructor() {
     this.games = new Map(); // channelId -> GameState
   }
 
-  startGame(channelId, initiatorId, onTimeout) {
+  startGame(
+    channelId: string,
+    initiatorId: string,
+    onTimeout?: (answer: string) => void,
+  ): StartGameResult {
     if (this.games.has(channelId)) {
       return { success: false, message: "이미 진행 중인 게임이 있습니다." };
     }
 
-    const word = generate({ minLength: 5, maxLength: 8 });
+    // random-words가 string 또는 string[]을 반환할 수 있음
+    const words = generate({ minLength: 5, maxLength: 8 }) as string | string[];
+    const word = Array.isArray(words) ? words[0] : words;
 
-    const gameState = {
+    const gameState: GameState = {
       targetWord: word.toUpperCase(),
       revealedIndices: new Array(word.length).fill(false),
       attempts: 0,
@@ -25,7 +65,7 @@ class WordQuizManager {
 
     // 랜덤 글자 공개 (길이의 10%, 반올림, 최소 1개)
     const revealCount = Math.max(1, Math.round(word.length * 0.1));
-    const indices = new Set();
+    const indices = new Set<number>();
     while (indices.size < revealCount) {
       indices.add(Math.floor(Math.random() * word.length));
     }
@@ -47,11 +87,15 @@ class WordQuizManager {
     };
   }
 
-  getGame(channelId) {
+  getGame(channelId: string): GameState | undefined {
     return this.games.get(channelId);
   }
 
-  processGuess(channelId, userId, guessWord) {
+  processGuess(
+    channelId: string,
+    userId: string,
+    guessWord: string,
+  ): GuessResult | null {
     const game = this.games.get(channelId);
     if (!game) return null;
 
@@ -84,9 +128,10 @@ class WordQuizManager {
     const targetSet = new Set(targetChars);
 
     // 각 문자별 상세 피드백
-    const feedback = [];
-    const exactChars = [];
-    const includedChars = [];
+    const feedback: { char: string; status: "exact" | "included" | "none" }[] =
+      [];
+    const exactChars: string[] = [];
+    const includedChars: string[] = [];
     let positionMatch = 0;
     let charMatch = 0;
 
@@ -121,23 +166,23 @@ class WordQuizManager {
     };
   }
 
-  getMaskedWord(game) {
+  getMaskedWord(game: GameState): string {
     return game.targetWord
       .split("")
       .map((char, index) => (game.revealedIndices[index] ? char : "❓"))
       .join(" ");
   }
 
-  endGame(channelId, winnerId = null) {
+  endGame(channelId: string, winnerId: string | null = null): GameState | null {
     const game = this.games.get(channelId);
     if (!game) return null;
 
-    clearTimeout(game.timer);
+    if (game.timer) clearTimeout(game.timer);
     this.games.delete(channelId);
     return game;
   }
 
-  getRuleEmbed() {
+  getRuleEmbed(): EmbedBuilder {
     return new EmbedBuilder()
       .setColor("#00FF00")
       .setTitle("📚 단어 퀴즈 규칙 설명")
@@ -167,4 +212,4 @@ class WordQuizManager {
   }
 }
 
-module.exports = new WordQuizManager();
+export default new WordQuizManager();

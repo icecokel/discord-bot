@@ -1,12 +1,12 @@
-const WordQuizManager = require("../word-quiz/WordQuizManager");
-const { getDisplayName } = require("../../../utils/userUtils");
-const { EmbedBuilder } = require("discord.js");
+import WordQuizManager, { GuessResult } from "../word-quiz/WordQuizManager";
+import { getDisplayName } from "../../../utils/userUtils";
+import { EmbedBuilder, Message } from "discord.js";
 
-module.exports = {
+export default {
   name: "answer",
   keywords: ["answer", "정답", "a", "ㅈㄷ"],
   description: "단어 퀴즈의 정답을 제출합니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args[0] &&
@@ -36,9 +36,6 @@ module.exports = {
     const channelId = message.channel.id;
     const game = WordQuizManager.getGame(channelId);
 
-    // 게임이 없으면 조용히 무시 (혹은 일반 채팅 방해 안 되게)
-    // 하지만 명시적으로 명령어를 쳤으므로 안내 메시지 주는 게 나을 수도 있음.
-    // 여기서는 기획에 따라 무시하거나 알림. 사용자 피드백 위해 "게임 중 아님" 알림.
     if (!game) {
       return message.reply(
         "❌ 현재 진행 중인 퀴즈가 없습니다. `!단어퀴즈 시작`으로 게임을 시작해보세요!",
@@ -49,11 +46,14 @@ module.exports = {
 
     const userInput = args[0];
 
+    // WordQuizManager.processGuess가 GuessResult 타입을 반환하도록 기대
     const result = WordQuizManager.processGuess(
       channelId,
       message.author.id,
       userInput,
     );
+
+    if (!result) return;
 
     if (result.type === "INVALID_LENGTH") {
       return message.reply(
@@ -88,22 +88,23 @@ module.exports = {
 
     if (result.type === "INCORRECT") {
       // 상태별 이모지 매핑
-      const statusEmoji = {
+      const statusEmoji: { [key: string]: string } = {
         exact: "🟢",
         included: "🟡",
         none: "⬜",
       };
 
       // 시각적 피드백 생성
-      const inputLine = result.feedback.map((f) => f.char).join(" ");
-      const emojiLine = result.feedback
-        .map((f) => statusEmoji[f.status])
-        .join(" ");
+      const feedback = result.feedback || [];
+      const inputLine = feedback.map((f) => f.char).join(" ");
+      const emojiLine = feedback.map((f) => statusEmoji[f.status]).join(" ");
 
       const exactText =
-        result.exactChars.length > 0 ? result.exactChars.join(", ") : "없음";
+        result.exactChars && result.exactChars.length > 0
+          ? result.exactChars.join(", ")
+          : "없음";
       const includedText =
-        result.includedChars.length > 0
+        result.includedChars && result.includedChars.length > 0
           ? result.includedChars.join(", ")
           : "없음";
 

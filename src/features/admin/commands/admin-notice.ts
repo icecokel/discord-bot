@@ -2,23 +2,22 @@
  * /admin notice <메시지> - 등록된 유저들에게 공지 발송
  */
 
-const { EmbedBuilder } = require("discord.js");
-const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const { readJson } = require("../../../utils/fileManager");
+import { EmbedBuilder, Message } from "discord.js";
+import { registerAdminCommand } from "../../../core/adminMiddleware";
+import { readJson } from "../../../utils/fileManager";
 
 /**
  * 등록된 모든 유저 ID 가져오기
- * @returns {string[]}
  */
-const getAllUserIds = () => {
-  const prefs = readJson("user_preferences.json", {});
+const getAllUserIds = (): string[] => {
+  const prefs = readJson<Record<string, any>>("user_preferences.json", {});
   return Object.keys(prefs);
 };
 
 /**
  * 공지 명령어 핸들러
  */
-const handleNotice = async (message, args) => {
+const handleNotice = async (message: Message, args: string[]) => {
   // 메시지 내용 확인
   const noticeContent = args.join(" ").trim();
 
@@ -57,7 +56,7 @@ const handleNotice = async (message, args) => {
   // 발송 결과 추적
   let successCount = 0;
   let failCount = 0;
-  const failedUsers = [];
+  const failedUsers: string[] = [];
 
   // 유저별 DM 발송
   for (const userId of userIds) {
@@ -66,7 +65,7 @@ const handleNotice = async (message, args) => {
       await user.send({ embeds: [noticeEmbed] });
       successCount++;
       console.log(`[Admin] 공지 발송 성공: ${user.tag}`);
-    } catch (error) {
+    } catch (error: any) {
       failCount++;
       failedUsers.push(userId);
       console.error(`[Admin] 공지 발송 실패 (${userId}):`, error.message);
@@ -99,10 +98,10 @@ const handleNotice = async (message, args) => {
     });
   }
 
-  await message.channel.send({ embeds: [resultEmbed] });
+  await (message.channel as any).send({ embeds: [resultEmbed] });
 };
 
 // 명령어 등록
 registerAdminCommand("notice", handleNotice);
 
-module.exports = { handleNotice };
+export { handleNotice };

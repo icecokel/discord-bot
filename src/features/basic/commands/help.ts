@@ -1,10 +1,11 @@
-const { EmbedBuilder } = require("discord.js");
+import { EmbedBuilder, Message } from "discord.js";
+import { Command } from "../../../core/loader";
 
-module.exports = {
+export default {
   name: "help",
   keywords: ["help", "도움말", "명령어", "사용법"],
   description: "사용 가능한 모든 명령어와 설명을 보여줍니다.",
-  execute(message, args) {
+  execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&
@@ -22,7 +23,10 @@ module.exports = {
       return message.reply({ embeds: [helpEmbed] });
     }
 
-    const commands = message.client.commands;
+    // message.client.commands 접근을 위해 any 사용 또는 client 확장 필요
+    // 여기서는 간단히 client.commands가 있다고 가정하고 any로 접근
+    const client = message.client as any;
+    const commands = client.commands as Map<string, Command>;
 
     const embed = new EmbedBuilder()
       .setColor(0x0099ff)
@@ -30,12 +34,9 @@ module.exports = {
       .setDescription("사용 가능한 명령어들과 간단한 설명입니다.")
       .setTimestamp();
 
-    // 카테고리별로 분류하면 좋겠지만, 일단은 플랫하게 리스팅하거나 keywords[0]을 제목으로 사용
-    // commands는 Map<string, command> 형태
+    const fields: any[] = [];
 
-    const fields = [];
-
-    commands.forEach((cmd) => {
+    commands.forEach((cmd: Command) => {
       // keywords가 없는 명령어(어드민 등)는 스킵
       if (!cmd.keywords || cmd.keywords.length === 0) return;
 

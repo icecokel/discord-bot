@@ -1,13 +1,13 @@
-const { EmbedBuilder } = require("discord.js");
-const kmaHelper = require("../../../utils/kmaHelper");
-const kmaData = require("../../../data/kma_data.json");
-const userStore = require("../../../utils/userStore");
+import { EmbedBuilder, Message } from "discord.js";
+import { getShortTermForecast } from "../../../utils/kmaHelper";
+import * as userStore from "../../../utils/userStore";
+import kmaData from "../../../data/kma_data.json";
 
-module.exports = {
+export default {
   name: "weather",
   keywords: ["weather", "날씨", "오늘날씨"],
   description: "오늘의 상세 날씨 정보를 확인하거나 기본 지역을 설정합니다.",
-  async execute(message) {
+  async execute(message: Message) {
     const args = message.content.split(/ +/);
     // args[0]: !날씨, args[1]: 지역명 or "설정"
 
@@ -46,6 +46,9 @@ module.exports = {
       return message.reply({ embeds: [embed] });
     }
 
+    // kmaData를 any로 취급하여 인덱스 접근 허용
+    const kmaAny = kmaData as any;
+
     // 1. 설정 기능 (!날씨 설정 [지역])
     if (args[1] === "설정") {
       const newRegion = args[2];
@@ -56,9 +59,9 @@ module.exports = {
       }
 
       // 지역명 유효성 검사 (kmaData에 있는지)
-      let isValid = kmaData[newRegion];
+      let isValid = kmaAny[newRegion];
       if (!isValid) {
-        const foundKey = Object.keys(kmaData).find(
+        const foundKey = Object.keys(kmaAny).find(
           (key) => key.includes(newRegion) || newRegion.includes(key),
         );
         if (foundKey) isValid = true;
@@ -112,7 +115,7 @@ module.exports = {
 
     // 지역명이 없으면 저장된 기본값 조회
     if (!regionName) {
-      regionName = userStore.getUserRegion(message.author.id);
+      regionName = userStore.getUserRegion(message.author.id) || "";
       if (!regionName) {
         return message.reply(
           "❗ 지역명을 입력하거나 기본 지역을 설정해주세요.\n(사용법: `!날씨 서울` 또는 `!날씨 설정 서울`)",
@@ -121,15 +124,13 @@ module.exports = {
     }
 
     // 데이터 조회
-    let targetData = kmaData[regionName];
+    let targetData = kmaAny[regionName];
     if (!targetData) {
-      const foundKey = Object.keys(kmaData).find(
+      const foundKey = Object.keys(kmaAny).find(
         (key) => key.includes(regionName) || regionName.includes(key),
       );
       if (foundKey) {
-        targetData = kmaData[foundKey];
-        // 사용자가 "안양" 입력 -> 실제 키가 "안양시"일 경우 등을 위해 편의상 이름 업데이트
-        // 하지만 여기선 그냥 사용자 입력값을 제목으로 쓰거나 foundKey를 쓸 수 있음.
+        targetData = kmaAny[foundKey];
       }
     }
 
@@ -140,7 +141,7 @@ module.exports = {
     const { nx, ny } = targetData;
 
     // API 호출
-    const shortTermData = await kmaHelper.getShortTermForecast(nx, ny);
+    const shortTermData = await getShortTermForecast(nx, ny);
 
     if (!shortTermData) {
       return message.reply("⚠️ 기상청 API에서 정보를 가져오는데 실패했습니다.");

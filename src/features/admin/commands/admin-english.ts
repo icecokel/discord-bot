@@ -2,10 +2,11 @@
  * /admin english - 오늘의 영어 표현 테스트 발송 (관리자 DM)
  */
 
-const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const englishService = require("../../daily_english/EnglishService");
+import { registerAdminCommand } from "../../../core/adminMiddleware";
+import englishService from "../../daily_english/EnglishService";
+import { EmbedBuilder, Message } from "discord.js";
 
-const handleEnglishTest = async (message) => {
+const handleEnglishTest = async (message: Message, args: string[]) => {
   try {
     const waitMsg = await message.reply("🇺🇸 영어 문장을 생성하고 있습니다...");
 
@@ -13,7 +14,6 @@ const handleEnglishTest = async (message) => {
     const { category, content, weekdayMsg } =
       await englishService.generateDailyContent();
 
-    const { EmbedBuilder } = require("discord.js");
     const embed = new EmbedBuilder()
       .setColor(0x00b0f4)
       .setTitle(`[TEST] 🇺🇸 오늘의 영어 표현 - ${category} 편`)
@@ -38,4 +38,4 @@ const handleEnglishTest = async (message) => {
 registerAdminCommand("english", handleEnglishTest);
 registerAdminCommand("영어문장", handleEnglishTest);
 
-module.exports = { handleEnglishTest };
+export { handleEnglishTest };

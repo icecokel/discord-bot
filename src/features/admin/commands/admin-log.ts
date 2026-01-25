@@ -2,14 +2,14 @@
  * /admin log - 최근 명령어 로그 조회
  */
 
-const { EmbedBuilder } = require("discord.js");
-const { registerAdminCommand } = require("../../../core/adminMiddleware");
-const logger = require("../../../utils/logger");
+import { EmbedBuilder, Message } from "discord.js";
+import { registerAdminCommand } from "../../../core/adminMiddleware";
+import * as logger from "../../../utils/logger";
 
 /**
  * 로그 명령어 핸들러
  */
-const handleLog = async (message, args) => {
+const handleLog = async (message: Message, args: string[]) => {
   // 조회할 로그 개수 (기본 15개, 최대 30개)
   const count = Math.min(parseInt(args[0]) || 15, 30);
   const logs = logger.getRecentLogs(count);
@@ -30,7 +30,7 @@ const handleLog = async (message, args) => {
     });
   } else {
     // 로그 포맷팅
-    const logLines = logs.map((log, index) => {
+    const logLines = logs.map((log) => {
       const time = new Date(log.timestamp).toLocaleString("ko-KR", {
         timeZone: "Asia/Seoul",
         month: "2-digit",
@@ -77,4 +77,4 @@ const handleLog = async (message, args) => {
 // 명령어 등록
 registerAdminCommand("log", handleLog);
 
-module.exports = { handleLog };
+export { handleLog };
