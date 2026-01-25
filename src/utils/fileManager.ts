@@ -1,9 +1,14 @@
 import fs from "fs";
 import path from "path";
 
-// __dirname: src/utils
-// target: src/data
-export const DATA_DIR = path.join(__dirname, "../data");
+// __dirname:
+//   - dev: src/utils/
+//   - prod: projects/discord-bot/ (dist 내용물이 루트로 배포됨)
+// target: data/
+export const DATA_DIR =
+  process.env.NODE_ENV === "production"
+    ? path.join(__dirname, "data")
+    : path.join(__dirname, "../data");
 
 /**
  * 데이터 디렉토리 가져오기
