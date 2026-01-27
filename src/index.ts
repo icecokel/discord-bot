@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { Client, GatewayIntentBits, Partials, Message } from "discord.js";
 import { loadCommands, Command } from "./core/loader";
-import { startWeatherScheduler } from "./core/scheduler";
+import { initializeSchedulers } from "./core/scheduler";
 import { handleAdminCommand } from "./core/adminMiddleware";
 import { handleCommand } from "./core/commandHandler";
 
@@ -11,6 +11,7 @@ import "./features/admin/commands/admin-log";
 import "./features/admin/commands/admin-notice";
 import "./features/admin/commands/admin-reset";
 import "./features/admin/commands/admin-english";
+import "./features/admin/commands/admin-japanese";
 
 // Client 인터페이스 확장 (commands 속성 추가)
 declare module "discord.js" {
@@ -35,8 +36,8 @@ client.commands = loadCommands();
 client.once("clientReady", () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 
-  // 날씨 스케줄러 시작
-  startWeatherScheduler(client);
+  // 스케줄러 초기화 (날씨, 영어 등)
+  initializeSchedulers(client);
 });
 
 client.on("messageCreate", async (message: Message) => {

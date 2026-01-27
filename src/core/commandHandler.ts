@@ -1,8 +1,7 @@
 import { Message } from "discord.js";
 import { log } from "../utils/logger";
 import { Command } from "./loader";
-
-const PREFIX = "!";
+import { PREFIX } from "../config/constants";
 
 /**
  * 커맨드 실행 핸들러

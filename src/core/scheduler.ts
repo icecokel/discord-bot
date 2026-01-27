@@ -4,9 +4,10 @@ import { getShortTermForecast } from "../utils/kmaHelper";
 import kmaData from "../data/kma_data.json";
 import { EmbedBuilder, Client } from "discord.js";
 import englishService from "../features/daily_english/EnglishService";
+import japaneseService from "../features/daily_japanese/JapaneseService";
 
-// 날씨 알림 스케줄러 시작
-export const startWeatherScheduler = (client: Client): void => {
+// 통합 스케줄러 초기화 (날씨 + 영어 학습)
+export const initializeSchedulers = (client: Client): void => {
   // 매일 오전 9시 (KST) 실행
   cron.schedule(
     "0 9 * * *",
@@ -101,4 +102,18 @@ export const startWeatherScheduler = (client: Client): void => {
     },
   );
   console.log("[Scheduler] 영어 알림 스케줄러 등록 완료 (매일 오후 1시 KST)");
+
+  // 매일 오후 2시 (KST) 일본어 표현 알림
+  cron.schedule(
+    "0 14 * * *",
+    async () => {
+      console.log("[Scheduler] 오후 2시 일본어 알림 시작");
+      await japaneseService.sendToGeneralChannels(client);
+      console.log("[Scheduler] 오후 2시 일본어 알림 완료");
+    },
+    {
+      timezone: "Asia/Seoul",
+    },
+  );
+  console.log("[Scheduler] 일본어 알림 스케줄러 등록 완료 (매일 오후 2시 KST)");
 };
