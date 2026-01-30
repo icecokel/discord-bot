@@ -1,5 +1,6 @@
 import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
 import { aiService } from "../../core/ai";
+import historyManager from "../../utils/HistoryManager";
 
 interface EnglishContent {
   category: string;
@@ -52,11 +53,20 @@ class EnglishService {
    */
   async generateDailyContent(): Promise<EnglishContent> {
     const category = this.getRandomCategory();
+
+    // 최근 사용된 문장 가져오기
+    const recentHistory = historyManager.getRecentContents("english");
+    const historyText =
+      recentHistory.length > 0
+        ? `\n**⛔ 제외할 표현들 (이미 사용됨, 절대 사용 금지):**\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
+        : "";
+
     const prompt = `당신은 친절한 영어 선생님입니다.
 '${category}' 상황에서 유용하게 쓸 수 있는 영어 문장을 하나 알려주세요.
 
 규칙:
 1. 한국어 독자를 위해 작성하세요.
+${historyText}
 2. 내용은 다음 형식을 엄격히 따라주세요 (JSON 아님, 텍스트 형식):
    
    📝 **오늘의 문장**
@@ -83,6 +93,26 @@ class EnglishService {
       const content = await aiService.generateText(prompt, {
         config: { temperature: 0.9 }, // 약간의 창의성 허용
       });
+
+      // 생성된 문장에서 핵심 문장 추출 (첫 줄 또는 "오늘의 문장" 다음 줄)
+      // 간단히 전체 텍스트에서 파싱하거나, 전체 내용을 저장하기엔 너무 기므로
+      // 여기서는 "📝 **오늘의 문장**" 다음 줄을 추출해서 저장한다고 가정
+      const lines = content.split("\n");
+      let keySentence = "";
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes("오늘의 문장") && lines[i + 1]) {
+          keySentence = lines[i + 1].trim();
+          break;
+        }
+      }
+
+      // 파싱 실패시 내용의 앞부분 일부 사용
+      if (!keySentence) {
+        keySentence = content.substring(0, 50).replace(/\n/g, " ");
+      }
+
+      // 히스토리에 저장
+      historyManager.addHistory("english", keySentence);
 
       const weekdayMsg = this.getWeekdayMessage();
 

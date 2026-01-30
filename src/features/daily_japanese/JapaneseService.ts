@@ -1,5 +1,6 @@
 import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
 import { aiService } from "../../core/ai";
+import historyManager from "../../utils/HistoryManager";
 
 interface JapaneseContent {
   category: string;
@@ -61,11 +62,20 @@ class JapaneseService {
    */
   async generateDailyContent(): Promise<JapaneseContent> {
     const category = this.getRandomCategory();
+
+    // 최근 사용된 문장 가져오기
+    const recentHistory = historyManager.getRecentContents("japanese");
+    const historyText =
+      recentHistory.length > 0
+        ? `\n**⛔ 제외할 표현들 (이미 사용됨, 절대 사용 금지):**\n${recentHistory.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}\n`
+        : "";
+
     const prompt = `당신은 초보자를 위한 친절한 일본어 선생님입니다.
 '${category}' 상황에서 쓸 수 있는 **아주 간단하고 기초적인** 일본어 단어 또는 짧은 문장을 하나 알려주세요.
 
 규칙:
 1. **대상**: 일본어를 처음 배우는 왕초보 (복잡한 한자 금지, 쉬운 표현 위주)
+${historyText}
 2. **필수 표기**: 한자가 포함될 경우 반드시 후리가나(히라가나)를 괄호에 표기하거나 로마자 발음을 함께 적어주세요.
 3. 내용은 다음 형식을 엄격히 따라주세요 (JSON 아님, 텍스트 형식):
 
@@ -92,6 +102,24 @@ class JapaneseService {
       const content = await aiService.generateText(prompt, {
         config: { temperature: 0.8 }, // 너무 엉뚱하지 않게
       });
+
+      // 생성된 문장에서 핵심 문장 추출 (첫 줄 또는 "오늘의 기초 일본어" 다음 줄)
+      const lines = content.split("\n");
+      let keySentence = "";
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes("오늘의 기초 일본어") && lines[i + 1]) {
+          keySentence = lines[i + 1].trim();
+          break;
+        }
+      }
+
+      // 파싱 실패시 내용의 앞부분 일부 사용
+      if (!keySentence) {
+        keySentence = content.substring(0, 50).replace(/\n/g, " ");
+      }
+
+      // 히스토리에 저장
+      historyManager.addHistory("japanese", keySentence);
 
       const weekdayMsg = this.getWeekdayMessage();
 
