@@ -14,6 +14,7 @@ import wordQuiz from "../features/games/commands/word-quiz";
 import fortune from "../features/tools/commands/fortune";
 import weatherWeekly from "../features/tools/commands/weather-weekly";
 import weather from "../features/tools/commands/weather";
+import seasonalFood from "../features/info/commands/seasonal-food";
 
 export const commands = [
   help,
@@ -26,4 +27,5 @@ export const commands = [
   fortune,
   weatherWeekly,
   weather,
+  seasonalFood,
 ];
