@@ -30,11 +30,11 @@ const seasonalFood: Command = {
 
     foods.forEach((food) => {
       const dishInfo = food.recommendedDishes
-        ? `\n🍽️ 추천 요리: ${food.recommendedDishes.join(", ")}`
+        ? `\n**추천 요리**: ${food.recommendedDishes.join(", ")}`
         : "";
 
       embed.addFields({
-        name: `🥒 ${food.name}`,
+        name: food.name,
         value: `${food.description}${dishInfo}`,
         inline: false,
       });
