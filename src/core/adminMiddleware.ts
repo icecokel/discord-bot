@@ -62,19 +62,6 @@ export const handleAdminCommand = async (
   const handler = adminCommands.get(commandName);
 
   if (!handler) {
-    // 디버깅: 등록된 커맨드 목록 확인
-    // 디버깅: 매핑되지 않은 커맨드가 들어오면 그대로 반환 (인코딩 확인용)
-    // 단, DM일 경우에만 반응 (서버 채널 스팸 방지)
-    if (isDM(message)) {
-      // 유니코드 값까지 포함하여 출력 (완벽한 확인을 위해)
-      const unicodeDebug = commandName
-        .split("")
-        .map((c) => c.charCodeAt(0).toString(16))
-        .join(" ");
-      await message.reply(
-        `[Debug] Received: ${commandName}\n(Hex: ${unicodeDebug})`,
-      );
-    }
     // Admin 전용 커맨드가 아니면 일반 커맨드 핸들러로 넘김
     return false;
   }
