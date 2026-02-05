@@ -17,94 +17,56 @@ class NewsService {
   /**
    * 오늘의 주요 뉴스를 검색하고 포맷팅하여 반환합니다.
    */
-  async generateDailyNews(): Promise<NewsItem[]> {
+  async generateDailyNews(): Promise<string> {
     const query = "site:news.naver.com 오늘 대한민국 주요 뉴스 5가지";
     const systemPrompt = `당신은 뉴스 큐레이터입니다.
-대한민국의 오늘 주요 뉴스 5가지를 선정하여 정리해주세요.
+대한민국의 오늘 주요 뉴스 5가지를 선정하여 디스코드 메시지로 보낼 수 있도록 정리해주세요.
 
-# 각 뉴스 항목의 형식 (반드시 지킬 것)
-### 1. [뉴스 제목]
-- 요약: [한 줄 설명]
-- 링크: [기사 URL]
+# 작성 규칙
+1. **헤더 없음**: "안녕하세요" 같은 인사말이나 "주요 뉴스입니다" 같은 서론을 쓰지 마세요. 바로 뉴스 내용부터 시작하세요.
+2. **포맷**: 가독성 좋게 이모지와 볼드체(**)를 적절히 사용하세요.
+3. **링크**: 각 뉴스 끝에 [기사 원문](URL) 형태로 링크를 넣어주세요.
+4. **번호 매기기**: 1., 2. ... 순서로 작성하세요.
 
-# 규칙
-- 반드시 5개의 뉴스를 작성하세요.
-- 번호(1, 2, 3...)와 "### " 형식을 정확히 지켜주세요.
-- 링크는 네이버 뉴스(n.news.naver.com) 위주로 찾아주세요.
-- JSON 형식이 아닌 일반 텍스트로(Markdown) 작성하세요.`;
+예시:
+1. **[뉴스 제목]**
+- 핵심 내용 요약...
+- [기사 보기](URL)
+
+2. ...`;
 
     try {
       // AI를 통해 검색 및 요약 요청 (Text Mode)
+      // 파싱 없이 결과 텍스트를 그대로 사용합니다.
       const rawResponse = await aiService.generateText(query, {
         systemInstruction: systemPrompt,
         tools: searchService.getTools(),
-        config: {
-          // JSON 모드 사용 안 함
-        },
+        config: {},
       });
 
-      // 텍스트 파싱
-      const newsItems: NewsItem[] = [];
-      const sections = rawResponse.split(/### \d+\./); // "### 1.", "### 2." 등으로 분리
-
-      for (const section of sections) {
-        if (!section.trim()) continue;
-
-        const lines = section.trim().split("\n");
-        let title = lines[0].trim();
-        let description = "";
-        let link = "";
-
-        // 제목에서 대괄호 제거 ([뉴스 제목] -> 뉴스 제목)
-        title = title.replace(/^\[|\]$/g, "").trim();
-
-        for (const line of lines.slice(1)) {
-          if (line.includes("- 요약:")) {
-            description = line.replace("- 요약:", "").trim();
-            // 대괄호 제거
-            description = description.replace(/^\[|\]$/g, "").trim();
-          } else if (line.includes("- 링크:")) {
-            link = line.replace("- 링크:", "").trim();
-            // 대괄호 제거
-            link = link.replace(/^\[|\]$/g, "").trim();
-          }
-        }
-
-        if (title && description) {
-          // 링크가 없을 경우 검색 결과에서 유추하거나 비워둠 (여기서는 안전하게 추가)
-          newsItems.push({ title, description, link });
-        }
-      }
-
-      return newsItems.slice(0, 5); // 최대 5개 유지
+      return rawResponse;
     } catch (error) {
       console.error("[NewsService] 뉴스 생성 중 오류 발생:", error);
-      return [];
+      return "뉴스를 가져오는 데 실패했습니다.";
     }
   }
 
   /**
-   * 뉴스 아이템을 Embed로 변환합니다.
+   * 뉴스 텍스트를 Embed로 변환합니다.
    */
-  createEmbed(newsItems: NewsItem[]): EmbedBuilder {
+  createEmbed(newsContent: string): EmbedBuilder {
     const embed = new EmbedBuilder()
       .setColor(0x02d642) // 네이버 그린
       .setTitle("📰 오늘의 주요 뉴스 (Naver News)")
-      .setDescription("대한민국 주요 뉴스를 정리해 드립니다.")
       .setTimestamp()
       .setFooter({ text: "Daily News Helper" });
 
-    newsItems.forEach((item, index) => {
-      embed.addFields({
-        name: `${index + 1}. ${item.title}`,
-        value: `${item.description}\n[기사 보기](${item.link})`,
-      });
-    });
-
-    if (newsItems.length === 0) {
+    if (!newsContent || newsContent.includes("실패했습니다")) {
       embed.setDescription(
         "뉴스를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
       );
+    } else {
+      embed.setDescription(newsContent);
     }
 
     return embed;
