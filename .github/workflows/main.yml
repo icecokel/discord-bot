@@ -42,7 +42,7 @@ jobs:
         run: |
           # dist/ 내부 파일들과 package.json을 전송
           # (주의: 원격 경로의 디렉토리 구조에 따라 조정 필요)
-          scp -r dist/* package.json ${{ secrets.TERMUX_HOST }}:~/projects/discord-bot/
+          scp -r dist package.json ${{ secrets.TERMUX_HOST }}:~/projects/discord-bot/
       # 7. 앱 재시작 (SSH)
       - name: Restart App
         run: |
