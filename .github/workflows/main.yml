@@ -46,4 +46,4 @@ jobs:
       # 7. 앱 재시작 (SSH)
       - name: Restart App
         run: |
-          ssh ${{ secrets.TERMUX_HOST }} "cd ~/projects/discord-bot && npm install --omit=dev --ignore-scripts && pm2 restart discord-bot"
+          ssh ${{ secrets.TERMUX_HOST }} "cd ~/projects/discord-bot && npm install --omit=dev --ignore-scripts && pm2 delete discord-bot || true && pm2 start dist/index.js --name discord-bot"
