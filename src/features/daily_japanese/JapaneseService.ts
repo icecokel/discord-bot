@@ -1,9 +1,26 @@
-import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
+import {
+  EmbedBuilder,
+  ChannelType,
+  Client,
+  TextChannel,
+  Colors,
+} from "discord.js";
 import { aiService } from "../../core/ai";
 import historyManager from "../../utils/HistoryManager";
 
-interface JapaneseContent {
+interface DailyJapaneseData {
+  content: string; // 일본어 문장/단어
+  pronunciation: string; // 발음 (한글/로마자)
+  meaning: string; // 의미
+  description: string; // 설명
+  examples: Array<{ a: string; b: string }>; // 대화 예시
+}
+
+export interface JapaneseContent {
   category: string;
+  // 구조화된 데이터
+  data: DailyJapaneseData | null;
+  // 원본 텍스트 (Fallback)
   content: string;
   weekdayMsg: string;
 }
@@ -58,80 +75,131 @@ class JapaneseService {
   }
 
   /**
-   * AI를 통해 오늘의 일본어 표현 생성 (왕초보 기준)
+   * AI를 통해 오늘의 일본어 표현 생성 (Structured Output)
    */
   async generateDailyContent(): Promise<JapaneseContent> {
     const category = this.getRandomCategory();
-
-    // 최근 사용된 문장 가져오기
     const recentHistory = historyManager.getRecentContents("japanese");
-    const historyText =
-      recentHistory.length > 0
-        ? `\n**⛔ 제외할 표현들 (이미 사용됨, 절대 사용 금지):**\n${recentHistory.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n")}\n`
-        : "";
 
-    const prompt = `당신은 초보자를 위한 친절한 일본어 선생님입니다.
-'${category}' 상황에서 쓸 수 있는 **아주 간단하고 기초적인** 일본어 단어 또는 짧은 문장을 하나 알려주세요.
+    // System Prompt
+    const systemPrompt = `당신은 왕초보를 위한 친절한 일본어 선생님입니다.
+일본어를 처음 배우는 한국인 학습자를 위해 아주 기초적이고 쉬운 단어나 문장을 가르쳐주세요.
 
-규칙:
-1. **대상**: 일본어를 처음 배우는 왕초보 (복잡한 한자 금지, 쉬운 표현 위주)
-${historyText}
-2. **필수 표기**: 한자가 포함될 경우 반드시 후리가나(히라가나)를 괄호에 표기하거나 로마자 발음을 함께 적어주세요.
-3. 내용은 다음 형식을 엄격히 따라주세요 (JSON 아님, 텍스트 형식):
+# 필수 규칙
+1. 응답은 반드시 아래 JSON 포맷을 준수해야 합니다.
+2. 한자에는 반드시 발음(후리가나 또는 로마자)을 포함하세요.
+3. 예시는 아주 간단한 대화(A, B)로 2개를 작성하세요.
+4. 어려운 한자는 피하고 히라가나 위주로 작성하세요.
 
-   🇯🇵 **오늘의 기초 일본어**
-   (일본어 단어 또는 문장 - 큰 글씨로 강조)
-   
-   🗣️ **발음**
-   (한글 발음) / (로마자 표기 선택 사항)
-   
-   💡 **의미**
-   (자연스러운 한국어 뜻)
-   
-   📘 **설명**
-   (이 표현이 쓰이는 상황에 대한 아주 쉬운 설명 1줄)
+# JSON 포맷 예시
+{
+  "content": "ありがとうございます",
+  "pronunciation": "아리가토- 고자이마스",
+  "meaning": "감사합니다",
+  "description": "가장 기본적이고 정중한 감사 인사입니다.",
+  "examples": [
+    { "a": "プレゼントです。", "b": "ありがとうございます！" },
+    { "a": "座ってください。", "b": "ありがとうございます。" }
+  ]
+}`;
 
-   ✨ **따라 해보세요 (예시)**
-   A: (아주 간단한 일본어 대화)
-   B: (아주 간단한 일본어 대화)
-
-4. 이모지를 적절히 사용하여 친근하게 꾸며주세요.
-5. 전체 길이는 400자 이내로 해주세요.`;
+    // User Prompt
+    const userPrompt = `주제: '${category}'
+${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}`;
 
     try {
-      const content = await aiService.generateText(prompt, {
-        config: { temperature: 0.8 }, // 너무 엉뚱하지 않게
+      const rawResponse = await aiService.generateText(userPrompt, {
+        systemInstruction: systemPrompt,
+        config: {
+          temperature: 0.8,
+          responseMimeType: "application/json", // Native JSON Mode
+        },
       });
 
-      // 생성된 문장에서 핵심 문장 추출 (첫 줄 또는 "오늘의 기초 일본어" 다음 줄)
-      const lines = content.split("\n");
-      let keySentence = "";
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes("오늘의 기초 일본어") && lines[i + 1]) {
-          keySentence = lines[i + 1].trim();
-          break;
-        }
-      }
+      let parsedData: DailyJapaneseData | null = null;
+      let finalContent = rawResponse;
 
-      // 파싱 실패시 내용의 앞부분 일부 사용
-      if (!keySentence) {
-        keySentence = content.substring(0, 50).replace(/\n/g, " ");
+      try {
+        parsedData = JSON.parse(rawResponse);
+        if (parsedData?.content) {
+          finalContent = parsedData.content;
+        }
+      } catch (e) {
+        console.error("[JapaneseService] JSON Parsing Failed:", e);
       }
 
       // 히스토리에 저장
-      historyManager.addHistory("japanese", keySentence);
-
-      const weekdayMsg = this.getWeekdayMessage();
+      historyManager.addHistory("japanese", finalContent);
 
       return {
         category,
-        content,
-        weekdayMsg,
+        data: parsedData,
+        content: finalContent,
+        weekdayMsg: this.getWeekdayMessage(),
       };
     } catch (error) {
       console.error("[JapaneseService] 생성 오류:", error);
       throw error;
     }
+  }
+
+  /**
+   * Embed 생성 헬퍼
+   */
+  createEmbed(contentData: JapaneseContent): EmbedBuilder {
+    const { category, data, content, weekdayMsg } = contentData;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xff69b4) // 핫핑크
+      .setTitle(`🇯🇵 오늘의 왕초보 일본어 - ${category} 편`)
+      .setTimestamp()
+      .setFooter({ text: "Daily Japanese Helper" });
+
+    if (data) {
+      embed.setDescription(weekdayMsg);
+
+      // 1. 오늘의 기초 일본어
+      embed.addFields({
+        name: "🇯🇵 오늘의 기초 일본어",
+        value: `### ${data.content}`,
+      });
+
+      // 2. 발음 & 의미 (나란히 배치 시도, 줄바꿈 사용)
+      embed.addFields(
+        {
+          name: "🗣️ 발음",
+          value: data.pronunciation,
+          inline: true,
+        },
+        {
+          name: "💡 의미",
+          value: data.meaning,
+          inline: true,
+        },
+      );
+
+      // 3. 설명
+      embed.addFields({
+        name: "📘 설명",
+        value: data.description,
+      });
+
+      // 4. 예시
+      if (data.examples && data.examples.length > 0) {
+        const exampleText = data.examples
+          .map((ex) => `**A:** ${ex.a}\n**B:** ${ex.b}`)
+          .join("\n\n");
+        embed.addFields({
+          name: "✨ 따라 해보세요 (예시)",
+          value: exampleText,
+        });
+      }
+    } else {
+      // Fallback
+      embed.setDescription(`${weekdayMsg}\n\n${content}`);
+    }
+
+    return embed;
   }
 
   /**
@@ -143,24 +211,13 @@ ${historyText}
     console.log("[JapaneseService] 일일 일본어 알림 발송 시작...");
 
     try {
-      // 콘텐츠 생성
-      const { category, content, weekdayMsg } =
-        await this.generateDailyContent();
-
-      // Embed 생성
-      const embed = new EmbedBuilder()
-        .setColor(0xff69b4) // 핫핑크 (일본어 느낌?)
-        .setTitle(`🇯🇵 오늘의 왕초보 일본어 - ${category} 편`)
-        .setDescription(`${weekdayMsg}\n\n${content}`)
-        .setFooter({ text: "Daily Japanese Helper" })
-        .setTimestamp();
+      const contentData = await this.generateDailyContent();
+      const embed = this.createEmbed(contentData);
 
       let successCount = 0;
 
-      // 모든 길드 순회
       for (const guild of client.guilds.cache.values()) {
         try {
-          // 'general' 또는 '일반'이 포함된 텍스트 채널 찾기
           const targetChannel = guild.channels.cache.find(
             (channel) =>
               channel.type === ChannelType.GuildText &&
@@ -175,10 +232,6 @@ ${historyText}
               `[JapaneseService] 발송 성공: ${guild.name} #${targetChannel.name}`,
             );
             successCount++;
-          } else {
-            console.log(
-              `[JapaneseService] 스킵: ${guild.name} (적절한 채널 없음)`,
-            );
           }
         } catch (err: any) {
           console.error(

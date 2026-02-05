@@ -11,16 +11,16 @@ const handleEnglishTest = async (message: Message, args: string[]) => {
   try {
     const waitMsg = await message.reply("🇺🇸 영어 문장을 생성하고 있습니다...");
 
-    // 콘텐츠 생성 (직접 발송하지 않고 데이터만 가져옴)
-    const { category, content, weekdayMsg } =
-      await englishService.generateDailyContent();
+    // 콘텐츠 생성
+    const contentData = await englishService.generateDailyContent();
 
-    const embed = new EmbedBuilder()
-      .setColor(0x00b0f4)
-      .setTitle(`[TEST] 🇺🇸 오늘의 영어 표현 - ${category} 편`)
-      .setDescription(`${weekdayMsg}\n\n${content}`)
-      .setFooter({ text: "Only visible to Admin" })
-      .setTimestamp();
+    // Embed 생성 (Service의 공통 로직 재사용)
+    const embed = englishService.createEmbed(contentData);
+
+    // 테스트용 커스텀 설정 덮어쓰기
+    embed
+      .setTitle(`[TEST] 🇺🇸 오늘의 영어 표현 - ${contentData.category} 편`)
+      .setFooter({ text: "Only visible to Admin" });
 
     // 관리자에게 DM 발송
     try {

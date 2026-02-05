@@ -48,10 +48,12 @@ export class GeminiProvider extends BaseProvider {
       const modelName = options.model || this.defaultModel;
       const model = this.genAI.getGenerativeModel({
         model: modelName,
+        systemInstruction: options.systemInstruction,
         tools: options.tools,
         generationConfig: {
           ...this.defaultConfig,
           ...options.config,
+          responseMimeType: options.responseMimeType,
         },
       });
 

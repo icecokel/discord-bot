@@ -13,16 +13,16 @@ const handleJapaneseTest = async (message: Message, args: string[]) => {
       "🇯🇵 일본어 문장을 생성하고 있습니다...",
     );
 
-    // 콘텐츠 생성 (직접 발송하지 않고 데이터만 가져옴)
-    const { category, content, weekdayMsg } =
-      await japaneseService.generateDailyContent();
+    // 콘텐츠 생성
+    const contentData = await japaneseService.generateDailyContent();
 
-    const embed = new EmbedBuilder()
-      .setColor(0xff69b4)
-      .setTitle(`[TEST] 🇯🇵 오늘의 왕초보 일본어 - ${category} 편`)
-      .setDescription(`${weekdayMsg}\n\n${content}`)
-      .setFooter({ text: "Only visible to Admin" })
-      .setTimestamp();
+    // Embed 생성 (Service의 공통 로직 재사용)
+    const embed = japaneseService.createEmbed(contentData);
+
+    // 테스트용 커스텀 설정
+    embed
+      .setTitle(`[TEST] 🇯🇵 오늘의 왕초보 일본어 - ${contentData.category} 편`)
+      .setFooter({ text: "Only visible to Admin" });
 
     // 관리자에게 DM 발송
     try {
