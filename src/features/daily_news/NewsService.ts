@@ -17,6 +17,7 @@ class NewsService {
   /**
    * 오늘의 주요 뉴스를 검색하고 포맷팅하여 반환합니다.
    */
+  async generateDailyNews(): Promise<string> {
     // 검색 쿼리에 포맷팅 지시사항을 포함 (User Prompt 강화)
     const query = `site:news.naver.com 오늘 대한민국 주요 뉴스 5가지를 찾아주세요.
 검색된 결과를 바탕으로 아래 포맷을 **정확히** 지켜서 작성해야 합니다.
