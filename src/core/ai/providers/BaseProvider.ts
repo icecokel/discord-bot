@@ -1,6 +1,8 @@
 export interface IGenerationOptions {
   model?: string;
   config?: any;
+  systemInstruction?: string;
+  responseMimeType?: string;
   [key: string]: any;
 }
 

@@ -1,9 +1,26 @@
-import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
+import {
+  EmbedBuilder,
+  ChannelType,
+  Client,
+  TextChannel,
+  Colors,
+} from "discord.js";
 import { aiService } from "../../core/ai";
 import historyManager from "../../utils/HistoryManager";
 
-interface EnglishContent {
+interface DailyEnglishData {
+  content: string;
+  meaning: string;
+  pronunciation?: string; // 영어는 보통 필요 없지만 일관성을 위해
+  description: string;
+  examples: Array<{ a: string; b: string }>;
+}
+
+export interface EnglishContent {
   category: string;
+  // 구조화된 데이터 (성공 시)
+  data: DailyEnglishData | null;
+  // 원본 텍스트 (실패 시 또는 레거시 호환용)
   content: string;
   weekdayMsg: string;
 }
@@ -49,82 +66,118 @@ class EnglishService {
   }
 
   /**
-   * AI를 통해 오늘의 영어 문장 생성
+   * AI를 통해 오늘의 영어 문장 생성 (Structured Output)
    */
   async generateDailyContent(): Promise<EnglishContent> {
     const category = this.getRandomCategory();
-
-    // 최근 사용된 문장 가져오기
     const recentHistory = historyManager.getRecentContents("english");
-    const historyText =
-      recentHistory.length > 0
-        ? `\n**⛔ 제외할 표현들 (이미 사용됨, 절대 사용 금지):**\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`
-        : "";
 
-    const prompt = `당신은 친절한 영어 선생님입니다.
-'${category}' 상황에서 유용하게 쓸 수 있는 영어 문장을 하나 알려주세요.
+    // System Prompt: 역할 및 규칙 정의
+    const systemPrompt = `당신은 한국인을 위한 친절한 영어 선생님입니다.
+초보자도 이해하기 쉬운 실용적인 영어 문장을 가르쳐주세요.
 
-규칙:
-1. 한국어 독자를 위해 작성하세요.
-${historyText}
-2. 내용은 다음 형식을 엄격히 따라주세요 (JSON 아님, 텍스트 형식):
-   
-   📝 **오늘의 문장**
-   (영어 문장)
-   
-   💡 **해석**
-   (자연스러운 한국어 해석)
-   
-   📘 **설명**
-   (이 표현이 쓰이는 상황이나 뉘앙스에 대한 1~2줄 설명)
+# 필수 규칙
+1. 응답은 반드시 아래 JSON 포맷을 준수해야 합니다.
+2. 예시는 대화체(A, B)로 2개를 작성하세요.
+3. 이모지를 적절히 사용하여 친근하게 만드세요.
 
-   ✨ **활용 예시 1**
-   A: (영어 대화)
-   B: (영어 대화)
+# JSON 포맷 예시
+{
+  "content": "Make yourself at home.",
+  "meaning": "편하게 계세요.",
+  "description": "손님이 방문했을 때 긴장을 풀어주기 위해 쓰는 표현입니다.",
+  "examples": [
+    { "a": "Thank you for inviting me.", "b": "You're welcome. Please make yourself at home." },
+    { "a": "Can I use the restroom?", "b": "Sure! Make yourself at home." }
+  ]
+}`;
 
-   ✨ **활용 예시 2**
-   A: (영어 대화)
-   B: (영어 대화)
-
-3. 이모지를 적절히 사용하여 예쁘게 꾸며주세요.
-4. 전체 길이는 400자 이내로 해주세요.`;
+    // User Prompt: 동적 데이터 전달
+    const userPrompt = `주제: '${category}'
+${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}`;
 
     try {
-      const content = await aiService.generateText(prompt, {
-        config: { temperature: 0.9 }, // 약간의 창의성 허용
+      const rawResponse = await aiService.generateText(userPrompt, {
+        systemInstruction: systemPrompt,
+        config: {
+          temperature: 0.9,
+          responseMimeType: "application/json", // Native JSON Mode
+        },
       });
 
-      // 생성된 문장에서 핵심 문장 추출 (첫 줄 또는 "오늘의 문장" 다음 줄)
-      // 간단히 전체 텍스트에서 파싱하거나, 전체 내용을 저장하기엔 너무 기므로
-      // 여기서는 "📝 **오늘의 문장**" 다음 줄을 추출해서 저장한다고 가정
-      const lines = content.split("\n");
-      let keySentence = "";
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes("오늘의 문장") && lines[i + 1]) {
-          keySentence = lines[i + 1].trim();
-          break;
+      let parsedData: DailyEnglishData | null = null;
+      let finalContent = rawResponse;
+
+      try {
+        parsedData = JSON.parse(rawResponse);
+        // 파싱 성공 시 content 필드 업데이트 (히스토리 저장용)
+        if (parsedData?.content) {
+          finalContent = parsedData.content;
         }
+      } catch (e) {
+        console.error("[EnglishService] JSON Parsing Failed:", e);
+        // 실패 시 rawResponse를 그대로 사용 (Fallback)
       }
 
-      // 파싱 실패시 내용의 앞부분 일부 사용
-      if (!keySentence) {
-        keySentence = content.substring(0, 50).replace(/\n/g, " ");
-      }
-
-      // 히스토리에 저장
-      historyManager.addHistory("english", keySentence);
-
-      const weekdayMsg = this.getWeekdayMessage();
+      // 히스토리에 저장 (핵심 문장)
+      historyManager.addHistory("english", finalContent);
 
       return {
         category,
-        content,
-        weekdayMsg,
+        data: parsedData, // 성공 시 객체, 실패 시 null
+        content: finalContent, // 문자열 (Fallback 지원)
+        weekdayMsg: this.getWeekdayMessage(),
       };
     } catch (error) {
       console.error("[EnglishService] 생성 오류:", error);
       throw error;
     }
+  }
+
+  /**
+   * Embed 생성 헬퍼
+   */
+  createEmbed(contentData: EnglishContent): EmbedBuilder {
+    const { category, data, content, weekdayMsg } = contentData;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x00b0f4) // 하늘색
+      .setTitle(`🇺🇸 오늘의 영어 표현 - ${category} 편`)
+      .setTimestamp()
+      .setFooter({ text: "Daily English Helper" });
+
+    if (data) {
+      // JSON 파싱 성공 -> 예쁜 카드 뷰
+      embed.setDescription(weekdayMsg); // 요일 멘트는 상단에
+
+      // 1. 오늘의 문장 (가장 크게)
+      embed.addFields({
+        name: "📝 오늘의 문장",
+        value: `### ${data.content}\n${data.meaning}`, // Markdown Heading 활용
+      });
+
+      // 2. 설명
+      embed.addFields({
+        name: "📘 설명",
+        value: data.description,
+      });
+
+      // 3. 예시
+      if (data.examples && data.examples.length > 0) {
+        const exampleText = data.examples
+          .map((ex) => `**A:** ${ex.a}\n**B:** ${ex.b}`)
+          .join("\n\n");
+        embed.addFields({
+          name: "✨ 활용 예시",
+          value: exampleText,
+        });
+      }
+    } else {
+      // Fallback -> 기존 통짜 텍스트 뷰
+      embed.setDescription(`${weekdayMsg}\n\n${content}`);
+    }
+
+    return embed;
   }
 
   /**
@@ -136,24 +189,13 @@ ${historyText}
     console.log("[EnglishService] 일일 영어 문장 발송 시작...");
 
     try {
-      // 콘텐츠 생성
-      const { category, content, weekdayMsg } =
-        await this.generateDailyContent();
-
-      // Embed 생성
-      const embed = new EmbedBuilder()
-        .setColor(0x00b0f4) // 하늘색
-        .setTitle(`🇺🇸 오늘의 영어 표현 - ${category} 편`)
-        .setDescription(`${weekdayMsg}\n\n${content}`)
-        .setFooter({ text: "Daily English Helper" })
-        .setTimestamp();
+      const contentData = await this.generateDailyContent();
+      const embed = this.createEmbed(contentData);
 
       let successCount = 0;
 
-      // 모든 길드 순회
       for (const guild of client.guilds.cache.values()) {
         try {
-          // 'general' 또는 '일반'이 포함된 텍스트 채널 찾기
           const targetChannel = guild.channels.cache.find(
             (channel) =>
               channel.type === ChannelType.GuildText &&
@@ -168,10 +210,6 @@ ${historyText}
               `[EnglishService] 발송 성공: ${guild.name} #${targetChannel.name}`,
             );
             successCount++;
-          } else {
-            console.log(
-              `[EnglishService] 스킵: ${guild.name} (적절한 채널 없음)`,
-            );
           }
         } catch (err: any) {
           console.error(
@@ -185,7 +223,6 @@ ${historyText}
         `[EnglishService] 발송 완료. 총 ${successCount}개 채널 전송.`,
       );
 
-      // 테스트용 리턴 (Admin 커맨드 등에서 사용 가능)
       return { successCount, embed };
     } catch (error) {
       console.error("[EnglishService] 전체 발송 중 치명적 오류:", error);
