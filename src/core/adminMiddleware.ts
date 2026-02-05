@@ -75,6 +75,8 @@ export const handleAdminCommand = async (
     console.log(
       `[AdminMiddleware] Ignored: Not a DM channel. (Channel Type: ${message.channel.type})`,
     );
+    // 보안상 무시하는 것이 원칙이나, 디버깅을 위해 잠시 활성화
+    // await message.reply("❌ 이 명령어는 DM에서만 사용할 수 있습니다.");
     return false;
   }
 
@@ -82,6 +84,10 @@ export const handleAdminCommand = async (
   if (!isAdmin(message.author.id)) {
     console.log(
       `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${ADMIN_ID})`,
+    );
+    // 명시적 에러 메시지 전송 (디버깅용)
+    await message.reply(
+      `⛔ 관리자 권한이 없습니다. (Your ID: ${message.author.id})`,
     );
     return false;
   }
