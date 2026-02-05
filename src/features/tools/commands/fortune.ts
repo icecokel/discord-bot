@@ -95,10 +95,10 @@ const execute = async (message: Message): Promise<void | Message> => {
       "🔮 별들의 목소리를 듣고 있습니다...",
     );
 
-    // AI 서비스를 통해 운세 생성 (gemini-2.0-flash 사용)
+    // AI 서비스를 통해 운세 생성 (gemini-3-flash-preview 사용)
     const prompt = `${FORTUNE_SYSTEM_PROMPT}\n\n오늘은 ${today}입니다. 오늘의 운세를 알려주세요.`;
 
-    // Gemini 2.0 Flash 모델의 창의성 파라미터 적용
+    // Gemini 3.0 Flash (Preview) 모델의 창의성 파라미터 적용
     const fortuneContent = await aiService.generateText(prompt, {
       config: {
         temperature: 1.2,
