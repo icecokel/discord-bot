@@ -67,9 +67,19 @@ class NewsService {
 
       // AI가 고집스럽게 번호를 매기는 경우 강제로 하이픈으로 변환 (Post-processing)
       // 예: "   2. 요약:" -> "- 요약:" (공백 포함 처리)
-      const formattedResponse = rawResponse.replace(
-        /^[\s\t]*\d+\.[\s\t]*(요약|링크|참고):/gm,
-        "- $1:",
+      // 1. 서브 아이템(요약, 링크)의 숫자를 강제로 불렛으로 변환
+      let formattedResponse = rawResponse.replace(
+        /^[\s\t]*\d+\.?[\s\t]*(요약|링크|참고|Summary|Link)/gm,
+        "- $1",
+      );
+
+      // 2. 제목 넘버링을 1, 2, 3 순서대로 재정렬 (AI가 1, 2, 2, 4 이렇게 할 수도 있으므로)
+      let titleIndex = 1;
+      formattedResponse = formattedResponse.replace(
+        /^[\s\t]*(\d+\.)?[\s\t]*(\*\*\[.*\]\*\*)/gm,
+        (match, p1, p2) => {
+          return `${titleIndex++}. ${p2}`;
+        },
       );
 
       return formattedResponse;
