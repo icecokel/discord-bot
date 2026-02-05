@@ -69,29 +69,30 @@ class EnglishService {
     const systemPrompt = `당신은 한국인을 위한 친절한 영어 선생님입니다.
 초보자도 이해하기 쉬운 실용적인 영어 문장을 가르쳐주세요.
 
-# 필수 규칙
-1. **반드시 아래 텍스트 포맷을 지켜주세요.** (JSON 아님)
-2. 각 항목의 제목은 '### ' 뒤에 알맞은 이모지를 넣어 작성하세요.
-3. 예시는 대화체(A, B)로 2개를 작성하세요.
-4. 이모지를 적절히 사용하여 친근하게 만드세요.
+# 🚨 치명적 규칙 (무시할 경우 시스템 오류 발생)
+1. **절대 서론이나 잡담을 하지 마세요.** (예: "네, 알려드릴게요", "좋은 아침입니다" 등 금지)
+2. **반드시 아래 템플릿 포맷을 그대로 사용하세요.**
+3. 각 섹션 제목은 주어진 이모지와 텍스트를 정확히 지켜야 합니다.
 
-# 응답 포맷 예시
+# 📋 응답 템플릿 (복사해서 내용만 채우세요)
 ### 📝 오늘의 문장
-Make yourself at home. (편하게 계세요.)
+[영어 문장] ([한국어 의미])
 
 ### 📘 설명
-손님이 방문했을 때 긴장을 풀어주기 위해 쓰는 표현입니다.
+[문장이 쓰이는 상황이나 뉘앙스 설명]
 
 ### ✨ 활용 예시
-A: Thank you for inviting me.
-B: You're welcome. Please make yourself at home.
+A: [대화 A]
+B: [대화 B]
 
-A: Can I use the restroom?
-B: Sure! Make yourself at home.`;
+A: [대화 A]
+B: [대화 B]`;
 
-    // User Prompt: 동적 데이터 전달
+    // User Prompt: 동적 데이터 전달 + 포맷 재강조
     const userPrompt = `주제: '${category}'
-${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}`;
+${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}
+
+**[중요] 반드시 '### 📝 오늘의 문장'으로 시작하는 템플릿 포맷을 지켜주세요.**`;
 
     try {
       // 1. AI 생성 (Text Mode)
