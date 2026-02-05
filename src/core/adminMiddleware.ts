@@ -66,25 +66,28 @@ export const handleAdminCommand = async (
     return false;
   }
 
+  console.log(`[AdminMiddleware] Admin command detected: ${commandName}`);
+
   // 2. Admin 전용 커맨드임. 이제 권한 검사.
 
   // 3. DM 체크
   if (!isDM(message)) {
-    // Admin 커맨드지만 DM이 아니면 -> 일반 커맨드일 수도 있으니 패스?
-    // 아니면 "보안상 무시"?
-    // 유저 룰: "조용히 무시 권장" -> false 리턴해서 일반 커맨드로 넘기거나, 여기서 종료.
-    // 만약 일반 커맨드에 동일한 이름이 있다면 실행될 수 있음.
-    // Admin 기능이 일반 기능과 이름이 겹치지 않는다고 가정하면 false 리턴이 안전.
+    console.log(
+      `[AdminMiddleware] Ignored: Not a DM channel. (Channel Type: ${message.channel.type})`,
+    );
     return false;
   }
 
   // 4. Admin ID 체크
   if (!isAdmin(message.author.id)) {
-    // Admin 커맨드지만 권한 없음 -> 무시
+    console.log(
+      `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${ADMIN_ID})`,
+    );
     return false;
   }
 
   // 5. 권한 충족 -> 실행
+  console.log(`[AdminMiddleware] Executing command: ${commandName}`);
   const subArgs = args.slice(1);
   try {
     await handler(message, subArgs);
