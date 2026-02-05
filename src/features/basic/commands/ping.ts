@@ -22,6 +22,6 @@ export default {
       return message.reply({ embeds: [embed] });
     }
 
-    await message.reply("Pong! 🏓 (Deploy Check: v0.0.3 - Gemini 2.0 Switch)");
+    await message.reply("Pong! 🏓 (Deploy Check: v0.0.4 - Back to 3.0)");
   },
 };
