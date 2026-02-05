@@ -63,13 +63,16 @@ export const handleAdminCommand = async (
 
   if (!handler) {
     // 디버깅: 등록된 커맨드 목록 확인
-    if (commandName === "뉴스") {
-      const registered = Array.from(adminCommands.keys()).join(", ");
-      console.log(
-        `[AdminMiddleware] '뉴스' 커맨드 미발견. 등록된 목록: [${registered}]`,
-      );
+    // 디버깅: 매핑되지 않은 커맨드가 들어오면 그대로 반환 (인코딩 확인용)
+    // 단, DM일 경우에만 반응 (서버 채널 스팸 방지)
+    if (isDM(message)) {
+      // 유니코드 값까지 포함하여 출력 (완벽한 확인을 위해)
+      const unicodeDebug = commandName
+        .split("")
+        .map((c) => c.charCodeAt(0).toString(16))
+        .join(" ");
       await message.reply(
-        `⛔ '뉴스' 커맨드가 등록되지 않았습니다. (Available: ${registered})`,
+        `[Debug] Received: ${commandName}\n(Hex: ${unicodeDebug})`,
       );
     }
     // Admin 전용 커맨드가 아니면 일반 커맨드 핸들러로 넘김
