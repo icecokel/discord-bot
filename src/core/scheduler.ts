@@ -5,6 +5,7 @@ import kmaData from "../data/kma_data.json";
 import { EmbedBuilder, Client } from "discord.js";
 import englishService from "../features/daily_english/EnglishService";
 import japaneseService from "../features/daily_japanese/JapaneseService";
+import newsService from "../features/daily_news/NewsService";
 
 // 통합 스케줄러 초기화 (날씨 + 영어 학습)
 export const initializeSchedulers = (client: Client): void => {
@@ -116,4 +117,23 @@ export const initializeSchedulers = (client: Client): void => {
     },
   );
   console.log("[Scheduler] 일본어 알림 스케줄러 등록 완료 (매일 오후 2시 KST)");
+
+  // === 뉴스 알림 (하루 3회: 08, 13, 21시) ===
+  const newsTimes = [8, 13, 21];
+  newsTimes.forEach((hour) => {
+    cron.schedule(
+      `0 ${hour} * * *`,
+      async () => {
+        console.log(`[Scheduler] ${hour}시 뉴스 알림 시작`);
+        await newsService.sendToGeneralChannels(client);
+        console.log(`[Scheduler] ${hour}시 뉴스 알림 완료`);
+      },
+      {
+        timezone: "Asia/Seoul",
+      },
+    );
+  });
+  console.log(
+    `[Scheduler] 뉴스 알림 스케줄러 등록 완료 (매일 ${newsTimes.join(", ")}시 KST)`,
+  );
 };
