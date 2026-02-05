@@ -21,49 +21,59 @@ class NewsService {
     const query = "site:news.naver.com 오늘 대한민국 주요 뉴스 5가지";
     const systemPrompt = `당신은 뉴스 큐레이터입니다.
 대한민국의 오늘 주요 뉴스 5가지를 선정하여 정리해주세요.
-각 뉴스는 아래 3가지 항목을 반드시 포함해야 합니다.
 
-1. 제목 (Title) - 흥미롭고 간결하게
-2. 한 줄 설명 (Description) - 핵심 내용을 요약
-3. 링크 (Link) - 뉴스 기사 원문 URL (네이버 뉴스 권장)
+# 각 뉴스 항목의 형식 (반드시 지킬 것)
+### 1. [뉴스 제목]
+- 요약: [한 줄 설명]
+- 링크: [기사 URL]
 
-# 출력 형식 (반드시 JSON 배열 형태)
-[
-  {
-    "title": "뉴스 제목",
-    "description": "뉴스 설명",
-    "link": "https://n.news.naver.com/..."
-  },
-  ...
-]`;
+# 규칙
+- 반드시 5개의 뉴스를 작성하세요.
+- 번호(1, 2, 3...)와 "### " 형식을 정확히 지켜주세요.
+- 링크는 네이버 뉴스(n.news.naver.com) 위주로 찾아주세요.
+- JSON 형식이 아닌 일반 텍스트로(Markdown) 작성하세요.`;
 
     try {
-      // AI를 통해 검색 및 요약 요청 (aiService 직접 사용)
+      // AI를 통해 검색 및 요약 요청 (Text Mode)
       const rawResponse = await aiService.generateText(query, {
         systemInstruction: systemPrompt,
-        tools: searchService.getTools(), // 검색 도구 주입
+        tools: searchService.getTools(),
         config: {
-          responseMimeType: "application/json", // JSON 모드 (Gemini API 지원 시)
+          // JSON 모드 사용 안 함
         },
       });
 
-      // JSON 파싱 시도
-      let newsItems: NewsItem[] = [];
-      try {
-        // 응답에 마크다운 코드 블록이 있을 수 있으므로 제거 시도
-        const cleanResponse = rawResponse
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
-        newsItems = JSON.parse(cleanResponse);
+      // 텍스트 파싱
+      const newsItems: NewsItem[] = [];
+      const sections = rawResponse.split(/### \d+\./); // "### 1.", "### 2." 등으로 분리
 
-        // 배열이 아닐 경우 (객체로 감싸져 있을 수 있음) 처리
-        if (!Array.isArray(newsItems) && (newsItems as any).news) {
-          newsItems = (newsItems as any).news;
+      for (const section of sections) {
+        if (!section.trim()) continue;
+
+        const lines = section.trim().split("\n");
+        let title = lines[0].trim();
+        let description = "";
+        let link = "";
+
+        // 제목에서 대괄호 제거 ([뉴스 제목] -> 뉴스 제목)
+        title = title.replace(/^\[|\]$/g, "").trim();
+
+        for (const line of lines.slice(1)) {
+          if (line.includes("- 요약:")) {
+            description = line.replace("- 요약:", "").trim();
+            // 대괄호 제거
+            description = description.replace(/^\[|\]$/g, "").trim();
+          } else if (line.includes("- 링크:")) {
+            link = line.replace("- 링크:", "").trim();
+            // 대괄호 제거
+            link = link.replace(/^\[|\]$/g, "").trim();
+          }
         }
-      } catch (e) {
-        console.error("[NewsService] JSON 파싱 실패, 텍스트 파싱 시도", e);
-        return [];
+
+        if (title && description) {
+          // 링크가 없을 경우 검색 결과에서 유추하거나 비워둠 (여기서는 안전하게 추가)
+          newsItems.push({ title, description, link });
+        }
       }
 
       return newsItems.slice(0, 5); // 최대 5개 유지
