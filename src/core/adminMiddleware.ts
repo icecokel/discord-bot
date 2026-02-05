@@ -62,6 +62,16 @@ export const handleAdminCommand = async (
   const handler = adminCommands.get(commandName);
 
   if (!handler) {
+    // 디버깅: 등록된 커맨드 목록 확인
+    if (commandName === "뉴스") {
+      const registered = Array.from(adminCommands.keys()).join(", ");
+      console.log(
+        `[AdminMiddleware] '뉴스' 커맨드 미발견. 등록된 목록: [${registered}]`,
+      );
+      await message.reply(
+        `⛔ '뉴스' 커맨드가 등록되지 않았습니다. (Available: ${registered})`,
+      );
+    }
     // Admin 전용 커맨드가 아니면 일반 커맨드 핸들러로 넘김
     return false;
   }
