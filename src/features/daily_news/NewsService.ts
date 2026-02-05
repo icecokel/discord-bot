@@ -66,9 +66,9 @@ class NewsService {
       });
 
       // AI가 고집스럽게 번호를 매기는 경우 강제로 하이픈으로 변환 (Post-processing)
-      // 예: "2. 요약:" -> "- 요약:"
+      // 예: "   2. 요약:" -> "- 요약:" (공백 포함 처리)
       const formattedResponse = rawResponse.replace(
-        /^\d+\.\s+(요약|링크|참고):/gm,
+        /^[\s\t]*\d+\.[\s\t]*(요약|링크|참고):/gm,
         "- $1:",
       );
 
