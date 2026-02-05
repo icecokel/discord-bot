@@ -22,6 +22,6 @@ export default {
       return message.reply({ embeds: [embed] });
     }
 
-    message.reply("Pong! 🏓");
+    message.reply("Pong! 🏓 (Deploy Check: v0.0.1 - Echo Added)");
   },
 };
