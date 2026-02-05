@@ -17,8 +17,10 @@ const aiHandler = async (message: Message, args: string[]) => {
   const waitMsg = await message.reply("💬 답변을 생성하고 있습니다...");
 
   try {
-    // AI 응답 생성
-    const response = await aiService.generateText(question);
+    // AI 응답 생성 (구글 검색 도구 활성화)
+    const response = await aiService.generateText(question, {
+      tools: [{ googleSearch: {} }],
+    });
 
     // 디스코드 메시지 길이 제한(2000자) 처리
     if (response.length > 1900) {
