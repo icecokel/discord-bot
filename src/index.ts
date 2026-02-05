@@ -12,6 +12,7 @@ import "./features/admin/commands/admin-notice";
 import "./features/admin/commands/admin-reset";
 import "./features/admin/commands/admin-english";
 import "./features/admin/commands/admin-japanese";
+import "./features/admin/commands/admin-ai";
 
 // Client 인터페이스 확장 (commands 속성 추가)
 declare module "discord.js" {
