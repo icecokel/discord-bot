@@ -59,6 +59,7 @@ class NewsService {
       const rawResponse = await aiService.generateText(query, {
         systemInstruction: systemPrompt,
         tools: searchService.getTools(),
+        model: "gemini-2.0-flash-exp", // 포맷 준수를 위해 2.0 모델 사용
         config: {
           maxOutputTokens: 4000,
           temperature: 0.6,

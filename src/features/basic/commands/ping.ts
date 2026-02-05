@@ -4,7 +4,7 @@ export default {
   name: "ping",
   keywords: ["ping"],
   description: "봇의 응답 속도를 확인합니다.",
-  execute(message: Message, args: string[]) {
+  async execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&
@@ -22,6 +22,6 @@ export default {
       return message.reply({ embeds: [embed] });
     }
 
-    message.reply("Pong! 🏓 (Deploy Check: v0.0.1 - Echo Added)");
+    await message.reply("Pong! 🏓 (Deploy Check: v0.0.3 - Gemini 2.0 Switch)");
   },
 };
