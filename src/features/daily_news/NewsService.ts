@@ -134,8 +134,8 @@ class NewsService {
     console.log("[NewsService] 뉴스 전체 발송 시작...");
     try {
       const newsItems = await this.generateDailyNews();
-      if (newsItems.length === 0) {
-        console.log("[NewsService] 뉴스 아이템이 없어 발송을 중단합니다.");
+      if (!newsItems || newsItems.length < 10) {
+        console.log("[NewsService] 뉴스 내용이 너무 짧아 발송을 중단합니다.");
         return;
       }
 
