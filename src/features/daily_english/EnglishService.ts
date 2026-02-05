@@ -1,26 +1,19 @@
-import {
-  EmbedBuilder,
-  ChannelType,
-  Client,
-  TextChannel,
-  Colors,
-} from "discord.js";
+import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
 import { aiService } from "../../core/ai";
 import historyManager from "../../utils/HistoryManager";
 
 interface DailyEnglishData {
   content: string;
   meaning: string;
-  pronunciation?: string; // 영어는 보통 필요 없지만 일관성을 위해
+  pronunciation?: string;
   description: string;
-  examples: Array<{ a: string; b: string }>;
+  examples?: Array<{ a: string; b: string }>;
+  rawExamples?: string; // Text parsing fallback
 }
 
 export interface EnglishContent {
   category: string;
-  // 구조화된 데이터 (성공 시)
   data: DailyEnglishData | null;
-  // 원본 텍스트 (실패 시 또는 레거시 호환용)
   content: string;
   weekdayMsg: string;
 }
@@ -72,60 +65,93 @@ class EnglishService {
     const category = this.getRandomCategory();
     const recentHistory = historyManager.getRecentContents("english");
 
-    // System Prompt: 역할 및 규칙 정의
+    // System Prompt: 역할 및 규칙 정의 (JSON 제거, 텍스트 포맷 강조)
     const systemPrompt = `당신은 한국인을 위한 친절한 영어 선생님입니다.
 초보자도 이해하기 쉬운 실용적인 영어 문장을 가르쳐주세요.
 
 # 필수 규칙
-1. 응답은 반드시 아래 JSON 포맷을 준수해야 합니다.
-2. 예시는 대화체(A, B)로 2개를 작성하세요.
-3. 이모지를 적절히 사용하여 친근하게 만드세요.
+1. **반드시 아래 텍스트 포맷을 지켜주세요.** (JSON 아님)
+2. 각 항목의 제목은 '### ' 뒤에 알맞은 이모지를 넣어 작성하세요.
+3. 예시는 대화체(A, B)로 2개를 작성하세요.
+4. 이모지를 적절히 사용하여 친근하게 만드세요.
 
-# JSON 포맷 예시
-{
-  "content": "Make yourself at home.",
-  "meaning": "편하게 계세요.",
-  "description": "손님이 방문했을 때 긴장을 풀어주기 위해 쓰는 표현입니다.",
-  "examples": [
-    { "a": "Thank you for inviting me.", "b": "You're welcome. Please make yourself at home." },
-    { "a": "Can I use the restroom?", "b": "Sure! Make yourself at home." }
-  ]
-}`;
+# 응답 포맷 예시
+### 📝 오늘의 문장
+Make yourself at home. (편하게 계세요.)
+
+### 📘 설명
+손님이 방문했을 때 긴장을 풀어주기 위해 쓰는 표현입니다.
+
+### ✨ 활용 예시
+A: Thank you for inviting me.
+B: You're welcome. Please make yourself at home.
+
+A: Can I use the restroom?
+B: Sure! Make yourself at home.`;
 
     // User Prompt: 동적 데이터 전달
     const userPrompt = `주제: '${category}'
 ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}`;
 
     try {
+      // 1. AI 생성 (Text Mode)
       const rawResponse = await aiService.generateText(userPrompt, {
         systemInstruction: systemPrompt,
         config: {
           temperature: 0.9,
-          responseMimeType: "application/json", // Native JSON Mode
+          // JSON 모드 제거 (기본 텍스트 모드)
         },
       });
 
-      let parsedData: DailyEnglishData | null = null;
-      let finalContent = rawResponse;
+      // 2. Robust Text Parsing (Regex)
+      // '### 제목' 패턴을 기준으로 텍스트를 나눔
+      const sections = rawResponse.split(/###\s+/);
+      const data: any = {};
 
-      try {
-        parsedData = JSON.parse(rawResponse);
-        // 파싱 성공 시 content 필드 업데이트 (히스토리 저장용)
-        if (parsedData?.content) {
-          finalContent = parsedData.content;
+      sections.forEach((section: string) => {
+        const lines = section.trim().split("\n");
+        if (lines.length < 1) return;
+
+        const title = lines[0].trim(); // 첫 줄은 제목
+        const content = lines.slice(1).join("\n").trim(); // 나머지는 내용
+
+        if (title.includes("오늘의 문장")) {
+          // 문장과 뜻이 같이 있는 경우 분리 시도 (줄바꿈 또는 괄호)
+          const parts = content.split(/\n|\(/);
+          data.content = parts[0].trim();
+          data.meaning = content
+            .replace(data.content, "")
+            .replace(/^\(/, "")
+            .replace(/\)$/, "")
+            .trim();
+          // 괄호 안에 뜻이 있다면 괄호 제거
+
+          // 만약 분리가 잘 안됐다면 통째로 넣음
+          if (!data.meaning) data.meaning = content;
+        } else if (title.includes("설명")) {
+          data.description = content;
+        } else if (title.includes("활용 예시")) {
+          // 예시는 텍스트 그대로 저장 (나중에 알아서 포맷팅됨)
+          data.examplesRaw = content;
         }
-      } catch (e) {
-        console.error("[EnglishService] JSON Parsing Failed:", e);
-        // 실패 시 rawResponse를 그대로 사용 (Fallback)
-      }
+      });
 
-      // 히스토리에 저장 (핵심 문장)
+      // 파싱 실패 시 원본 텍스트 사용 (Fallback)
+      const finalContent = data.content || rawResponse;
+
+      // 히스토리에 저장
       historyManager.addHistory("english", finalContent);
 
       return {
         category,
-        data: parsedData, // 성공 시 객체, 실패 시 null
-        content: finalContent, // 문자열 (Fallback 지원)
+        data: {
+          content: data.content || rawResponse, // 실패하면 전체 다 넣음
+          meaning: data.meaning || "",
+          description: data.description || "",
+          examples: [], // Text 모드에서는 examples 배열 구조화 포기 (복잡도 낮춤)
+          rawExamples: data.examplesRaw || "", // 대신 원본 텍스트 저장
+        },
+        content: finalContent,
         weekdayMsg: this.getWeekdayMessage(),
       };
     } catch (error) {
@@ -146,34 +172,30 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
       .setTimestamp()
       .setFooter({ text: "Daily English Helper" });
 
-    if (data) {
-      // JSON 파싱 성공 -> 예쁜 카드 뷰
-      embed.setDescription(weekdayMsg); // 요일 멘트는 상단에
+    // 파싱된 데이터가 조금이라도 있으면 Embed 구성
+    if (data && data.content && data.content !== content) {
+      embed.setDescription(weekdayMsg);
 
-      // 1. 오늘의 문장 (가장 크게)
       embed.addFields({
         name: "📝 오늘의 문장",
-        value: `### ${data.content}\n${data.meaning}`, // Markdown Heading 활용
+        value: `### ${data.content}\n${data.meaning}`,
       });
 
-      // 2. 설명
-      embed.addFields({
-        name: "📘 설명",
-        value: data.description,
-      });
+      if (data.description) {
+        embed.addFields({
+          name: "📘 설명",
+          value: data.description,
+        });
+      }
 
-      // 3. 예시
-      if (data.examples && data.examples.length > 0) {
-        const exampleText = data.examples
-          .map((ex) => `**A:** ${ex.a}\n**B:** ${ex.b}`)
-          .join("\n\n");
+      if (data.rawExamples) {
         embed.addFields({
           name: "✨ 활용 예시",
-          value: exampleText,
+          value: data.rawExamples,
         });
       }
     } else {
-      // Fallback -> 기존 통짜 텍스트 뷰
+      // 완전 Fallback -> 그냥 텍스트 때려박기
       embed.setDescription(`${weekdayMsg}\n\n${content}`);
     }
 
@@ -186,7 +208,7 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
   async sendToGeneralChannels(
     client: Client,
   ): Promise<EnglishServiceResult | null> {
-    console.log("[EnglishService] 일일 영어 문장 발송 시작...");
+    console.log("[EnglishService] 일일 영어 알림 발송 시작...");
 
     try {
       const contentData = await this.generateDailyContent();

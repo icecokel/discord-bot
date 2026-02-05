@@ -1,19 +1,14 @@
-import {
-  EmbedBuilder,
-  ChannelType,
-  Client,
-  TextChannel,
-  Colors,
-} from "discord.js";
+import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
 import { aiService } from "../../core/ai";
 import historyManager from "../../utils/HistoryManager";
 
 interface DailyJapaneseData {
-  content: string; // 일본어 문장/단어
-  pronunciation: string; // 발음 (한글/로마자)
-  meaning: string; // 의미
-  description: string; // 설명
-  examples: Array<{ a: string; b: string }>; // 대화 예시
+  content: string;
+  pronunciation?: string;
+  meaning: string;
+  description: string;
+  examples?: Array<{ a: string; b: string }>;
+  rawExamples?: string; // Text parsing fallback
 }
 
 export interface JapaneseContent {
@@ -81,59 +76,92 @@ class JapaneseService {
     const category = this.getRandomCategory();
     const recentHistory = historyManager.getRecentContents("japanese");
 
-    // System Prompt
+    // System Prompt (JSON 제거, 텍스트 포맷 강조)
     const systemPrompt = `당신은 왕초보를 위한 친절한 일본어 선생님입니다.
 일본어를 처음 배우는 한국인 학습자를 위해 아주 기초적이고 쉬운 단어나 문장을 가르쳐주세요.
 
 # 필수 규칙
-1. 응답은 반드시 아래 JSON 포맷을 준수해야 합니다.
-2. 한자에는 반드시 발음(후리가나 또는 로마자)을 포함하세요.
-3. 예시는 아주 간단한 대화(A, B)로 2개를 작성하세요.
-4. 어려운 한자는 피하고 히라가나 위주로 작성하세요.
+1. **반드시 아래 텍스트 포맷을 지켜주세요.** (JSON 아님)
+2. 각 항목의 제목은 '### ' 뒤에 알맞은 이모지를 넣어 작성하세요.
+3. 한자에는 반드시 발음(후리가나 또는 로마자)을 괄호 안에 표기하세요.
+4. 예시는 아주 간단한 대화(A, B)로 2개를 작성하세요.
+5. 어려운 한자는 피하고 히라가나 위주로 작성하세요.
 
-# JSON 포맷 예시
-{
-  "content": "ありがとうございます",
-  "pronunciation": "아리가토- 고자이마스",
-  "meaning": "감사합니다",
-  "description": "가장 기본적이고 정중한 감사 인사입니다.",
-  "examples": [
-    { "a": "プレゼントです。", "b": "ありがとうございます！" },
-    { "a": "座ってください。", "b": "ありがとうございます。" }
-  ]
-}`;
+# 응답 포맷 예시
+### 🇯🇵 오늘의 기초 일본어
+ありがとうございます (아리가토- 고자이마스) / 감사합니다
+
+### 📘 설명
+가장 기본적이고 정중한 감사 인사입니다.
+
+### ✨ 따라 해보세요 (예시)
+A: プレゼントです。 (선물이에요.)
+B: ありがとうございます！ (감사합니다!)
+
+A: 座ってください。 (앉으세요.)
+B: ありがとうございます。 (감사합니다.)`;
 
     // User Prompt
     const userPrompt = `주제: '${category}'
 ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.join(", ")}` : ""}`;
 
     try {
+      // 1. AI 생성 (Text Mode)
       const rawResponse = await aiService.generateText(userPrompt, {
         systemInstruction: systemPrompt,
         config: {
           temperature: 0.8,
-          responseMimeType: "application/json", // Native JSON Mode
+          // JSON 모드 제거
         },
       });
 
-      let parsedData: DailyJapaneseData | null = null;
-      let finalContent = rawResponse;
+      // 2. Robust Text Parsing (Regex)
+      const sections = rawResponse.split(/###\s+/);
+      const data: any = {};
 
-      try {
-        parsedData = JSON.parse(rawResponse);
-        if (parsedData?.content) {
-          finalContent = parsedData.content;
+      sections.forEach((section: string) => {
+        const lines = section.trim().split("\n");
+        if (lines.length < 1) return;
+
+        const title = lines[0].trim();
+        const content = lines.slice(1).join("\n").trim();
+
+        if (title.includes("오늘의 기초 일본어")) {
+          // 일어 / 발음 / 뜻 분리 시도 (슬래시 또는 줄바꿈)
+          // 예: ありがとうございます (아리가토) / 감사합니다
+          const parts = content.split(/\//);
+          if (parts.length >= 2) {
+            data.content = parts[0].trim();
+            data.meaning = parts[1].trim();
+            // 발음은 content에 괄호로 포함되어 있다고 가정하거나 추가 파싱
+            // 여기서는 단순히 나누기만 함
+          } else {
+            // 분리 실패 시 통으로
+            data.content = content;
+            data.meaning = "";
+          }
+        } else if (title.includes("설명")) {
+          data.description = content;
+        } else if (title.includes("따라 해보세요")) {
+          data.examplesRaw = content;
         }
-      } catch (e) {
-        console.error("[JapaneseService] JSON Parsing Failed:", e);
-      }
+      });
+
+      const finalContent = data.content || rawResponse;
 
       // 히스토리에 저장
       historyManager.addHistory("japanese", finalContent);
 
       return {
         category,
-        data: parsedData,
+        data: {
+          content: data.content || rawResponse,
+          meaning: data.meaning || "",
+          pronunciation: "", // 텍스트 모드에선 별도 추출 안 함 (content에 포함됨)
+          description: data.description || "",
+          examples: [],
+          rawExamples: data.examplesRaw || "",
+        },
         content: finalContent,
         weekdayMsg: this.getWeekdayMessage(),
       };
@@ -155,43 +183,32 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
       .setTimestamp()
       .setFooter({ text: "Daily Japanese Helper" });
 
-    if (data) {
+    if (data && data.content && data.content !== content) {
       embed.setDescription(weekdayMsg);
 
-      // 1. 오늘의 기초 일본어
       embed.addFields({
         name: "🇯🇵 오늘의 기초 일본어",
         value: `### ${data.content}`,
       });
 
-      // 2. 발음 & 의미 (나란히 배치 시도, 줄바꿈 사용)
-      embed.addFields(
-        {
-          name: "🗣️ 발음",
-          value: data.pronunciation,
-          inline: true,
-        },
-        {
+      if (data.meaning) {
+        embed.addFields({
           name: "💡 의미",
           value: data.meaning,
-          inline: true,
-        },
-      );
+        });
+      }
 
-      // 3. 설명
-      embed.addFields({
-        name: "📘 설명",
-        value: data.description,
-      });
+      if (data.description) {
+        embed.addFields({
+          name: "📘 설명",
+          value: data.description,
+        });
+      }
 
-      // 4. 예시
-      if (data.examples && data.examples.length > 0) {
-        const exampleText = data.examples
-          .map((ex) => `**A:** ${ex.a}\n**B:** ${ex.b}`)
-          .join("\n\n");
+      if (data.rawExamples) {
         embed.addFields({
           name: "✨ 따라 해보세요 (예시)",
-          value: exampleText,
+          value: data.rawExamples,
         });
       }
     } else {
