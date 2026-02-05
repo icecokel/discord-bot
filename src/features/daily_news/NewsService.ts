@@ -60,12 +60,19 @@ class NewsService {
         systemInstruction: systemPrompt,
         tools: searchService.getTools(),
         config: {
-          maxOutputTokens: 4000, // 토큰 제한 대폭 상향 (짤림 방지)
-          temperature: 0.6, // 창의성 낮춤 (포맷 준수 강화)
+          maxOutputTokens: 4000,
+          temperature: 0.6,
         },
       });
 
-      return rawResponse;
+      // AI가 고집스럽게 번호를 매기는 경우 강제로 하이픈으로 변환 (Post-processing)
+      // 예: "2. 요약:" -> "- 요약:"
+      const formattedResponse = rawResponse.replace(
+        /^\d+\.\s+(요약|링크|참고):/gm,
+        "- $1:",
+      );
+
+      return formattedResponse;
     } catch (error) {
       console.error("[NewsService] 뉴스 생성 중 오류 발생:", error);
       return "뉴스를 가져오는 데 실패했습니다.";
