@@ -52,7 +52,6 @@ class NewsService {
       const rawResponse = await aiService.generateText(query, {
         systemInstruction: systemPrompt,
         tools: searchService.getTools(),
-        model: "gemini-2.0-flash-exp", // 더 똑똑한 모델 사용 (지시 이행력 강화)
         config: {
           maxOutputTokens: 4000, // 토큰 제한 대폭 상향 (짤림 방지)
           temperature: 0.6, // 창의성 낮춤 (포맷 준수 강화)
