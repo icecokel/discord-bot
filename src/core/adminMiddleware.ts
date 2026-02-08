@@ -75,6 +75,18 @@ export const handleAdminCommand = async (
     commandName = commandName.slice(1);
   }
 
+  // "/admin <명령어>" 형태 처리
+  let subArgsStart = 1;
+
+  if (commandName === "admin" && args.length > 1) {
+    const subCommandName = args[1].toLowerCase();
+    // 두 번째 단어가 등록된 어드민 명령어라면 해당 명령어로 스위칭
+    if (adminCommands.has(subCommandName)) {
+      commandName = subCommandName;
+      subArgsStart = 2; // "/admin", "reset" 이후부터 인자로 취급
+    }
+  }
+
   // 1. 등록된 Admin 커맨드인지 확인
   const commandEntry = adminCommands.get(commandName);
 
@@ -113,7 +125,7 @@ export const handleAdminCommand = async (
 
   // 5. 권한 충족 -> 실행
   console.log(`[AdminMiddleware] Executing command: ${commandName}`);
-  const subArgs = args.slice(1);
+  const subArgs = args.slice(subArgsStart);
   try {
     await handler(message, subArgs);
   } catch (error) {
