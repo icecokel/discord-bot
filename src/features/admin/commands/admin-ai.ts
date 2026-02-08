@@ -48,4 +48,4 @@ const aiHandler = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("ai", aiHandler);
+registerAdminCommand("ai", aiHandler, "AI 채팅");

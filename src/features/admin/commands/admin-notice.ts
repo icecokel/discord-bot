@@ -102,6 +102,6 @@ const handleNotice = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("notice", handleNotice);
+registerAdminCommand("notice", handleNotice, "공지 발송");
 
 export { handleNotice };
