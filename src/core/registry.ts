@@ -9,6 +9,7 @@ import whoami from "../features/basic/commands/whoami";
 
 import answer from "../features/games/commands/answer";
 import dice from "../features/games/commands/dice";
+import game from "../features/games/commands/game";
 import wordQuiz from "../features/games/commands/word-quiz";
 
 import fortune from "../features/tools/commands/fortune";
@@ -23,6 +24,7 @@ export const commands = [
   whoami,
   answer,
   dice,
+  game,
   wordQuiz,
   fortune,
   weatherWeekly,
