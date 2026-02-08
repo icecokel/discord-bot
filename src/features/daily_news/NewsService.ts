@@ -18,8 +18,16 @@ class NewsService {
    * 오늘의 주요 뉴스를 검색하고 포맷팅하여 반환합니다.
    */
   async generateDailyNews(): Promise<string> {
+    // KST 기준 현재 날짜 생성 (YYYY년 M월 D일)
+    const dateString = new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "Asia/Seoul",
+    }).format(new Date());
+
     // 검색 쿼리에 포맷팅 지시사항을 포함 (User Prompt 강화)
-    const query = `site:news.naver.com 오늘 대한민국 주요 뉴스 3가지를 찾아주세요.
+    const query = `site:news.naver.com ${dateString} 대한민국 주요 뉴스 3가지를 찾아주세요.
 검색된 결과를 바탕으로 아래 포맷을 **정확히** 지켜서 작성해야 합니다.
 링크(URL)가 없으면 안 됩니다. 검색 도구에서 URL을 반드시 가져오세요.
 
@@ -31,7 +39,9 @@ class NewsService {
 위 포맷으로 3개를 작성하세요. (소항목은 이모지를 사용하세요)`;
 
     const systemPrompt = `당신은 뉴스 큐레이터입니다.
-검색 도구(Google Search)를 사용하여 최신 뉴스를 찾고, **반드시 마크다운 포맷**으로 정리해 주세요.
+웹(Web)에서 정보를 찾기 위해 반드시 검색 도구(Google Search)를 사용하세요.
+명시된 날짜(${dateString})에 해당하는 최신 뉴스를 찾아야 합니다.
+검색 결과를 바탕으로 **반드시 마크다운 포맷**으로 정리해 주세요.
 
 # 🚨 필수 준수 사항
 1. **링크 포함 필수**: 각 뉴스 항목마다 [기사 보기](URL) 링크가 없으면 안 됩니다.
