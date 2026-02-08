@@ -105,7 +105,7 @@ const execute = async (message: Message): Promise<void | Message> => {
         temperature: 1.2,
         topP: 0.95,
         topK: 40,
-        maxOutputTokens: 500,
+        maxOutputTokens: 2000,
       },
     });
 
