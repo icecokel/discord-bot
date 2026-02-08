@@ -35,6 +35,13 @@ export const registerAdminCommand = (name: string, handler: Function): void => {
 };
 
 /**
+ * 등록된 어드민 명령어 목록 반환
+ */
+export const getAdminCommands = (): string[] => {
+  return Array.from(adminCommands.keys());
+};
+
+/**
  * 어드민 DM 명령어 처리
  * @returns {boolean} true면 어드민 명령어로 처리됨(실행 완료), false면 일반 명령어로 패스
  */
