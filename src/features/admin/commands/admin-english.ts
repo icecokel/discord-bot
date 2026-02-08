@@ -37,7 +37,11 @@ const handleEnglishTest = async (message: Message, args: string[]) => {
 
 // 명령어 등록
 // '/english' 또는 '!english' 등으로 호출 시 실행됨
-registerAdminCommand("english", handleEnglishTest);
-registerAdminCommand("영어문장", handleEnglishTest);
+registerAdminCommand("english", handleEnglishTest, "영어 콘텐츠 테스트");
+registerAdminCommand(
+  "영어문장",
+  handleEnglishTest,
+  "영어 콘텐츠 테스트 (Alias)",
+);
 
 export { handleEnglishTest };

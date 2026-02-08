@@ -38,7 +38,11 @@ const handleJapaneseTest = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("japanese", handleJapaneseTest);
-registerAdminCommand("일본어", handleJapaneseTest);
+registerAdminCommand("japanese", handleJapaneseTest, "일본어 콘텐츠 테스트");
+registerAdminCommand(
+  "일본어",
+  handleJapaneseTest,
+  "일본어 콘텐츠 테스트 (Alias)",
+);
 
 export { handleJapaneseTest };

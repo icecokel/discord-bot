@@ -89,6 +89,6 @@ const handleReset = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("reset", handleReset);
+registerAdminCommand("reset", handleReset, "데이터 초기화");
 
 export { handleReset };

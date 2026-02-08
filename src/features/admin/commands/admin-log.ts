@@ -75,6 +75,6 @@ const handleLog = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("log", handleLog);
+registerAdminCommand("log", handleLog, "로그 조회");
 
 export { handleLog };

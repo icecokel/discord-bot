@@ -9,7 +9,10 @@ const ADMIN_ID = process.env.ADMIN_ID;
 
 // 어드민 명령어 핸들러 레지스트리
 // eslint-disable-next-line @typescript-eslint/ban-types
-const adminCommands = new Map<string, Function>();
+const adminCommands = new Map<
+  string,
+  { handler: Function; description: string }
+>();
 
 /**
  * 어드민 여부 확인
@@ -29,16 +32,23 @@ export const isDM = (message: Message): boolean => {
  * 어드민 명령어 등록
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
-export const registerAdminCommand = (name: string, handler: Function): void => {
+export const registerAdminCommand = (
+  name: string,
+  handler: Function,
+  description: string = "No description",
+): void => {
   // 접두사 없이 명령어 이름 자체로 등록 (예: "english")
-  adminCommands.set(name.toLowerCase(), handler);
+  adminCommands.set(name.toLowerCase(), { handler, description });
 };
 
 /**
  * 등록된 어드민 명령어 목록 반환
  */
-export const getAdminCommands = (): string[] => {
-  return Array.from(adminCommands.keys());
+export const getAdminCommands = (): { name: string; description: string }[] => {
+  return Array.from(adminCommands.entries()).map(([name, { description }]) => ({
+    name,
+    description,
+  }));
 };
 
 /**
@@ -66,12 +76,14 @@ export const handleAdminCommand = async (
   }
 
   // 1. 등록된 Admin 커맨드인지 확인
-  const handler = adminCommands.get(commandName);
+  const commandEntry = adminCommands.get(commandName);
 
-  if (!handler) {
+  if (!commandEntry) {
     // Admin 전용 커맨드가 아니면 일반 커맨드 핸들러로 넘김
     return false;
   }
+
+  const { handler } = commandEntry;
 
   console.log(`[AdminMiddleware] Admin command detected: ${commandName}`);
 
