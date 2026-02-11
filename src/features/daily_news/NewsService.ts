@@ -5,123 +5,120 @@ import {
   TextChannel,
   Message,
 } from "discord.js";
-import { aiService, searchService } from "../../core/ai";
+
+interface NaverNewsItem {
+  title: string;
+  originallink: string;
+  link: string;
+  description: string;
+  pubDate: string;
+}
+
+interface NaverNewsResponse {
+  lastBuildDate: string;
+  total: number;
+  start: number;
+  display: number;
+  items: NaverNewsItem[];
+}
 
 export interface NewsItem {
   title: string;
   description: string;
   link: string;
+  pubDate: string;
 }
 
 class NewsService {
+  private readonly clientId = process.env.NAVER_APP_CLIENT_ID;
+  private readonly clientSecret = process.env.NAVER_APP_CLIENT_SECRET;
+  private readonly apiUrl = "https://openapi.naver.com/v1/search/news.json";
+
   /**
-   * 오늘의 주요 뉴스를 검색하고 포맷팅하여 반환합니다.
+   * HTML 태그(<b>, &quot; 등)를 제거합니다.
    */
-  async generateDailyNews(): Promise<string> {
-    // KST 기준 현재 날짜 생성 (YYYY년 M월 D일)
-    const dateString = new Intl.DateTimeFormat("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "Asia/Seoul",
-    }).format(new Date());
+  private cleanHtml(text: string): string {
+    return text
+      .replace(/<[^>]*>?/g, "") // HTML 태그 제거
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+  }
 
-    // 검색 쿼리에 포맷팅 지시사항을 포함 (User Prompt 강화)
-    const query = `site:news.naver.com ${dateString} 대한민국 주요 뉴스 3가지를 찾아주세요.
-검색된 결과를 바탕으로 아래 포맷을 **정확히** 지켜서 작성해야 합니다.
-링크(URL)가 없으면 안 됩니다. 검색 도구에서 URL을 반드시 가져오세요.
+  /**
+   * 네이버 검색 API를 통해 IT/과학 뉴스를 가져옵니다.
+   */
+  async generateDailyNews(): Promise<NewsItem[]> {
+    if (!this.clientId || !this.clientSecret) {
+      console.error(
+        "[NewsService] NAVER_APP_CLIENT_ID or NAVER_APP_CLIENT_SECRET is missing.",
+      );
+      return [];
+    }
 
-[포맷 예시]
-1. **[뉴스 제목]**
-📄 요약: ...
-🔗 링크: [기사 보기](https://...)
-
-위 포맷으로 3개를 작성하세요. (소항목은 이모지를 사용하세요)`;
-
-    const systemPrompt = `당신은 뉴스 큐레이터입니다.
-웹(Web)에서 정보를 찾기 위해 반드시 검색 도구(Google Search)를 사용하세요.
-명시된 날짜(${dateString})에 해당하는 최신 뉴스를 찾아야 합니다.
-검색 결과를 바탕으로 **반드시 마크다운 포맷**으로 정리해 주세요.
-
-# 🚨 필수 준수 사항
-1. **링크 포함 필수**: 각 뉴스 항목마다 [기사 보기](URL) 링크가 없으면 안 됩니다.
-2. **소항목 이모지 사용**: 요약 앞에는 📄, 링크 앞에는 🔗를 붙이세요. 숫자를 쓰지 마세요.
-3. **제목만 나열 금지**: "1. [제목]" 만 달랑 쓰지 마세요.
-
-# ✅ 올바른 예시 (Good)
-1. **[뉴스 제목]**
-📄 요약: 내용을 간략히...
-🔗 링크: [기사 보기](URL)
-
-# ❌ 틀린 예시 (Bad) - 절대 이렇게 하지 마세요
-1. **[뉴스 제목]**
-2. 요약: (X) 숫자 금지
-3. 링크: (X) 숫자 금지
-
-# 출력 포맷
-1. **[기사 제목]**
-📄 요약: ...
-🔗 링크: ...
-
-2. **[기사 제목]**
-📄 요약: ...
-🔗 링크: ...`;
+    // 검색 쿼리: "IT/과학 뉴스" (정확도 순)
+    // display: 5개
+    const query = encodeURIComponent("IT/과학 뉴스");
+    const url = `${this.apiUrl}?query=${query}&display=5&start=1&sort=sim`;
 
     try {
-      // AI를 통해 검색 및 요약 요청 (Text Mode)
-      // 파싱 없이 결과 텍스트를 그대로 사용합니다.
-      const rawResponse = await aiService.generateText(query, {
-        systemInstruction: systemPrompt,
-        tools: searchService.getTools(),
-        // model: "gemini-2.0-flash-exp", // 404 Error - Reverted to default
-        config: {
-          maxOutputTokens: 4000,
-          temperature: 0.6,
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "X-Naver-Client-Id": this.clientId,
+          "X-Naver-Client-Secret": this.clientSecret,
         },
       });
 
-      // 1. 서브 아이템(요약, 링크)의 숫자를 강제로 이모지로 변환
-      let formattedResponse = rawResponse.replace(
-        /^[\s\t]*\d+\.?[\s\t]*(요약|Summary)/gm,
-        "📄 $1",
-      );
-      formattedResponse = formattedResponse.replace(
-        /^[\s\t]*\d+\.?[\s\t]*(링크|참고|Link)/gm,
-        "🔗 $1",
-      );
+      if (!response.ok) {
+        throw new Error(`Naver API Error: ${response.statusText}`);
+      }
 
-      // 2. 제목 넘버링을 1, 2, 3 순서대로 재정렬 (AI가 1, 2, 2, 4 이렇게 할 수도 있으므로)
-      let titleIndex = 1;
-      formattedResponse = formattedResponse.replace(
-        /^[\s\t]*(\d+\.)?[\s\t]*(\*\*\[.*\]\*\*)/gm,
-        (match, p1, p2) => {
-          return `${titleIndex++}. ${p2}`;
-        },
-      );
+      const data = (await response.json()) as NaverNewsResponse;
 
-      return formattedResponse;
+      return data.items.map((item) => ({
+        title: this.cleanHtml(item.title),
+        description: this.cleanHtml(item.description),
+        link: item.originallink || item.link, // 원문 링크 우선
+        pubDate: item.pubDate,
+      }));
     } catch (error) {
-      console.error("[NewsService] 뉴스 생성 중 오류 발생:", error);
-      return "뉴스를 가져오는 데 실패했습니다.";
+      console.error("[NewsService] 뉴스 가져오기 실패:", error);
+      return [];
     }
   }
 
   /**
-   * 뉴스 텍스트를 Embed로 변환합니다.
+   * 뉴스 아이템 목록을 Embed로 변환합니다.
    */
-  createEmbed(newsContent: string): EmbedBuilder {
+  createEmbed(newsItems: NewsItem[]): EmbedBuilder {
     const embed = new EmbedBuilder()
       .setColor(0x02d642) // 네이버 그린
-      .setTitle("📰 오늘의 주요 뉴스 (Naver News)")
+      .setTitle("📰 오늘의 주요 IT/과학 뉴스")
+      .setURL("https://news.naver.com/section/105")
+      .setDescription("네이버 뉴스에서 엄선한 주요 소식입니다.")
       .setTimestamp()
-      .setFooter({ text: "Daily News Helper" });
+      .setFooter({ text: "Daily News Helper • Powered by Naver Open API" });
 
-    if (!newsContent || newsContent.includes("실패했습니다")) {
+    if (newsItems.length === 0) {
       embed.setDescription(
         "뉴스를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
       );
     } else {
-      embed.setDescription(newsContent);
+      newsItems.forEach((item, index) => {
+        // Discord Embed 필드 값 제한(1024자) 고려하여 description 자르기
+        const summary =
+          item.description.length > 100
+            ? item.description.substring(0, 100) + "..."
+            : item.description;
+
+        embed.addFields({
+          name: `${index + 1}. ${item.title}`,
+          value: `📄 ${summary}\n[기사 보기](${item.link})`,
+        });
+      });
     }
 
     return embed;
@@ -131,12 +128,19 @@ class NewsService {
    * 관리자 테스트용 발송
    */
   async sendTestNews(channel: any) {
-    const msg = await channel.send("🔍 뉴스를 검색하고 있습니다...");
+    const msg = await channel.send("🔍 네이버 뉴스를 검색하고 있습니다...");
 
     try {
       const newsItems = await this.generateDailyNews();
-      const embed = this.createEmbed(newsItems);
 
+      if (newsItems.length === 0) {
+        await msg.edit(
+          "❌ 뉴스를 가져오는 데 실패했습니다. 로그를 확인하세요.",
+        );
+        return;
+      }
+
+      const embed = this.createEmbed(newsItems);
       await msg.edit({ content: "✅ 뉴스 검색 완료!", embeds: [embed] });
     } catch (error) {
       console.error("[NewsService] 테스트 발송 실패:", error);
@@ -151,8 +155,8 @@ class NewsService {
     console.log("[NewsService] 뉴스 전체 발송 시작...");
     try {
       const newsItems = await this.generateDailyNews();
-      if (!newsItems || newsItems.length < 10) {
-        console.log("[NewsService] 뉴스 내용이 너무 짧아 발송을 중단합니다.");
+      if (!newsItems || newsItems.length === 0) {
+        console.log("[NewsService] 뉴스 내용이 없어 발송을 중단합니다.");
         return;
       }
 
