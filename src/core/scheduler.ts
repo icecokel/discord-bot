@@ -6,9 +6,13 @@ import { EmbedBuilder, Client } from "discord.js";
 import englishService from "../features/daily_english/EnglishService";
 import japaneseService from "../features/daily_japanese/JapaneseService";
 import newsService from "../features/daily_news/NewsService";
+import { reminderService } from "../features/tools/reminderService";
 
 // 통합 스케줄러 초기화 (날씨 + 영어 학습)
 export const initializeSchedulers = (client: Client): void => {
+  // 리마인더 서비스 초기화
+  reminderService.initialize(client);
+
   // 매일 오전 9시 (KST) 실행
   cron.schedule(
     "0 9 * * *",

@@ -12,6 +12,7 @@ import game from "../features/games/commands/game";
 import fortune from "../features/tools/commands/fortune";
 import weatherWeekly from "../features/tools/commands/weather-weekly";
 import weather from "../features/tools/commands/weather";
+import reminder from "../features/tools/commands/reminder";
 import seasonalFood from "../features/info/commands/seasonal-food";
 
 export const commands = [
@@ -23,5 +24,6 @@ export const commands = [
   fortune,
   weatherWeekly,
   weather,
+  reminder,
   seasonalFood,
 ];
