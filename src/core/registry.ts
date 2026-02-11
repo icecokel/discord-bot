@@ -1,29 +1,31 @@
-// This file is manually updated for TypeScript migration.
-// If you run 'npm run build', the generate-registry script might overwrite this file with JS requires.
-// For now, we manually import TS files.
+// 이 파일은 scripts/generate-registry.ts에 의해 자동 생성됩니다.
+// 수동으로 편집하지 마세요.
+// 생성 시각: 2026-02-11T17:10:11.124Z
 
-import help from "../features/basic/commands/help";
-import info from "../features/basic/commands/info";
-import ping from "../features/basic/commands/ping";
-import whoami from "../features/basic/commands/whoami";
+import { Command } from "./loader";
 
-import game from "../features/games/commands/game";
+import cmd_0 from "../features/basic/commands/help";
+import cmd_1 from "../features/basic/commands/info";
+import cmd_2 from "../features/basic/commands/ping";
+import cmd_3 from "../features/basic/commands/whoami";
+import cmd_4 from "../features/games/commands/dice";
+import cmd_5 from "../features/games/commands/game";
+import cmd_6 from "../features/info/commands/seasonal-food";
+import cmd_7 from "../features/tools/commands/fortune";
+import cmd_8 from "../features/tools/commands/reminder";
+import cmd_9 from "../features/tools/commands/weather-weekly";
+import cmd_10 from "../features/tools/commands/weather";
 
-import fortune from "../features/tools/commands/fortune";
-import weatherWeekly from "../features/tools/commands/weather-weekly";
-import weather from "../features/tools/commands/weather";
-import reminder from "../features/tools/commands/reminder";
-import seasonalFood from "../features/info/commands/seasonal-food";
-
-export const commands = [
-  help,
-  info,
-  ping,
-  whoami,
-  game,
-  fortune,
-  weatherWeekly,
-  weather,
-  reminder,
-  seasonalFood,
+export const commands: Command[] = [
+  cmd_0,
+  cmd_1,
+  cmd_2,
+  cmd_3,
+  cmd_4,
+  cmd_5,
+  cmd_6,
+  cmd_7,
+  cmd_8,
+  cmd_9,
+  cmd_10,
 ];
