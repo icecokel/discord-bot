@@ -104,6 +104,32 @@ const handleData = async (message: Message, args: string[]) => {
     });
   }
 
+  // 3. Guilds (Server List)
+  const guilds = message.client.guilds.cache;
+  if (guilds.size > 0) {
+    let guildDetails = guilds
+      .map((guild) => {
+        return `- **${guild.name}** (ID: \`${guild.id}\`) - 👤 ${guild.memberCount}명`;
+      })
+      .join("\n");
+
+    if (guildDetails.length > 1000) {
+      guildDetails = guildDetails.slice(0, 1000) + "\n...";
+    }
+
+    embed.addFields({
+      name: "🏰 참여 중인 서버 현황",
+      value: `총 **${guilds.size}**개 서버\n${guildDetails}`,
+      inline: false,
+    });
+  } else {
+    embed.addFields({
+      name: "🏰 참여 중인 서버 현황",
+      value: "참여 중인 서버가 없습니다.",
+      inline: false,
+    });
+  }
+
   await message.reply({ embeds: [embed] });
 };
 
