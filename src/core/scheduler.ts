@@ -119,7 +119,7 @@ export const initializeSchedulers = (client: Client): void => {
   console.log("[Scheduler] 일본어 알림 스케줄러 등록 완료 (매일 오후 2시 KST)");
 
   // === 뉴스 알림 (하루 3회: 08, 13, 21시) ===
-  const newsTimes = [8, 13, 21];
+  const newsTimes = [8];
   newsTimes.forEach((hour) => {
     cron.schedule(
       `0 ${hour} * * *`,
