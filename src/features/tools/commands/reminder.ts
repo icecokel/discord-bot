@@ -11,12 +11,6 @@ const execute = async (
   message: Message,
   args: string[],
 ): Promise<void | Message> => {
-  if (args.length < 2) {
-    return message.reply(
-      "❌ 사용법: `!리마인더 <시간> <메시지>`\n예: `!리마인더 10분 뒤 라면 먹기`, `!리마인더 3월 1일 삼일절`",
-    );
-  }
-
   // 목록 조회
   if (args[0] === "목록" || args[0] === "list") {
     const reminders = reminderService.getRemindersByChannel(message.channel.id);
@@ -61,6 +55,12 @@ const execute = async (
     });
 
     return message.reply({ embeds: [embed] });
+  }
+
+  if (args.length < 2) {
+    return message.reply(
+      "❌ 사용법: `!리마인더 <시간> <메시지>`\n예: `!리마인더 10분 뒤 라면 먹기`, `!리마인더 3월 1일 삼일절`",
+    );
   }
 
   // 시간과 메시지 분리
