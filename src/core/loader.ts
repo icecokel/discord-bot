@@ -5,24 +5,26 @@ export interface Command {
   name: string;
   description?: string;
   keywords?: string[];
-  execute: (message: Message, args: string[]) => Promise<void>;
+  execute: (message: Message, args: string[]) => Promise<unknown> | void;
 }
 
-export function loadCommands(): Map<string, Command> {
+/**
+ * 커맨드 객체 타입 가드
+ */
+const isCommand = (value: unknown): value is Command => {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return typeof obj.name === "string" && typeof obj.execute === "function";
+};
+
+export const loadCommands = (): Map<string, Command> => {
   const commands = new Map<string, Command>();
 
   for (const command of commandList) {
-    // any 타입으로 캐스팅하여 속성 확인, 추후 Command 타입이 명확해지면 수정
-    const cmd = command as any;
-    if ("name" in cmd && "execute" in cmd) {
-      commands.set(cmd.name, cmd as Command);
-      console.log(`[Loader] Loaded command: ${cmd.name}`);
-    } else {
-      console.warn(
-        `[Loader] A command is missing a required "name" or "execute" property.`,
-      );
+    if (isCommand(command)) {
+      commands.set(command.name, command);
     }
   }
 
   return commands;
-}
+};

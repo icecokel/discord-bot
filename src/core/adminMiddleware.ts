@@ -7,11 +7,13 @@ import { Message } from "discord.js";
 
 const ADMIN_ID = process.env.ADMIN_ID;
 
+// 어드민 명령어 핸들러 타입
+type AdminHandler = (message: Message, args: string[]) => Promise<unknown>;
+
 // 어드민 명령어 핸들러 레지스트리
-// eslint-disable-next-line @typescript-eslint/ban-types
 const adminCommands = new Map<
   string,
-  { handler: Function; description: string }
+  { handler: AdminHandler; description: string }
 >();
 
 /**
@@ -31,10 +33,9 @@ export const isDM = (message: Message): boolean => {
 /**
  * 어드민 명령어 등록
  */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export const registerAdminCommand = (
   name: string,
-  handler: Function,
+  handler: AdminHandler,
   description: string = "No description",
 ): void => {
   // 접두사 없이 명령어 이름 자체로 등록 (예: "english")
