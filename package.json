@@ -4,6 +4,9 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
+    "gen:registry": "ts-node scripts/generate-registry.ts",
+    "predev": "npm run gen:registry",
+    "prebuild": "npm run gen:registry",
     "start": "ts-node src/index.ts",
     "dev": "nodemon",
     "build": "esbuild src/index.ts --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
