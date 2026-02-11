@@ -7,10 +7,7 @@ import info from "../features/basic/commands/info";
 import ping from "../features/basic/commands/ping";
 import whoami from "../features/basic/commands/whoami";
 
-import answer from "../features/games/commands/answer";
-import dice from "../features/games/commands/dice";
 import game from "../features/games/commands/game";
-import wordQuiz from "../features/games/commands/word-quiz";
 
 import fortune from "../features/tools/commands/fortune";
 import weatherWeekly from "../features/tools/commands/weather-weekly";
@@ -22,10 +19,7 @@ export const commands = [
   info,
   ping,
   whoami,
-  answer,
-  dice,
   game,
-  wordQuiz,
   fortune,
   weatherWeekly,
   weather,
