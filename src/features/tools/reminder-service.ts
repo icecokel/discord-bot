@@ -1,8 +1,7 @@
-import { Client, TextChannel, Message } from "discord.js";
+import { Client, TextChannel } from "discord.js";
 import { readJson, writeJson } from "../../utils/file-manager";
 
 const REMINDERS_FILE = "reminders.json";
-const CHECK_INTERVAL = 60 * 1000; // 1분
 
 export interface Reminder {
   id: string; // userId-timestamp (Internal ID)

@@ -11,11 +11,6 @@ export const DATA_DIR =
     : path.join(__dirname, "../data");
 
 /**
- * 데이터 디렉토리 가져오기
- */
-export const getDataDir = (): string => DATA_DIR;
-
-/**
  * JSON 파일 읽기
  */
 export const readJson = <T = any>(
@@ -48,23 +43,6 @@ export const writeJson = (filename: string, data: any): boolean => {
     return true;
   } catch (error: any) {
     console.error(`[FileManager] Error writing ${filename}:`, error.message);
-    return false;
-  }
-};
-
-/**
- * 파일 삭제
- */
-export const deleteFile = (filename: string): boolean => {
-  try {
-    const filePath = path.join(DATA_DIR, filename);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      return true;
-    }
-    return false;
-  } catch (error: any) {
-    console.error(`[FileManager] Error deleting ${filename}:`, error.message);
     return false;
   }
 };

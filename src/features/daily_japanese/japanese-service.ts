@@ -1,4 +1,4 @@
-import { EmbedBuilder, ChannelType, Client, TextChannel } from "discord.js";
+import { EmbedBuilder, Client, TextChannel } from "discord.js";
 import { aiService } from "../../core/ai";
 import historyManager from "../../utils/history-manager";
 
