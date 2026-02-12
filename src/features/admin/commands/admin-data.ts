@@ -26,7 +26,7 @@ const LEGACY_USER_PREFS_FILE = "user_preferences.json";
 /**
  * 데이터 명령어 핸들러
  */
-const handleData = async (message: Message, args: string[]) => {
+const handleData = async (message: Message) => {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("📊 저장된 데이터 현황")

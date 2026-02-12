@@ -58,12 +58,6 @@ export const clearUserRegion = (userId: string): boolean => {
   return false;
 };
 
-// 알림 설정 가져오기
-export const isNotificationEnabled = (userId: string): boolean => {
-  const data = loadData();
-  return data[userId]?.notificationEnabled === true;
-};
-
 // 알림 설정 켜기
 export const enableNotification = (userId: string): void => {
   const data = loadData();

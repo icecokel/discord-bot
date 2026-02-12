@@ -6,7 +6,7 @@ const seasonalFood: Command = {
   name: "제철음식",
   description: "이번 달의 제철 식재료 정보를 알려줍니다.",
   keywords: ["제철", "식재료", "음식"],
-  execute: async (message: Message, args: string[]) => {
+  execute: async (message: Message) => {
     const today = new Date();
     const currentMonth = today.getMonth() + 1; // getMonth() returns 0-11
 

@@ -5,9 +5,9 @@
 
 import { registerAdminCommand } from "../../../core/admin-middleware";
 import japaneseService from "../../daily_japanese/japanese-service";
-import { EmbedBuilder, Message } from "discord.js";
+import { Message } from "discord.js";
 
-const handleJapaneseTest = async (message: Message, args: string[]) => {
+const handleJapaneseTest = async (message: Message) => {
   try {
     const waitMsg = await message.reply(
       "🇯🇵 일본어 문장을 생성하고 있습니다...",

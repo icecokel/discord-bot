@@ -28,7 +28,7 @@ const execute = async (
       .setDescription("이 채널에 등록된 알림 목록입니다.")
       .setTimestamp();
 
-    reminders.forEach((r, index) => {
+    reminders.forEach((r) => {
       const date = new Date(r.targetTime);
       const now = new Date();
       const diff = r.targetTime - now.getTime();
