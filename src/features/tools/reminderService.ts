@@ -14,6 +14,10 @@ export interface Reminder {
   createdAt: number;
 }
 
+export type RemoveReminderResult =
+  | { ok: true; reminder: Reminder }
+  | { ok: false; reason: "NOT_FOUND" | "FORBIDDEN"; reminder?: Reminder };
+
 class ReminderService {
   private reminders: Reminder[] = [];
   private checkTimeout: NodeJS.Timeout | null = null;
@@ -111,10 +115,26 @@ class ReminderService {
   }
 
   // 리마인더 삭제 (Short ID 기준)
-  public removeReminderByShortId(shortId: string): Reminder | null {
-    const index = this.reminders.findIndex((r) => r.shortId === shortId);
-    if (index === -1) return null;
+  public removeReminderByShortId(
+    shortId: string,
+    requesterId?: string,
+    options: { isAdmin?: boolean } = {},
+  ): RemoveReminderResult {
+    const target = this.reminders.find((r) => r.shortId === shortId);
+    if (!target) {
+      return { ok: false, reason: "NOT_FOUND" };
+    }
 
+    const canRemove =
+      !requesterId ||
+      requesterId === target.userId ||
+      options.isAdmin === true;
+
+    if (!canRemove) {
+      return { ok: false, reason: "FORBIDDEN", reminder: target };
+    }
+
+    const index = this.reminders.findIndex((r) => r.shortId === shortId);
     const removed = this.reminders.splice(index, 1)[0];
     this.saveReminders();
 
@@ -122,7 +142,7 @@ class ReminderService {
     if (this.reminders.length === 0) {
       this.stopCheckLoop();
     }
-    return removed;
+    return { ok: true, reminder: removed };
   }
 
   // 리마인더 삭제 (Internal ID 기준 - 발송 후 삭제용)

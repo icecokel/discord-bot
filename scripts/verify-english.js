@@ -1,4 +1,6 @@
-const englishService = require("../src/features/daily_english/EnglishService");
+require("ts-node/register/transpile-only");
+const englishService =
+  require("../src/features/daily_english/EnglishService").default;
 const { aiService } = require("../src/core/ai");
 
 // Mocking AI Service to bypass API Key requirement

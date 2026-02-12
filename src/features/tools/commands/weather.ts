@@ -2,18 +2,23 @@ import { EmbedBuilder, Message } from "discord.js";
 import { getShortTermForecast } from "../../../utils/kmaHelper";
 import * as userStore from "../../../utils/userStore";
 import kmaData from "../../../data/kma_data.json";
+import {
+  joinRegionTokens,
+  normalizeCommandArgs,
+} from "./weatherCommandUtils";
 
 export default {
   name: "weather",
   keywords: ["weather", "날씨", "오늘날씨"],
   description: "오늘의 상세 날씨 정보를 확인하거나 기본 지역을 설정합니다.",
-  async execute(message: Message) {
-    const args = message.content.split(/ +/);
-    // args[0]: !날씨, args[1]: 지역명 or "설정"
+  async execute(message: Message, args: string[]) {
+    const commandArgs = normalizeCommandArgs(args);
+    const primaryArg = commandArgs[0];
 
     // 0. 설명(Help) 기능
     if (
-      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(args[1])
+      primaryArg &&
+      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(primaryArg)
     ) {
       const embed = new EmbedBuilder()
         .setColor(0x0099ff)
@@ -50,8 +55,8 @@ export default {
     const kmaAny = kmaData as any;
 
     // 1. 설정 기능 (!날씨 설정 [지역])
-    if (args[1] === "설정") {
-      const newRegion = args[2];
+    if (primaryArg === "설정") {
+      const newRegion = joinRegionTokens(commandArgs.slice(1));
       if (!newRegion) {
         return message.reply(
           "❗ 설정할 지역명을 입력해주세요. (예: `!날씨 설정 서울`)",
@@ -80,7 +85,7 @@ export default {
     }
 
     // 2. 지역 설정 해제 (!날씨 해제)
-    if (["해제", "삭제", "취소"].includes(args[1])) {
+    if (primaryArg && ["해제", "삭제", "취소"].includes(primaryArg)) {
       const cleared = userStore.clearUserRegion(message.author.id);
       userStore.disableNotification(message.author.id);
       if (cleared) {
@@ -91,7 +96,7 @@ export default {
     }
 
     // 3. 알림 설정 ON (!날씨 알림)
-    if (["알림", "구독", "알림설정"].includes(args[1])) {
+    if (primaryArg && ["알림", "구독", "알림설정"].includes(primaryArg)) {
       const region = userStore.getUserRegion(message.author.id);
       if (!region) {
         return message.reply(
@@ -105,13 +110,13 @@ export default {
     }
 
     // 4. 알림 설정 OFF (!날씨 알림해제)
-    if (["알림해제", "구독해제", "알림끄기"].includes(args[1])) {
+    if (primaryArg && ["알림해제", "구독해제", "알림끄기"].includes(primaryArg)) {
       userStore.disableNotification(message.author.id);
       return message.reply("🔕 날씨 알림이 해제되었습니다.");
     }
 
     // 2. 조회 기능
-    let regionName = args[1];
+    let regionName = joinRegionTokens(commandArgs);
 
     // 지역명이 없으면 저장된 기본값 조회
     if (!regionName) {

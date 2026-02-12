@@ -1,4 +1,5 @@
 require("dotenv").config();
+require("ts-node/register/transpile-only");
 const { aiService } = require("../src/core/ai");
 
 async function verify() {

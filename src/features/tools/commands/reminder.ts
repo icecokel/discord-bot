@@ -73,12 +73,26 @@ const execute = async (
       );
     }
 
-    const removed = reminderService.removeReminderByShortId(shortId);
-    if (removed) {
+    const isAdmin = message.author.id === process.env.ADMIN_ID;
+    const result = reminderService.removeReminderByShortId(
+      shortId,
+      message.author.id,
+      { isAdmin },
+    );
+
+    if (result.ok) {
       return message.reply(
-        `✅ 리마인더 삭제 완료: **[${removed.shortId}] ${removed.message}**`,
+        `✅ 리마인더 삭제 완료: **[${result.reminder.shortId}] ${result.reminder.message}**`,
       );
-    } else {
+    }
+
+    if (result.reason === "FORBIDDEN") {
+      return message.reply(
+        "⛔ 본인이 등록한 리마인더만 삭제할 수 있습니다.",
+      );
+    }
+
+    if (result.reason === "NOT_FOUND") {
       return message.reply(
         `❌ 해당 ID(${shortId})를 가진 리마인더를 찾을 수 없습니다. 목록을 확인해주세요.`,
       );
