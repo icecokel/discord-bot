@@ -206,49 +206,35 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
   /**
    * 모든 길드의 'general' 또는 '일반' 채널에 메시지 전송
    */
-  async sendToGeneralChannels(
+  /**
+   * 지정된 채널에 메시지 전송
+   */
+  async sendToChannel(
     client: Client,
+    channelId: string,
   ): Promise<EnglishServiceResult | null> {
-    console.log("[EnglishService] 일일 영어 알림 발송 시작...");
+    console.log(
+      `[EnglishService] 채널(${channelId})로 일일 영어 알림 발송 시작...`,
+    );
 
     try {
       const contentData = await this.generateDailyContent();
       const embed = this.createEmbed(contentData);
 
-      let successCount = 0;
+      const channel = (await client.channels.fetch(channelId)) as TextChannel;
 
-      for (const guild of client.guilds.cache.values()) {
-        try {
-          const targetChannel = guild.channels.cache.find(
-            (channel) =>
-              channel.type === ChannelType.GuildText &&
-              (channel.name.toLowerCase().includes("general") ||
-                channel.name.includes("일반")) &&
-              channel.permissionsFor(guild.members.me!).has("SendMessages"),
-          ) as TextChannel | undefined;
-
-          if (targetChannel) {
-            await targetChannel.send({ embeds: [embed] });
-            console.log(
-              `[EnglishService] 발송 성공: ${guild.name} #${targetChannel.name}`,
-            );
-            successCount++;
-          }
-        } catch (err: any) {
-          console.error(
-            `[EnglishService] 발송 실패 (${guild.name}):`,
-            err.message,
-          );
-        }
+      if (channel) {
+        await channel.send({ embeds: [embed] });
+        console.log(
+          `[EnglishService] 발송 성공: ${channel.guild.name} #${channel.name}`,
+        );
+        return { successCount: 1, embed };
+      } else {
+        console.error(`[EnglishService] 채널을 찾을 수 없습니다: ${channelId}`);
+        return null;
       }
-
-      console.log(
-        `[EnglishService] 발송 완료. 총 ${successCount}개 채널 전송.`,
-      );
-
-      return { successCount, embed };
     } catch (error) {
-      console.error("[EnglishService] 전체 발송 중 치명적 오류:", error);
+      console.error("[EnglishService] 발송 중 치명적 오류:", error);
       return null;
     }
   }
