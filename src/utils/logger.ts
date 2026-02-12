@@ -50,10 +50,3 @@ export const getRecentLogs = (count: number = 10): StoredLogEntry[] => {
 export const getLogCount = (): number => {
   return logs.length;
 };
-
-/**
- * 로그 초기화 (테스트용)
- */
-export const clearLogs = (): void => {
-  logs.length = 0;
-};

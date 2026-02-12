@@ -11,7 +11,7 @@ import {
 /**
  * 어드민 도움말 핸들러
  */
-const handleHelp = async (message: Message, args: string[]) => {
+const handleHelp = async (message: Message) => {
   const commands = getAdminCommands();
 
   const embed = new EmbedBuilder()

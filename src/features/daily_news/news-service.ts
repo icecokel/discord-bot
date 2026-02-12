@@ -3,7 +3,6 @@ import {
   Client,
   ChannelType,
   TextChannel,
-  Message,
 } from "discord.js";
 
 interface NaverNewsItem {

@@ -5,9 +5,9 @@
 
 import { registerAdminCommand } from "../../../core/admin-middleware";
 import englishService from "../../daily_english/english-service";
-import { EmbedBuilder, Message } from "discord.js";
+import { Message } from "discord.js";
 
-const handleEnglishTest = async (message: Message, args: string[]) => {
+const handleEnglishTest = async (message: Message) => {
   try {
     const waitMsg = await message.reply("🇺🇸 영어 문장을 생성하고 있습니다...");
 
