@@ -6,13 +6,16 @@ import { reminderService } from "../reminderService";
  * 사용법: !리마인더 <시간> <메시지>
  * 예: !리마인더 10분 뒤 운동하기
  * 예: !리마인더 12월 25일 크리스마스
+ * 예: !리마인더 삭제 a1b2
  */
 const execute = async (
   message: Message,
   args: string[],
 ): Promise<void | Message> => {
+  const subcommand = args[0];
+
   // 목록 조회
-  if (args[0] === "목록" || args[0] === "list") {
+  if (subcommand === "목록" || subcommand === "list") {
     const reminders = reminderService.getRemindersByChannel(message.channel.id);
 
     if (reminders.length === 0) {
@@ -48,7 +51,7 @@ const execute = async (
       }
 
       embed.addFields({
-        name: `#${index + 1}. ${date.toLocaleString()} (${timeLeftStr})`,
+        name: `[${r.shortId}] ${date.toLocaleString()} (${timeLeftStr})`,
         value: `**"${r.message}"** (등록: <@${r.userId}>)`,
         inline: false,
       });
@@ -57,56 +60,90 @@ const execute = async (
     return message.reply({ embeds: [embed] });
   }
 
-  if (args.length < 2) {
-    return message.reply(
-      "❌ 사용법: `!리마인더 <시간> <메시지>`\n예: `!리마인더 10분 뒤 라면 먹기`, `!리마인더 3월 1일 삼일절`",
-    );
+  // 삭제
+  if (
+    subcommand === "삭제" ||
+    subcommand === "remove" ||
+    subcommand === "delete"
+  ) {
+    const shortId = args[1];
+    if (!shortId) {
+      return message.reply(
+        "❌ 삭제할 리마인더 ID를 입력해주세요. (예: `!리마인더 삭제 a1b2`)",
+      );
+    }
+
+    const removed = reminderService.removeReminderByShortId(shortId);
+    if (removed) {
+      return message.reply(
+        `✅ 리마인더 삭제 완료: **[${removed.shortId}] ${removed.message}**`,
+      );
+    } else {
+      return message.reply(
+        `❌ 해당 ID(${shortId})를 가진 리마인더를 찾을 수 없습니다. 목록을 확인해주세요.`,
+      );
+    }
   }
 
-  // 시간과 메시지 분리
-  // 시간은 공백을 포함할 수 있음 (예: "10분 뒤", "3월 1일 10시")
-  // 파싱 가능한 최대 길이까지 시간으로 간주하고 나머지를 메시지로 처리하는 로직 필요
-  // 하지만 여기서는 간단하게 첫 번째 인자를 시간으로 보고, 파싱 실패 시 두 번째까지 합쳐서 시도하는 방식으로 접근하거나,
-  // 정규식으로 시간 부분을 추출하는 것이 더 정확함.
-
-  // reminderService의 parseTargetTime이 문자열 전체에서 시간을 추출하도록 설계되었으므로,
-  // 전체 문자열을 넘기고, 파싱된 시간과 나머지 메시지를 분리하는 것이 좋음.
-  // 하지만 현재 parseTargetTime은 시간값만 반환함.
-
-  // 전략: 앞에서부터 시간을 의미하는 단어들을 찾아서 시간으로 파싱하고, 나머지를 메시지로 사용.
+  if (args.length < 2) {
+    return message.reply(
+      "❌ 사용법: `!리마인더 <시간> <메시지>` 또는 `!리마인더 목록`, `!리마인더 삭제 <ID>`\n" +
+        "예: `!리마인더 10분 뒤 라면`, `!리마인더 내일 점심 약속`, `!리마인더 오후 5시 퇴근`",
+    );
+  }
 
   const fullContent = args.join(" ");
   let targetTime: number | null = null;
   let messageContent = "";
+  let timeStr = "";
 
-  // 1. "N분/시간/초 뒤" 패턴 확인
+  // 1. "N분/시간/초 뒤" 패턴
   const relativeMatch = fullContent.match(
     /^(\d+(?:분|시간|초))\s*(?:뒤|후)?\s+(.+)$/,
   );
   if (relativeMatch) {
-    targetTime = reminderService.parseTargetTime(relativeMatch[1]);
+    timeStr = relativeMatch[1];
     messageContent = relativeMatch[2];
   } else {
-    // 2. "M월 d일 [H시 m분]" 패턴 확인
+    // 2. "M월 d일 [오전/오후] [H시 m분]" 패턴
     const dateMatch = fullContent.match(
-      /^(\d+월\s*\d+일(?:\s*\d+시(?:\s*\d+분)?)?)\s+(.+)$/,
+      /^(\d+월\s*\d+일(?:\s*(?:오전|오후)?\s*\d+시(?:\s*\d+분)?)?)\s+(.+)$/,
     );
     if (dateMatch) {
-      targetTime = reminderService.parseTargetTime(dateMatch[1]);
+      timeStr = dateMatch[1];
       messageContent = dateMatch[2];
     } else {
-      // 3. "H시 m분" 패턴 확인
-      const timeMatch = fullContent.match(/^(\d+시(?:\s*\d+분)?)\s+(.+)$/);
-      if (timeMatch) {
-        targetTime = reminderService.parseTargetTime(timeMatch[1]);
-        messageContent = timeMatch[2];
+      // 3. "내일/모레/글피 [오전/오후] [H시 m분]" 패턴
+      const naturalDateMatch = fullContent.match(
+        /^((?:내일|모레|글피)(?:\s*(?:오전|오후)?\s*\d+시(?:\s*\d+분)?)?)\s+(.+)$/,
+      );
+      if (naturalDateMatch) {
+        timeStr = naturalDateMatch[1];
+        messageContent = naturalDateMatch[2];
+      } else {
+        // 4. "[오전/오후] H시 m분" 패턴 (시간만)
+        const timeMatch = fullContent.match(
+          /^((?:오전|오후)?\s*\d+시(?:\s*\d+분)?)\s+(.+)$/,
+        );
+        if (timeMatch) {
+          timeStr = timeMatch[1];
+          messageContent = timeMatch[2];
+        }
       }
     }
   }
 
+  if (timeStr) {
+    targetTime = reminderService.parseTargetTime(timeStr);
+  }
+
   if (!targetTime || isNaN(targetTime)) {
     return message.reply(
-      "❌ 시간 형식을 이해하지 못했습니다. (예: 10분 뒤, 3월 1일, 10시 30분)",
+      "❌ 시간 형식을 이해하지 못했습니다.\n" +
+        "가능한 형식:\n" +
+        "- `10분 뒤`, `1시간 후`\n" +
+        "- `내일`, `내일 10시`, `모레 오후 2시`\n" +
+        "- `3월 1일`, `오후 5시 30분`",
     );
   }
 
@@ -115,7 +152,7 @@ const execute = async (
   }
 
   // 리마인더 등록
-  reminderService.addReminder(
+  const reminder = reminderService.addReminder(
     message.author.id,
     message.channel.id,
     targetTime,
@@ -142,6 +179,7 @@ const execute = async (
     .setTitle("✅ 리마인더 등록 완료")
     .setDescription(`**"${messageContent}"**`)
     .addFields(
+      { name: "ID", value: reminder.shortId, inline: true },
       { name: "알림 시간", value: date.toLocaleString(), inline: true },
       { name: "남은 시간", value: `${timeLeftStr} 후`, inline: true },
     )
