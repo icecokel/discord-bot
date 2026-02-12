@@ -123,6 +123,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           "weather",
           "weather-weekly",
           "fortune",
+          "geeknews",
         ];
         const missing = required.filter(
           (identifier) => !hasCommandIdentifier(commands, identifier),
