@@ -1,9 +1,9 @@
 require("ts-node/register/transpile-only");
 
 const englishService =
-  require("../src/features/daily_english/EnglishService").default;
+  require("../src/features/daily_english/english-service").default;
 const japaneseService =
-  require("../src/features/daily_japanese/JapaneseService").default;
+  require("../src/features/daily_japanese/japanese-service").default;
 
 describe("Daily content embed formatting", () => {
   test("english embed renders structured fields", () => {

@@ -1,6 +1,7 @@
-import { readJson, writeJson, DATA_DIR } from "./fileManager";
+import { readJson, writeJson, DATA_DIR } from "./file-manager";
 
-const FILE_NAME = "user_preferences.json";
+const FILE_NAME = "user-preferences.json";
+const LEGACY_FILE_NAME = "user_preferences.json";
 
 export interface UserPreference {
   defaultRegion?: string;
@@ -18,7 +19,11 @@ export interface UserWithNotification {
 
 // 데이터 로드
 const loadData = (): UserPreferences => {
-  return readJson<UserPreferences>(FILE_NAME, {});
+  const data = readJson<UserPreferences>(FILE_NAME, {});
+  if (Object.keys(data).length > 0) {
+    return data;
+  }
+  return readJson<UserPreferences>(LEGACY_FILE_NAME, {});
 };
 
 // 데이터 저장

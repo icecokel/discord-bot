@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { DATA_DIR } from "./fileManager";
+import { DATA_DIR } from "./file-manager";
 
-const HISTORY_FILE_PATH = path.join(DATA_DIR, "daily_history.json");
+const HISTORY_FILE_PATH = path.join(DATA_DIR, "daily-history.json");
+const LEGACY_HISTORY_FILE_PATH = path.join(DATA_DIR, "daily_history.json");
 
 export interface DailyHistoryData {
   english: string[]; // 최근 영어 문장 리스트
@@ -22,8 +23,12 @@ export class HistoryManager {
    */
   private loadHistory(): void {
     try {
-      if (fs.existsSync(HISTORY_FILE_PATH)) {
-        const data = fs.readFileSync(HISTORY_FILE_PATH, "utf-8");
+      const targetPath = fs.existsSync(HISTORY_FILE_PATH)
+        ? HISTORY_FILE_PATH
+        : LEGACY_HISTORY_FILE_PATH;
+
+      if (fs.existsSync(targetPath)) {
+        const data = fs.readFileSync(targetPath, "utf-8");
         this.history = JSON.parse(data);
         console.log("[HistoryManager] 히스토리 로드 완료");
       } else {

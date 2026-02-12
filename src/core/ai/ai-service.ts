@@ -1,5 +1,5 @@
-import { GeminiProvider } from "./providers/GeminiProvider";
-import { BaseProvider, IGenerationOptions } from "./providers/BaseProvider";
+import { GeminiProvider } from "./providers/gemini-provider";
+import { BaseProvider, IGenerationOptions } from "./providers/base-provider";
 
 /**
  * AI 서비스를 관리하는 중앙 클래스
