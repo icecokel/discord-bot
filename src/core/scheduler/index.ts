@@ -1,6 +1,6 @@
 import { Client } from "discord.js";
-import { PrivateScheduler } from "./privateScheduler";
-import { GlobalScheduler } from "./globalScheduler";
+import { PrivateScheduler } from "./private-scheduler";
+import { GlobalScheduler } from "./global-scheduler";
 
 export const initializeSchedulers = (client: Client): void => {
   console.log("[Scheduler] 스케줄러 초기화 시작...");

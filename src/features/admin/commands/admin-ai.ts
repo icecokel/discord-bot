@@ -1,5 +1,5 @@
 import { Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
+import { registerAdminCommand } from "../../../core/admin-middleware";
 import { aiService, searchService } from "../../../core/ai"; // aiService, searchService 둘 다 필요
 
 /**

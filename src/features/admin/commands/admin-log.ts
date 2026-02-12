@@ -3,7 +3,7 @@
  */
 
 import { EmbedBuilder, Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
+import { registerAdminCommand } from "../../../core/admin-middleware";
 import * as logger from "../../../utils/logger";
 
 /**

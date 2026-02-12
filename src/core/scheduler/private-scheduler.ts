@@ -1,11 +1,11 @@
 import cron from "node-cron";
 import { Client, EmbedBuilder } from "discord.js";
-import { getAllUsersWithNotification } from "../../utils/userStore";
-import { getShortTermForecast } from "../../utils/kmaHelper";
-import kmaData from "../../data/kma_data.json";
-import { reminderService } from "../../features/tools/reminderService"; // 리마인더는 전역이나 PrivateScheduler에서 초기화
-import englishService from "../../features/daily_english/EnglishService";
-import japaneseService from "../../features/daily_japanese/JapaneseService";
+import { getAllUsersWithNotification } from "../../utils/user-store";
+import { getShortTermForecast } from "../../utils/kma-helper";
+import kmaData from "../../data/kma-data.json";
+import { reminderService } from "../../features/tools/reminder-service"; // 리마인더는 전역이나 PrivateScheduler에서 초기화
+import englishService from "../../features/daily_english/english-service";
+import japaneseService from "../../features/daily_japanese/japanese-service";
 
 export class PrivateScheduler {
   private client: Client;

@@ -1,5 +1,5 @@
 import { Message, EmbedBuilder } from "discord.js";
-import { reminderService } from "../reminderService";
+import { reminderService } from "../reminder-service";
 
 /**
  * 리마인더 명령어

@@ -1,7 +1,7 @@
 import { EmbedBuilder, Message } from "discord.js";
-import { readJson, writeJson } from "../../../utils/fileManager";
+import { readJson, writeJson } from "../../../utils/file-manager";
 import { aiService } from "../../../core/ai";
-import { getDisplayName } from "../../../utils/userUtils";
+import { getDisplayName } from "../../../utils/user-utils";
 
 /**
  * 오늘의 운세 명령어
@@ -9,7 +9,7 @@ import { getDisplayName } from "../../../utils/userUtils";
  * 당일 재호출 시 동일한 운세를 반환합니다.
  */
 
-const FORTUNES_FILE_NAME = "daily_fortunes.json";
+const FORTUNES_FILE_NAME = "daily-fortunes.json";
 
 interface FortuneData {
   date: string;

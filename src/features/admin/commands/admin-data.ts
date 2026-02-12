@@ -3,8 +3,8 @@
  */
 
 import { EmbedBuilder, Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import { readJson } from "../../../utils/fileManager";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import { readJson } from "../../../utils/file-manager";
 
 interface UserPrefs {
   [id: string]: {
@@ -20,6 +20,9 @@ interface Fortunes {
   };
 }
 
+const USER_PREFS_FILE = "user-preferences.json";
+const LEGACY_USER_PREFS_FILE = "user_preferences.json";
+
 /**
  * 데이터 명령어 핸들러
  */
@@ -29,8 +32,12 @@ const handleData = async (message: Message, args: string[]) => {
     .setTitle("📊 저장된 데이터 현황")
     .setTimestamp();
 
-  // 1. user_preferences.json
-  const userPrefs = readJson<UserPrefs>("user_preferences.json", {});
+  // 1. user-preferences.json
+  const latestUserPrefs = readJson<UserPrefs>(USER_PREFS_FILE, {});
+  const userPrefs =
+    Object.keys(latestUserPrefs).length > 0
+      ? latestUserPrefs
+      : readJson<UserPrefs>(LEGACY_USER_PREFS_FILE, {});
   if (userPrefs && Object.keys(userPrefs).length > 0) {
     const userIds = Object.keys(userPrefs);
     const usersWithRegion = userIds.filter(
@@ -54,7 +61,7 @@ const handleData = async (message: Message, args: string[]) => {
     }
 
     embed.addFields({
-      name: "👥 유저 설정 (user_preferences.json)",
+      name: "👥 유저 설정 (user-preferences.json)",
       value:
         `총 **${userIds.length}**명 등록\n` +
         `지역 설정: **${usersWithRegion.length}**명 | 알림 ON: **${usersWithNotification.length}**명\n\n` +
@@ -63,14 +70,14 @@ const handleData = async (message: Message, args: string[]) => {
     });
   } else {
     embed.addFields({
-      name: "👥 유저 설정 (user_preferences.json)",
+      name: "👥 유저 설정 (user-preferences.json)",
       value: "파일 없음 또는 읽기 오류",
       inline: false,
     });
   }
 
-  // 2. daily_fortunes.json
-  const fortunes = readJson<Fortunes>("daily_fortunes.json", {});
+  // 2. daily-fortunes.json
+  const fortunes = readJson<Fortunes>("daily-fortunes.json", {});
   if (fortunes && Object.keys(fortunes).length > 0) {
     const fortuneCount = Object.keys(fortunes).length;
     let fortuneDetails = "";
@@ -92,13 +99,13 @@ const handleData = async (message: Message, args: string[]) => {
     }
 
     embed.addFields({
-      name: "🔮 오늘의 운세 (daily_fortunes.json)",
+      name: "🔮 오늘의 운세 (daily-fortunes.json)",
       value: `총 **${fortuneCount}**건\n${fortuneDetails}`,
       inline: false,
     });
   } else {
     embed.addFields({
-      name: "🔮 오늘의 운세 (daily_fortunes.json)",
+      name: "🔮 오늘의 운세 (daily-fortunes.json)",
       value: "파일 없음 또는 읽기 오류",
       inline: false,
     });

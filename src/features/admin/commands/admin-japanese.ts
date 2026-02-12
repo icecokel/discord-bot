@@ -3,8 +3,8 @@
  * (이전: /admin japanese)
  */
 
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import japaneseService from "../../daily_japanese/JapaneseService";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import japaneseService from "../../daily_japanese/japanese-service";
 import { EmbedBuilder, Message } from "discord.js";
 
 const handleJapaneseTest = async (message: Message, args: string[]) => {

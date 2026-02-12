@@ -1,6 +1,6 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { Command } from "../../../core/loader";
-import { getSeasonalFoods } from "../../../data/seasonalFoods";
+import { getSeasonalFoods } from "../../../data/seasonal-foods";
 
 const seasonalFood: Command = {
   name: "제철음식",

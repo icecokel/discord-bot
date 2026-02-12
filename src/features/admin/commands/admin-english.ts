@@ -3,8 +3,8 @@
  * (이전: /admin english)
  */
 
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import englishService from "../../daily_english/EnglishService";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import englishService from "../../daily_english/english-service";
 import { EmbedBuilder, Message } from "discord.js";
 
 const handleEnglishTest = async (message: Message, args: string[]) => {

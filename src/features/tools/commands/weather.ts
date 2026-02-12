@@ -1,11 +1,11 @@
 import { EmbedBuilder, Message } from "discord.js";
-import { getShortTermForecast } from "../../../utils/kmaHelper";
-import * as userStore from "../../../utils/userStore";
-import kmaData from "../../../data/kma_data.json";
+import { getShortTermForecast } from "../../../utils/kma-helper";
+import * as userStore from "../../../utils/user-store";
+import kmaData from "../../../data/kma-data.json";
 import {
   joinRegionTokens,
   normalizeCommandArgs,
-} from "../weatherCommandUtils";
+} from "../weather-command-utils";
 
 export default {
   name: "weather",

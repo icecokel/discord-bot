@@ -1,5 +1,5 @@
 import { EmbedBuilder, Message, GuildMember } from "discord.js";
-import { getDisplayName } from "../../../utils/userUtils";
+import { getDisplayName } from "../../../utils/user-utils";
 
 export default {
   name: "whoami",
