@@ -88,6 +88,19 @@ const validateEmbedFieldNames = (
   return required.every((requiredName) => names.includes(requiredName));
 };
 
+const hasCommandIdentifier = (
+  commands: Array<{ name: string; keywords?: string[] }>,
+  identifier: string,
+): boolean => {
+  return commands.some((command) => {
+    if (command.name === identifier) return true;
+    return (
+      Array.isArray(command.keywords) &&
+      command.keywords.some((keyword) => keyword === identifier)
+    );
+  });
+};
+
 const handleAdminTest = async (message: Message, args: string[]) => {
   const mode = args[0]?.toLowerCase() === "quick" ? "quick" : "full";
 
@@ -98,9 +111,22 @@ const handleAdminTest = async (message: Message, args: string[]) => {
     {
       name: "커맨드 레지스트리",
       fn: async () => {
-        const commandNames = Array.from(message.client.commands.keys());
-        const required = ["ping", "help", "weather", "weather-weekly", "fortune"];
-        const missing = required.filter((name) => !commandNames.includes(name));
+        const commands = Array.from(message.client.commands.values()).map(
+          (command) => ({
+            name: command.name,
+            keywords: command.keywords,
+          }),
+        );
+        const required = [
+          "ping",
+          "help",
+          "weather",
+          "weather-weekly",
+          "fortune",
+        ];
+        const missing = required.filter(
+          (identifier) => !hasCommandIdentifier(commands, identifier),
+        );
         if (missing.length > 0) {
           return {
             status: "FAIL",
@@ -109,7 +135,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
         }
         return {
           status: "PASS",
-          detail: `${commandNames.length}개 커맨드 로드`,
+          detail: `${commands.length}개 커맨드 로드`,
         };
       },
     },
@@ -172,9 +198,14 @@ const handleAdminTest = async (message: Message, args: string[]) => {
 
         const mid = await getMidTermForecast(sample.midCode);
         if (!mid) {
+          const hint = !process.env.WEATHER_MIDDLE_END_POINT
+            ? "WEATHER_MIDDLE_END_POINT 누락"
+            : !process.env.WEATHER_MIDDLE_API_KEY
+              ? "WEATHER_MIDDLE_API_KEY 누락"
+              : "인증/권한 오류 가능성(WEATHER_MIDDLE_API_KEY 확인)";
           return {
             status: "FAIL",
-            detail: `중기 예보 실패 (${sample.regionName})`,
+            detail: `중기 예보 실패 (${sample.regionName}) - ${hint}`,
           };
         }
 
