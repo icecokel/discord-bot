@@ -50,6 +50,38 @@ interface ShortTermItem {
   ny: number;
 }
 
+const MAX_ERROR_BODY_LENGTH = 180;
+
+const getErrorBodyPreview = (body: string): string => {
+  const cleaned = body.replace(/\s+/g, " ").trim();
+  return cleaned.length > MAX_ERROR_BODY_LENGTH
+    ? `${cleaned.slice(0, MAX_ERROR_BODY_LENGTH)}...`
+    : cleaned;
+};
+
+const parseKmaJsonResponse = async <T>(
+  res: Response,
+  apiName: string,
+): Promise<KmaResponse<T> | null> => {
+  const bodyText = await res.text();
+
+  if (!res.ok) {
+    console.error(
+      `[${apiName}] HTTP ${res.status} ${res.statusText}: ${getErrorBodyPreview(bodyText)}`,
+    );
+    return null;
+  }
+
+  try {
+    return JSON.parse(bodyText) as KmaResponse<T>;
+  } catch (error: any) {
+    console.error(
+      `[${apiName}] JSON 파싱 실패: ${getErrorBodyPreview(bodyText)} (${error.message})`,
+    );
+    return null;
+  }
+};
+
 const getSky = (code: number): string => {
   if (code == 1) return "맑음 ☀️";
   if (code == 3) return "구름많음 🌥️";
@@ -114,7 +146,11 @@ export const getShortTermForecast = async (
     const url = `${shortEndPoint}/getVilageFcst?serviceKey=${shortApiKey}&pageNo=1&numOfRows=1000&dataType=JSON&base_date=${baseDate}&base_time=${baseTimeStr}&nx=${nx}&ny=${ny}`;
 
     const res = await fetch(url);
-    const data = (await res.json()) as KmaResponse<ShortTermItem>;
+    const data = await parseKmaJsonResponse<ShortTermItem>(
+      res,
+      "ShortTerm API",
+    );
+    if (!data) return null;
 
     if (data.response?.header?.resultCode !== "00") {
       throw new Error(`KMA API Error: ${data.response?.header?.resultMsg}`);
@@ -292,9 +328,15 @@ export const getMidTermForecast = async (regId: string): Promise<any> => {
     const url = `${midEndPoint}/getMidLandFcst?serviceKey=${midApiKey}&pageNo=1&numOfRows=10&dataType=JSON&regId=${regId}&tmFc=${tmFc}`;
 
     const res = await fetch(url);
-    const data = (await res.json()) as KmaResponse<any>;
+    const data = await parseKmaJsonResponse<any>(res, "MidTerm API");
+    if (!data) return null;
 
-    if (data.response?.header?.resultCode !== "00") return null;
+    if (data.response?.header?.resultCode !== "00") {
+      console.error(
+        `MidTerm API Error: ${data.response?.header?.resultMsg || "Unknown"}`,
+      );
+      return null;
+    }
 
     const item = data.response?.body?.items?.item
       ? data.response.body.items.item[0]
