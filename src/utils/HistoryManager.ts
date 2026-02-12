@@ -1,12 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { DATA_DIR } from "./fileManager";
 
-const HISTORY_FILE_PATH = path.join(
-  process.cwd(),
-  "src",
-  "data",
-  "daily_history.json",
-);
+const HISTORY_FILE_PATH = path.join(DATA_DIR, "daily_history.json");
 
 export interface DailyHistoryData {
   english: string[]; // 최근 영어 문장 리스트

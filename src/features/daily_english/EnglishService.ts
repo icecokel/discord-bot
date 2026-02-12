@@ -166,6 +166,11 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
    */
   createEmbed(contentData: EnglishContent): EmbedBuilder {
     const { category, data, content, weekdayMsg } = contentData;
+    const hasStructuredFields = Boolean(
+      data &&
+        data.content &&
+        (data.meaning || data.description || data.rawExamples),
+    );
 
     const embed = new EmbedBuilder()
       .setColor(0x00b0f4) // 하늘색
@@ -173,8 +178,8 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
       .setTimestamp()
       .setFooter({ text: "Daily English Helper" });
 
-    // 파싱된 데이터가 조금이라도 있으면 Embed 구성
-    if (data && data.content && data.content !== content) {
+    // 구조화 파싱 결과가 있는 경우 필드형 Embed 구성
+    if (hasStructuredFields && data) {
       embed.setDescription(weekdayMsg);
 
       embed.addFields({
