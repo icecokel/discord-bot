@@ -8,7 +8,7 @@ import kmaData from "../../../data/kma_data.json";
 import {
   joinRegionTokens,
   normalizeCommandArgs,
-} from "./weatherCommandUtils";
+} from "../weatherCommandUtils";
 
 export default {
   name: "weather-weekly",
