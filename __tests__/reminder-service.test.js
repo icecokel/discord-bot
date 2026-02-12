@@ -1,6 +1,6 @@
 require("ts-node/register/transpile-only");
 
-const { reminderService } = require("../src/features/tools/reminderService");
+const { reminderService } = require("../src/features/tools/reminder-service");
 
 const baseReminder = {
   id: "owner-1",

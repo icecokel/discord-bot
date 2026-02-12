@@ -6,7 +6,7 @@ import { EmbedBuilder, Message } from "discord.js";
 import {
   registerAdminCommand,
   getAdminCommands,
-} from "../../../core/adminMiddleware";
+} from "../../../core/admin-middleware";
 
 /**
  * 어드민 도움말 핸들러

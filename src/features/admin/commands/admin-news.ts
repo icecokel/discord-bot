@@ -1,6 +1,6 @@
 import { Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import newsService from "../../daily_news/NewsService";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import newsService from "../../daily_news/news-service";
 
 /**
  * 관리자 전용 뉴스 테스트 명령어

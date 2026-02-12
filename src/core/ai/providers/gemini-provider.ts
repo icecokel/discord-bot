@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BaseProvider, IGenerationOptions } from "./BaseProvider";
+import { BaseProvider, IGenerationOptions } from "./base-provider";
 
 /**
  * Google Gemini API 공급자 구현

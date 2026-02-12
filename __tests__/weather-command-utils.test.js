@@ -3,7 +3,7 @@ require("ts-node/register/transpile-only");
 const {
   normalizeCommandArgs,
   joinRegionTokens,
-} = require("../src/features/tools/weatherCommandUtils");
+} = require("../src/features/tools/weather-command-utils");
 
 describe("Weather command args parsing", () => {
   test("normalizes empty tokens", () => {

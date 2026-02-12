@@ -2,8 +2,8 @@ import "dotenv/config";
 import { Client, GatewayIntentBits, Partials, Message } from "discord.js";
 import { loadCommands, Command } from "./core/loader";
 import { initializeSchedulers } from "./core/scheduler";
-import { handleAdminCommand } from "./core/adminMiddleware";
-import { handleCommand } from "./core/commandHandler";
+import { handleAdminCommand } from "./core/admin-middleware";
+import { handleCommand } from "./core/command-handler";
 
 // 어드민 명령어 모듈 로드 (자동 등록)
 import "./features/admin/commands/admin-data";

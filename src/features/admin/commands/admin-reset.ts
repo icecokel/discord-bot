@@ -4,8 +4,8 @@
  */
 
 import { EmbedBuilder, Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import { writeJson } from "../../../utils/fileManager";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import { writeJson } from "../../../utils/file-manager";
 
 interface ResetTarget {
   file: string;
@@ -16,11 +16,11 @@ interface ResetTarget {
 // 초기화 가능한 타겟 및 파일 매핑
 const RESET_TARGETS: { [key: string]: ResetTarget } = {
   fortune: {
-    file: "daily_fortunes.json",
+    file: "daily-fortunes.json",
     desc: "오늘의 운세 데이터",
     defaultContent: {},
   },
-  // 추후 user_preferences 등 추가 가능
+  // 추후 user-preferences 등 추가 가능
 };
 
 /**

@@ -3,14 +3,21 @@
  */
 
 import { EmbedBuilder, Message } from "discord.js";
-import { registerAdminCommand } from "../../../core/adminMiddleware";
-import { readJson } from "../../../utils/fileManager";
+import { registerAdminCommand } from "../../../core/admin-middleware";
+import { readJson } from "../../../utils/file-manager";
+
+const USER_PREFS_FILE = "user-preferences.json";
+const LEGACY_USER_PREFS_FILE = "user_preferences.json";
 
 /**
  * 등록된 모든 유저 ID 가져오기
  */
 const getAllUserIds = (): string[] => {
-  const prefs = readJson<Record<string, any>>("user_preferences.json", {});
+  const latestPrefs = readJson<Record<string, any>>(USER_PREFS_FILE, {});
+  const prefs =
+    Object.keys(latestPrefs).length > 0
+      ? latestPrefs
+      : readJson<Record<string, any>>(LEGACY_USER_PREFS_FILE, {});
   return Object.keys(prefs);
 };
 

@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { Client } from "discord.js";
-import newsService from "../../features/daily_news/NewsService";
+import newsService from "../../features/daily_news/news-service";
 
 export class GlobalScheduler {
   private client: Client;

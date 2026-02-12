@@ -7,3 +7,6 @@ src/core/registry.ts
 
 documents/
 src/data/user_preferences.json
+src/data/user-preferences.json
+src/data/daily_history.json
+src/data/daily-history.json
