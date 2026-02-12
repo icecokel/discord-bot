@@ -5,19 +5,24 @@ import {
 } from "../../../utils/kmaHelper";
 import * as userStore from "../../../utils/userStore";
 import kmaData from "../../../data/kma_data.json";
+import {
+  joinRegionTokens,
+  normalizeCommandArgs,
+} from "./weatherCommandUtils";
 
 export default {
   name: "weather-weekly",
   keywords: ["주간날씨", "주간", "weekly"],
   description: "내일부터 7일 후까지의 주간 예보를 확인합니다.",
-  async execute(message: Message) {
-    const args = message.content.split(/ +/);
-    let regionName = args[1];
+  async execute(message: Message, args: string[]) {
+    const commandArgs = normalizeCommandArgs(args);
+    const primaryArg = commandArgs[0];
+    let regionName = joinRegionTokens(commandArgs);
 
     // 0. 설명(Help) 기능
     if (
-      args[1] &&
-      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(args[1])
+      primaryArg &&
+      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(primaryArg)
     ) {
       const embed = new EmbedBuilder()
         .setColor(0xffa500)

@@ -177,6 +177,11 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
    */
   createEmbed(contentData: JapaneseContent): EmbedBuilder {
     const { category, data, content, weekdayMsg } = contentData;
+    const hasStructuredFields = Boolean(
+      data &&
+        data.content &&
+        (data.meaning || data.description || data.rawExamples),
+    );
 
     const embed = new EmbedBuilder()
       .setColor(0xff69b4) // 핫핑크
@@ -184,7 +189,7 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
       .setTimestamp()
       .setFooter({ text: "Daily Japanese Helper" });
 
-    if (data && data.content && data.content !== content) {
+    if (hasStructuredFields && data) {
       embed.setDescription(weekdayMsg);
 
       embed.addFields({
