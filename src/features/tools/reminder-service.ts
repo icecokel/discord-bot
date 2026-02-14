@@ -17,6 +17,11 @@ export type RemoveReminderResult =
   | { ok: true; reminder: Reminder }
   | { ok: false; reason: "NOT_FOUND" | "FORBIDDEN"; reminder?: Reminder };
 
+export interface RemoveAllRemindersByUserResult {
+  removedCount: number;
+  removedReminders: Reminder[];
+}
+
 class ReminderService {
   private reminders: Reminder[] = [];
   private checkTimeout: NodeJS.Timeout | null = null;
@@ -142,6 +147,34 @@ class ReminderService {
       this.stopCheckLoop();
     }
     return { ok: true, reminder: removed };
+  }
+
+  // 사용자 기준 리마인더 일괄 삭제 (옵션으로 채널 한정 가능)
+  public removeAllRemindersByUser(
+    userId: string,
+    options: { channelId?: string } = {},
+  ): RemoveAllRemindersByUserResult {
+    const shouldRemove = (r: Reminder) =>
+      r.userId === userId &&
+      (!options.channelId || r.channelId === options.channelId);
+
+    const removedReminders = this.reminders.filter(shouldRemove);
+
+    if (removedReminders.length === 0) {
+      return { removedCount: 0, removedReminders: [] };
+    }
+
+    this.reminders = this.reminders.filter((r) => !shouldRemove(r));
+    this.saveReminders();
+
+    if (this.reminders.length === 0) {
+      this.stopCheckLoop();
+    }
+
+    return {
+      removedCount: removedReminders.length,
+      removedReminders,
+    };
   }
 
   // 리마인더 삭제 (Internal ID 기준 - 발송 후 삭제용)
