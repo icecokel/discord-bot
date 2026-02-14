@@ -28,6 +28,11 @@ export default {
         .setEmoji("🧩")
         .setStyle(ButtonStyle.Link)
         .setURL("https://vscoke.vercel.app/ko-KR/game/wordle"),
+      new ButtonBuilder()
+        .setLabel("Arrow Drift 플레이")
+        .setEmoji("🏹")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://vscoke.vercel.app/ko-KR/game/arrow-drift"),
     );
 
     message.reply({ embeds: [embed], components: [row] });
