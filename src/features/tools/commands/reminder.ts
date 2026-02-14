@@ -188,6 +188,9 @@ const execute = async (
   if (minutes > 0) timeLeftStr += `${minutes}분 `;
   if (timeLeftStr === "") timeLeftStr = "곧"; // 1분 미만
 
+  const requesterDisplayName =
+    message.member?.displayName || message.author.username;
+
   const embed = new EmbedBuilder()
     .setColor(0x00ff00)
     .setTitle("✅ 리마인더 등록 완료")
@@ -198,7 +201,7 @@ const execute = async (
       { name: "남은 시간", value: `${timeLeftStr} 후`, inline: true },
     )
     .setFooter({
-      text: message.author.username,
+      text: requesterDisplayName,
       iconURL: message.author.displayAvatarURL(),
     })
     .setTimestamp();
