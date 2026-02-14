@@ -7,6 +7,7 @@ import { reminderService } from "../reminder-service";
  * 예: !리마인더 10분 뒤 운동하기
  * 예: !리마인더 12월 25일 크리스마스
  * 예: !리마인더 삭제 a1b2
+ * 예: !리마인더 삭제 전체
  */
 const execute = async (
   message: Message,
@@ -66,16 +67,41 @@ const execute = async (
     subcommand === "remove" ||
     subcommand === "delete"
   ) {
-    const shortId = args[1];
-    if (!shortId) {
+    const deleteTarget = args[1];
+    if (!deleteTarget) {
       return message.reply(
-        "❌ 삭제할 리마인더 ID를 입력해주세요. (예: `!리마인더 삭제 a1b2`)",
+        "❌ 삭제할 리마인더 ID를 입력해주세요. (예: `!리마인더 삭제 a1b2`, `!리마인더 삭제 전체`)",
+      );
+    }
+
+    const normalizedDeleteTarget = deleteTarget.toLowerCase();
+    const isDeleteAll =
+      deleteTarget === "전체" ||
+      deleteTarget === "모두" ||
+      normalizedDeleteTarget === "all";
+
+    if (isDeleteAll) {
+      const result = reminderService.removeAllRemindersByUser(
+        message.author.id,
+        {
+          channelId: message.channel.id,
+        },
+      );
+
+      if (result.removedCount === 0) {
+        return message.reply(
+          "📭 현재 채널에서 본인이 등록한 리마인더가 없습니다.",
+        );
+      }
+
+      return message.reply(
+        `✅ 현재 채널에서 본인이 등록한 리마인더 ${result.removedCount}개를 모두 삭제했습니다.`,
       );
     }
 
     const isAdmin = message.author.id === process.env.ADMIN_ID;
     const result = reminderService.removeReminderByShortId(
-      shortId,
+      deleteTarget,
       message.author.id,
       { isAdmin },
     );
@@ -94,14 +120,14 @@ const execute = async (
 
     if (result.reason === "NOT_FOUND") {
       return message.reply(
-        `❌ 해당 ID(${shortId})를 가진 리마인더를 찾을 수 없습니다. 목록을 확인해주세요.`,
+        `❌ 해당 ID(${deleteTarget})를 가진 리마인더를 찾을 수 없습니다. 목록을 확인해주세요.`,
       );
     }
   }
 
   if (args.length < 2) {
     return message.reply(
-      "❌ 사용법: `!리마인더 <시간> <메시지>` 또는 `!리마인더 목록`, `!리마인더 삭제 <ID>`\n" +
+      "❌ 사용법: `!리마인더 <시간> <메시지>` 또는 `!리마인더 목록`, `!리마인더 삭제 <ID|전체>`\n" +
         "예: `!리마인더 10분 뒤 라면`, `!리마인더 내일 점심 약속`, `!리마인더 오후 5시 퇴근`",
     );
   }
