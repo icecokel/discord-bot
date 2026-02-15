@@ -89,3 +89,33 @@ describe("Reminder delete permission", () => {
     expect(reminderService.reminders).toHaveLength(1);
   });
 });
+
+describe("Reminder time parser", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test("absolute date-time should not be parsed as relative minutes", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 1, 15, 23, 23, 0, 0));
+
+    const target = reminderService.parseTargetTime("2월19일9시15분");
+    const parsed = new Date(target);
+
+    expect(target).not.toBeNull();
+    expect(parsed.getFullYear()).toBe(2026);
+    expect(parsed.getMonth()).toBe(1);
+    expect(parsed.getDate()).toBe(19);
+    expect(parsed.getHours()).toBe(9);
+    expect(parsed.getMinutes()).toBe(15);
+  });
+
+  test("relative minutes should still work", () => {
+    jest.useFakeTimers();
+    const now = new Date(2026, 1, 15, 10, 0, 0, 0);
+    jest.setSystemTime(now);
+
+    const target = reminderService.parseTargetTime("15분");
+    expect(target).toBe(now.getTime() + 15 * 60 * 1000);
+  });
+});

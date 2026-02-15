@@ -267,7 +267,7 @@ class ReminderService {
     const now = new Date();
 
     // 1. 상대 시간 (분, 시간)
-    const relativeMatch = input.match(/(\d+)(분|시간|초)\s*(뒤|후)?/);
+    const relativeMatch = input.match(/^\s*(\d+)\s*(분|시간|초)\s*(?:뒤|후)?\s*$/);
     if (relativeMatch) {
       const value = parseInt(relativeMatch[1]);
       const unit = relativeMatch[2];
