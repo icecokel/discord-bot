@@ -43,11 +43,11 @@ export class PrivateScheduler {
   }
 
   private scheduleWeather() {
-    // 매일 오전 9시 (KST) 날씨 알림 (기존 로직 유지 - DM 발송)
+    // 매일 오전 7시 (KST) 날씨 알림 (기존 로직 유지 - DM 발송)
     cron.schedule(
-      "0 9 * * *",
+      "0 7 * * *",
       async () => {
-        console.log("[PrivateScheduler] 오전 9시 날씨 알림 시작");
+        console.log("[PrivateScheduler] 오전 7시 날씨 알림 시작");
 
         const users = getAllUsersWithNotification();
         console.log(
@@ -58,13 +58,13 @@ export class PrivateScheduler {
           await this.sendWeatherDM(userId, region);
         }
 
-        console.log("[PrivateScheduler] 오전 9시 날씨 알림 완료");
+        console.log("[PrivateScheduler] 오전 7시 날씨 알림 완료");
       },
       {
         timezone: "Asia/Seoul",
       },
     );
-    console.log("[PrivateScheduler] 날씨 알림 등록 완료 (매일 09:00 KST)");
+    console.log("[PrivateScheduler] 날씨 알림 등록 완료 (매일 07:00 KST)");
   }
 
   private async sendWeatherDM(userId: string, region: string) {
