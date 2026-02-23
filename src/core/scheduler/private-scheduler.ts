@@ -7,6 +7,8 @@ import { reminderService } from "../../features/tools/reminder-service"; // 리�
 import englishService from "../../features/daily_english/english-service";
 import japaneseService from "../../features/daily_japanese/japanese-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
+import geekNewsService from "../../features/daily_news/geek-news-service";
+import newsService from "../../features/daily_news/news-service";
 
 export class PrivateScheduler {
   private client: Client;
@@ -20,6 +22,7 @@ export class PrivateScheduler {
     this.scheduleReminder(); // 리마인더는 별도 루프지만 여기서 init
     this.scheduleBusAlert();
     this.scheduleWeather();
+    this.scheduleNews();
 
     if (this.targetChannelId) {
       this.scheduleEnglish();
@@ -40,6 +43,29 @@ export class PrivateScheduler {
 
   private scheduleBusAlert() {
     busAlertService.initialize(this.client);
+  }
+
+  private scheduleNews() {
+    cron.schedule(
+      "0 8 * * *",
+      async () => {
+        if (!this.targetChannelId) {
+          console.log(
+            "[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. 08시 뉴스/긱뉴스 스킵",
+          );
+          return;
+        }
+
+        console.log("[PrivateScheduler] 오전 8시 뉴스/긱뉴스 알림 시작");
+        await Promise.all([
+          newsService.sendToChannel(this.client, this.targetChannelId),
+          geekNewsService.sendToChannel(this.client, this.targetChannelId),
+        ]);
+        console.log("[PrivateScheduler] 오전 8시 뉴스/긱뉴스 알림 완료");
+      },
+      { timezone: "Asia/Seoul" },
+    );
+    console.log("[PrivateScheduler] 뉴스/긱뉴스 알림 등록 완료 (매일 08:00 KST)");
   }
 
   private scheduleWeather() {
