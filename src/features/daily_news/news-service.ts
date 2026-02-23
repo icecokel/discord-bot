@@ -3,6 +3,7 @@ import {
   Client,
   ChannelType,
   TextChannel,
+  TextBasedChannel,
 } from "discord.js";
 
 interface NaverNewsItem {
@@ -189,6 +190,36 @@ class NewsService {
       console.log(`[NewsService] 발송 완료. 총 ${successCount}개 채널 전송.`);
     } catch (error) {
       console.error("[NewsService] 전체 발송 중 치명적 오류:", error);
+    }
+  }
+
+  /**
+   * 특정 텍스트 채널로 뉴스 발송
+   */
+  async sendToChannel(client: Client, channelId: string) {
+    console.log(`[NewsService] 특정 채널 뉴스 발송 시작: ${channelId}`);
+    try {
+      const newsItems = await this.generateDailyNews();
+      if (!newsItems || newsItems.length === 0) {
+        console.log(
+          "[NewsService] 뉴스 내용이 없어 특정 채널 발송을 중단합니다.",
+        );
+        return;
+      }
+
+      const channel = await client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        console.log(
+          `[NewsService] 텍스트 채널이 아니거나 존재하지 않습니다: ${channelId}`,
+        );
+        return;
+      }
+
+      const embed = this.createEmbed(newsItems);
+      await (channel as TextBasedChannel).send({ embeds: [embed] });
+      console.log(`[NewsService] 특정 채널 뉴스 발송 완료: ${channelId}`);
+    } catch (error) {
+      console.error("[NewsService] 특정 채널 발송 중 오류:", error);
     }
   }
 }

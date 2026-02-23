@@ -1,3 +1,5 @@
+import { Client, TextBasedChannel, EmbedBuilder } from "discord.js";
+
 export interface GeekNewsItem {
   rank: number;
   title: string;
@@ -81,6 +83,36 @@ class GeekNewsService {
     } catch (error) {
       console.error("[GeekNewsService] Top 뉴스 조회 실패:", error);
       return [];
+    }
+  }
+
+  async sendToChannel(client: Client, channelId: string): Promise<void> {
+    try {
+      const items = await this.fetchTopItems(5);
+      if (!items || items.length === 0) {
+        return;
+      }
+
+      const lines = items.map(
+        (item) =>
+          `${item.rank}. [${item.title}](${item.link}) · 👍 ${item.points}`,
+      );
+
+      const embed = new EmbedBuilder()
+        .setColor(0xff8a00)
+        .setTitle("🧠 긱뉴스 Top 5")
+        .setURL(this.url)
+        .setDescription(lines.join("\n"))
+        .setFooter({ text: "Source: news.hada.io" })
+        .setTimestamp();
+
+      const channel = await client.channels.fetch(channelId);
+      if (!channel || !channel.isTextBased()) {
+        return;
+      }
+      await (channel as TextBasedChannel).send({ embeds: [embed] });
+    } catch (error) {
+      console.error("[GeekNewsService] 특정 채널 발송 실패:", error);
     }
   }
 }
