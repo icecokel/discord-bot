@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { Client, EmbedBuilder } from "discord.js";
+import { Client } from "discord.js";
 import { getAllUsersWithNotification } from "../../utils/user-store";
 import { getShortTermForecast } from "../../utils/kma-helper";
 import kmaData from "../../data/kma-data.json";
@@ -117,34 +117,14 @@ export class PrivateScheduler {
       }
 
       const { today } = weatherData;
-      const { current, min, max, popMax } = today;
-
-      const embed = new EmbedBuilder()
-        .setColor(0x0099ff)
-        .setTitle(`🌤️ ${region} 오늘의 날씨`)
-        .setDescription("좋은 하루 보내세요! ☀️")
-        .setTimestamp();
-
-      if (current) {
-        embed.addFields({
-          name: "현재 날씨",
-          value: `${current.desc} **${current.temp}°C**`,
-          inline: false,
-        });
-      }
-
-      let tempStr = "";
-      if (min !== null) tempStr += `최저 **${min}°**`;
-      if (max !== null) tempStr += ` / 최고 **${max}°**`;
-
-      embed.addFields({
-        name: "오늘 예보",
-        value: `${tempStr}\n☔ 최대 강수확률: **${popMax}%**`,
-        inline: false,
-      });
+      const { min, max, popMax } = today;
+      const minText = min !== null ? `${min}°` : "-";
+      const maxText = max !== null ? `${max}°` : "-";
+      const oneLinePreview =
+        `🌤️ ${region} | 최저 ${minText} | 최고 ${maxText} | 비/눈 ${popMax}%`;
 
       const user = await this.client.users.fetch(userId);
-      await user.send({ embeds: [embed] });
+      await user.send(oneLinePreview);
       console.log(`[PrivateScheduler] ${user.tag}에게 날씨 DM 전송 완료`);
     } catch (error: any) {
       console.error(
