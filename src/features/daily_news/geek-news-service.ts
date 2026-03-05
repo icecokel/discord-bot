@@ -66,6 +66,20 @@ export const parseGeekNewsTopItems = (
 class GeekNewsService {
   private readonly url = GEEK_NEWS_URL;
 
+  private isSendableChannel(
+    channel: unknown,
+  ): channel is TextBasedChannel & {
+    send: (options: any) => Promise<unknown>;
+  } {
+    if (!channel) return false;
+    const candidate = channel as any;
+    return (
+      typeof candidate.isTextBased === "function" &&
+      candidate.isTextBased() &&
+      typeof candidate.send === "function"
+    );
+  }
+
   async fetchTopItems(limit: number = 5): Promise<GeekNewsItem[]> {
     try {
       const response = await fetch(this.url, {
@@ -107,10 +121,10 @@ class GeekNewsService {
         .setTimestamp();
 
       const channel = await client.channels.fetch(channelId);
-      if (!channel || !channel.isTextBased()) {
+      if (!this.isSendableChannel(channel)) {
         return;
       }
-      await (channel as TextBasedChannel).send({ embeds: [embed] });
+      await channel.send({ embeds: [embed] });
     } catch (error) {
       console.error("[GeekNewsService] 특정 채널 발송 실패:", error);
     }

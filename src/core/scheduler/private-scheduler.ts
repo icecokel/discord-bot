@@ -8,7 +8,6 @@ import englishService from "../../features/daily_english/english-service";
 import japaneseService from "../../features/daily_japanese/japanese-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
-import newsService from "../../features/daily_news/news-service";
 
 export class PrivateScheduler {
   private client: Client;
@@ -51,29 +50,26 @@ export class PrivateScheduler {
       async () => {
         if (!this.targetChannelId) {
           console.log(
-            "[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. 08시 뉴스/긱뉴스 스킵",
+            "[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. 08시 긱뉴스 스킵",
           );
           return;
         }
 
-        console.log("[PrivateScheduler] 오전 8시 뉴스/긱뉴스 알림 시작");
-        await Promise.all([
-          newsService.sendToChannel(this.client, this.targetChannelId),
-          geekNewsService.sendToChannel(this.client, this.targetChannelId),
-        ]);
-        console.log("[PrivateScheduler] 오전 8시 뉴스/긱뉴스 알림 완료");
+        console.log("[PrivateScheduler] 오전 8시 긱뉴스 알림 시작");
+        await geekNewsService.sendToChannel(this.client, this.targetChannelId);
+        console.log("[PrivateScheduler] 오전 8시 긱뉴스 알림 완료");
       },
       { timezone: "Asia/Seoul" },
     );
-    console.log("[PrivateScheduler] 뉴스/긱뉴스 알림 등록 완료 (매일 08:00 KST)");
+    console.log("[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:00 KST)");
   }
 
   private scheduleWeather() {
-    // 매일 오전 7시 (KST) 날씨 알림 (기존 로직 유지 - DM 발송)
+    // 매일 오전 6시 30분 (KST) 날씨 알림 (기존 로직 유지 - DM 발송)
     cron.schedule(
-      "0 7 * * *",
+      "30 6 * * *",
       async () => {
-        console.log("[PrivateScheduler] 오전 7시 날씨 알림 시작");
+        console.log("[PrivateScheduler] 오전 6시 30분 날씨 알림 시작");
 
         const users = getAllUsersWithNotification();
         console.log(
@@ -84,13 +80,13 @@ export class PrivateScheduler {
           await this.sendWeatherDM(userId, region);
         }
 
-        console.log("[PrivateScheduler] 오전 7시 날씨 알림 완료");
+        console.log("[PrivateScheduler] 오전 6시 30분 날씨 알림 완료");
       },
       {
         timezone: "Asia/Seoul",
       },
     );
-    console.log("[PrivateScheduler] 날씨 알림 등록 완료 (매일 07:00 KST)");
+    console.log("[PrivateScheduler] 날씨 알림 등록 완료 (매일 06:30 KST)");
   }
 
   private async sendWeatherDM(userId: string, region: string) {
