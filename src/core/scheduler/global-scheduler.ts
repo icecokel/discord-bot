@@ -15,18 +15,18 @@ export class GlobalScheduler {
   }
 
   private scheduleNews() {
-    // 매일 오전 8시 (KST) 뉴스 알림
+    // 매분 실행하며 채널별 설정 시간(KST)에 맞춰 뉴스 알림
     cron.schedule(
-      "0 8 * * *",
+      "* * * * *",
       async () => {
-        console.log("[GlobalScheduler] 08시 뉴스 알림 시작");
-        await newsService.sendToGeneralChannels(this.client);
-        console.log("[GlobalScheduler] 08시 뉴스 알림 완료");
+        await newsService.sendScheduledChannels(this.client);
       },
       {
         timezone: "Asia/Seoul",
       },
     );
-    console.log("[GlobalScheduler] 뉴스 알림 등록 완료 (매일 08:00 KST)");
+    console.log(
+      "[GlobalScheduler] 뉴스 알림 등록 완료 (매분 체크, 채널별 시간 적용)",
+    );
   }
 }

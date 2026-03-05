@@ -44,7 +44,7 @@ export default {
           {
             name: "🔔 알림 설정 (Beta)",
             value:
-              "`!날씨 알림`, `!날씨 알림해제`\n매일 오전 7시에 기본 지역 날씨를 DM으로 보내드립니다. (설정 필요)",
+              "`!날씨 알림`, `!날씨 알림해제`\n매일 오전 6시 30분에 기본 지역 날씨를 DM으로 보내드립니다. (설정 필요)",
           },
         )
         .setFooter({ text: "기상청 데이터를 제공합니다." });
@@ -105,7 +105,7 @@ export default {
       }
       userStore.enableNotification(message.author.id);
       return message.reply(
-        `🔔 날씨 알림이 활성화되었습니다!\n매일 오전 7시에 **${region}** 날씨를 DM으로 받아보실 수 있습니다.`,
+        `🔔 날씨 알림이 활성화되었습니다!\n매일 오전 6시 30분에 **${region}** 날씨를 DM으로 받아보실 수 있습니다.`,
       );
     }
 
