@@ -25,6 +25,7 @@ const TOPIC_ROW_REGEX =
   /<div class=['"]?topic_row['"]?[\s\S]*?<\/div>\s*(?=<div class=['"]?topic_row['"]?|<div class=['"]?next)/g;
 
 const MAX_SUMMARY_LENGTH = 160;
+const HANGUL_REGEX = /[가-힣]/;
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -70,6 +71,22 @@ const truncateText = (text: string, maxLength: number): string => {
   return `${text.slice(0, maxLength - 3).trimEnd()}...`;
 };
 
+const cleanSummaryText = (text: string): string =>
+  truncateText(
+    normalizeWhitespace(
+      text
+        .replace(/```[\s\S]*?```/g, " ")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^#{1,6}\s*/gm, "")
+        .replace(/^[*-]\s+/gm, "")
+        .replace(/^\d+\.\s+/gm, ""),
+    ),
+    MAX_SUMMARY_LENGTH,
+  );
+
+export const isKoreanSummary = (text: string): boolean =>
+  HANGUL_REGEX.test(text);
+
 export const buildGeekNewsFallbackSummary = (
   description: string,
   title: string,
@@ -79,6 +96,19 @@ export const buildGeekNewsFallbackSummary = (
     cleanText(title) ||
     "요약 정보가 없습니다.";
   return truncateText(source, MAX_SUMMARY_LENGTH);
+};
+
+export const resolveGeekNewsSummary = (
+  summary: string | undefined,
+  description: string,
+  title: string,
+): string => {
+  const normalizedSummary = summary ? cleanSummaryText(summary) : "";
+  if (normalizedSummary && isKoreanSummary(normalizedSummary)) {
+    return normalizedSummary;
+  }
+
+  return buildGeekNewsFallbackSummary(description, title);
 };
 
 export const parseGeekNewsSummaryResponse = (
@@ -109,7 +139,7 @@ export const parseGeekNewsSummaryResponse = (
         const rank = Number(item?.rank);
         const summary =
           typeof item?.summary === "string"
-            ? truncateText(normalizeWhitespace(item.summary), MAX_SUMMARY_LENGTH)
+            ? cleanSummaryText(item.summary)
             : "";
 
         if (!Number.isFinite(rank) || rank <= 0 || !summary) {
@@ -191,6 +221,8 @@ class GeekNewsService {
     return [
       "당신은 디스코드용 기술 뉴스 요약기입니다.",
       "입력으로 받은 제목과 설명만 사용해 각 항목의 핵심을 한국어로 짧게 요약하세요.",
+      "summary는 반드시 자연스러운 한국어 문장으로 작성하세요.",
+      "영어 문장을 그대로 복사하거나 영문만으로 답하지 마세요.",
       "반드시 JSON 배열만 응답하세요.",
       '형식: [{"rank":1,"summary":"..."}]',
       "규칙:",
@@ -218,6 +250,8 @@ class GeekNewsService {
       const rawResponse = await aiService.generateText(
         this.buildSummaryPrompt(items),
         {
+          systemInstruction:
+            "당신은 한국어 기술 뉴스 요약기입니다. 모든 summary는 반드시 자연스러운 한국어로만 작성하고 JSON 외 텍스트는 출력하지 마세요.",
           responseMimeType: "application/json",
           config: {
             temperature: 0.2,
@@ -235,15 +269,21 @@ class GeekNewsService {
 
       return items.map((item) => ({
         ...item,
-        summary:
-          summaryMap.get(item.rank) ||
-          buildGeekNewsFallbackSummary(item.description, item.title),
+        summary: resolveGeekNewsSummary(
+          summaryMap.get(item.rank),
+          item.description,
+          item.title,
+        ),
       }));
     } catch (error) {
       console.error("[GeekNewsService] AI 요약 실패:", error);
       return items.map((item) => ({
         ...item,
-        summary: buildGeekNewsFallbackSummary(item.description, item.title),
+        summary: resolveGeekNewsSummary(
+          undefined,
+          item.description,
+          item.title,
+        ),
       }));
     }
   }
@@ -290,8 +330,11 @@ class GeekNewsService {
         value: [
           `[링크 열기](${item.link})`,
           truncateText(
-            item.summary ||
-              buildGeekNewsFallbackSummary(item.description, item.title),
+            resolveGeekNewsSummary(
+              item.summary,
+              item.description,
+              item.title,
+            ),
             900,
           ),
         ].join("\n"),
