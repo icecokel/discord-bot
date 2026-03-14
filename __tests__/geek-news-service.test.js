@@ -3,7 +3,9 @@ require("ts-node/register/transpile-only");
 const {
   parseGeekNewsTopItems,
   buildGeekNewsFallbackSummary,
+  isKoreanSummary,
   parseGeekNewsSummaryResponse,
+  resolveGeekNewsSummary,
 } = require("../src/features/daily_news/geek-news-service");
 
 describe("GeekNews top parser", () => {
@@ -121,5 +123,20 @@ describe("GeekNews summary helpers", () => {
     expect(
       buildGeekNewsFallbackSummary("  핵심 설명을   간단히\n정리합니다.  ", "제목"),
     ).toBe("핵심 설명을 간단히 정리합니다.");
+  });
+
+  test("detects korean summary text", () => {
+    expect(isKoreanSummary("한국어 요약입니다.")).toBe(true);
+    expect(isKoreanSummary("English only summary")).toBe(false);
+  });
+
+  test("falls back when ai summary is not korean", () => {
+    expect(
+      resolveGeekNewsSummary(
+        "English summary only",
+        "긱뉴스 설명을 한국어로 제공합니다.",
+        "제목",
+      ),
+    ).toBe("긱뉴스 설명을 한국어로 제공합니다.");
   });
 });
