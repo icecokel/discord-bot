@@ -1,4 +1,4 @@
-import { EmbedBuilder, Message } from "discord.js";
+import { Message } from "discord.js";
 import geekNewsService from "../../daily_news/geek-news-service";
 
 const execute = async (message: Message): Promise<void> => {
@@ -10,17 +10,7 @@ const execute = async (message: Message): Promise<void> => {
     return;
   }
 
-  const lines = items.map(
-    (item) => `${item.rank}. [${item.title}](${item.link}) · 👍 ${item.points}`,
-  );
-
-  const embed = new EmbedBuilder()
-    .setColor(0xff8a00)
-    .setTitle("🧠 긱뉴스 Top 5")
-    .setURL("https://news.hada.io/")
-    .setDescription(lines.join("\n"))
-    .setFooter({ text: "Source: news.hada.io" })
-    .setTimestamp();
+  const embed = geekNewsService.createEmbed(items);
 
   await progress.edit({ content: null, embeds: [embed] });
 };
