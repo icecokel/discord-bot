@@ -7,6 +7,8 @@ const {
   parseGeekNewsSummaryResponse,
   resolveGeekNewsSummary,
 } = require("../src/features/daily_news/geek-news-service");
+const geekNewsService =
+  require("../src/features/daily_news/geek-news-service").default;
 
 describe("GeekNews top parser", () => {
   test("parses top 5 items from topic rows", () => {
@@ -138,5 +140,59 @@ describe("GeekNews summary helpers", () => {
         "제목",
       ),
     ).toBe("긱뉴스 설명을 한국어로 제공합니다.");
+  });
+
+  test("returns korean fallback message when source text is english only", () => {
+    expect(
+      resolveGeekNewsSummary(
+        undefined,
+        "English description only",
+        "English title",
+      ),
+    ).toBe("한국어 요약을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.");
+  });
+
+  test("uses korean title when description is english only", () => {
+    expect(
+      resolveGeekNewsSummary(
+        undefined,
+        "English description only",
+        "한국어 제목",
+      ),
+    ).toBe("한국어 제목");
+  });
+});
+
+describe("GeekNews embed", () => {
+  test("renders a single featured geek news item", () => {
+    const embed = geekNewsService.createEmbed({
+      rank: 1,
+      title: "오늘의 선정 기사",
+      link: "https://example.com/featured",
+      points: 123,
+      description: "기사 설명",
+      summary: "한국어 요약입니다.",
+    });
+
+    const json = embed.toJSON();
+    expect(json.title).toBe("🧠 오늘의 긱뉴스 선정 1건");
+    expect(json.url).toBe("https://example.com/featured");
+    expect(json.description).toBe("한국어 요약입니다.");
+    expect(json.fields).toHaveLength(1);
+    expect(json.fields[0]).toMatchObject({
+      name: "오늘의 선정 기사",
+      value: "[원문 보기](https://example.com/featured)\n랭킹 1위 · 123점",
+    });
+  });
+
+  test("renders fallback embed when featured item is missing", () => {
+    const embed = geekNewsService.createEmbed(null);
+    const json = embed.toJSON();
+
+    expect(json.title).toBe("🧠 오늘의 긱뉴스 선정 1건");
+    expect(json.url).toBe("https://news.hada.io/");
+    expect(json.description).toBe(
+      "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+    );
   });
 });
