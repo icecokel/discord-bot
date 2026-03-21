@@ -26,6 +26,8 @@ const TOPIC_ROW_REGEX =
 
 const MAX_SUMMARY_LENGTH = 160;
 const HANGUL_REGEX = /[가-힣]/;
+const NON_KOREAN_FALLBACK_SUMMARY =
+  "한국어 요약을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -91,10 +93,21 @@ export const buildGeekNewsFallbackSummary = (
   description: string,
   title: string,
 ): string => {
-  const source =
-    cleanDescriptionText(description) ||
-    cleanText(title) ||
-    "요약 정보가 없습니다.";
+  const normalizedDescription = cleanDescriptionText(description);
+  const normalizedTitle = cleanText(title);
+
+  if (!normalizedDescription && !normalizedTitle) {
+    return "요약 정보가 없습니다.";
+  }
+
+  const source = [normalizedDescription, normalizedTitle].find(
+    (candidate) => candidate && isKoreanSummary(candidate),
+  );
+
+  if (!source) {
+    return NON_KOREAN_FALLBACK_SUMMARY;
+  }
+
   return truncateText(source, MAX_SUMMARY_LENGTH);
 };
 
@@ -309,48 +322,53 @@ class GeekNewsService {
     }
   }
 
-  createEmbed(items: GeekNewsItem[]): EmbedBuilder {
+  async fetchFeaturedItem(): Promise<GeekNewsItem | null> {
+    const items = await this.fetchTopItems(1);
+    return items[0] || null;
+  }
+
+  createEmbed(item: GeekNewsItem | null): EmbedBuilder {
     const embed = new EmbedBuilder()
       .setColor(0xff8a00)
-      .setTitle("🧠 긱뉴스 Top 5 AI 요약")
-      .setURL(this.url)
+      .setTitle("🧠 오늘의 긱뉴스 선정 1건")
       .setFooter({ text: "Source: news.hada.io" })
       .setTimestamp();
 
-    if (items.length === 0) {
+    if (!item) {
+      embed.setURL(this.url);
       embed.setDescription("긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.");
       return embed;
     }
 
-    embed.setDescription("라이브 GeekNews 메인 Top 5를 AI로 요약했습니다.");
-
-    items.forEach((item) => {
-      embed.addFields({
-        name: `${item.rank}. ${truncateText(item.title, 240)}`,
-        value: [
-          `[링크 열기](${item.link})`,
-          truncateText(
-            resolveGeekNewsSummary(
-              item.summary,
-              item.description,
-              item.title,
-            ),
-            900,
+    embed
+      .setURL(item.link)
+      .setDescription(
+        truncateText(
+          resolveGeekNewsSummary(
+            item.summary,
+            item.description,
+            item.title,
           ),
-        ].join("\n"),
+          900,
+        ),
+      )
+      .addFields({
+        name: truncateText(item.title, 256),
+        value: [`[원문 보기](${item.link})`, `랭킹 ${item.rank}위 · ${item.points}점`].join(
+          "\n",
+        ),
       });
-    });
 
     return embed;
   }
 
   async sendToChannel(client: Client, channelId: string): Promise<void> {
     try {
-      const items = await this.fetchTopItems(5);
-      if (!items || items.length === 0) {
+      const item = await this.fetchFeaturedItem();
+      if (!item) {
         return;
       }
-      const embed = this.createEmbed(items);
+      const embed = this.createEmbed(item);
 
       const channel = await client.channels.fetch(channelId);
       if (!this.isSendableChannel(channel)) {

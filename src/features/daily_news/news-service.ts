@@ -33,6 +33,13 @@ export interface NewsItem {
   pubDate: string;
 }
 
+const HTML_HIGHLIGHT_TAG_REGEX = /<\/?(?:b|strong|em|i|mark)\s*\/?>/g;
+const ENCODED_HTML_HIGHLIGHT_TAG_REGEX =
+  /&lt;\/?(?:b|strong|em|i|mark)\s*\/?&gt;/g;
+const HTML_BREAK_TAG_REGEX = /<br\s*\/?>/g;
+const ENCODED_HTML_BREAK_TAG_REGEX = /&lt;br\s*\/?&gt;/g;
+const MAX_EMBED_FIELD_NAME_LENGTH = 256;
+
 class NewsService {
   private readonly clientId = process.env.NAVER_APP_CLIENT_ID;
   private readonly clientSecret = process.env.NAVER_APP_CLIENT_SECRET;
@@ -41,6 +48,18 @@ class NewsService {
 
   private pad2(value: number): string {
     return value.toString().padStart(2, "0");
+  }
+
+  private truncateText(text: string, maxLength: number): string {
+    if (text.length <= maxLength) {
+      return text;
+    }
+
+    if (maxLength <= 3) {
+      return text.slice(0, maxLength);
+    }
+
+    return `${text.slice(0, maxLength - 3).trimEnd()}...`;
   }
 
   private getKstNowParts(now: Date): {
@@ -101,12 +120,19 @@ class NewsService {
    */
   private cleanHtml(text: string): string {
     return text
-      .replace(/<[^>]*>?/g, "") // HTML 태그 제거
       .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
       .replace(/&apos;/g, "'")
       .replace(/&amp;/g, "&")
+      .replace(/&nbsp;/g, " ")
+      .replace(ENCODED_HTML_BREAK_TAG_REGEX, " ")
+      .replace(ENCODED_HTML_HIGHLIGHT_TAG_REGEX, "")
+      .replace(HTML_BREAK_TAG_REGEX, " ")
+      .replace(HTML_HIGHLIGHT_TAG_REGEX, "")
       .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">");
+      .replace(/&gt;/g, ">")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   /**
@@ -175,9 +201,14 @@ class NewsService {
           item.description.length > 100
             ? item.description.substring(0, 100) + "..."
             : item.description;
+        const prefix = `${index + 1}. `;
+        const fieldTitle = `${prefix}${this.truncateText(
+          item.title,
+          MAX_EMBED_FIELD_NAME_LENGTH - prefix.length,
+        )}`;
 
         embed.addFields({
-          name: `${index + 1}. ${item.title}`,
+          name: fieldTitle,
           value: `📄 ${summary}\n[기사 보기](${item.link})`,
         });
       });
