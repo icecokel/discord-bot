@@ -7,6 +7,7 @@ import { reminderService } from "../../features/tools/reminder-service"; // 리�
 import englishService from "../../features/daily_english/english-service";
 import japaneseService from "../../features/daily_japanese/japanese-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
+import { commute8407Service } from "../../features/tools/commute-8407-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
 
 export class PrivateScheduler {
@@ -20,6 +21,7 @@ export class PrivateScheduler {
   public start() {
     this.scheduleReminder(); // 리마인더는 별도 루프지만 여기서 init
     this.scheduleBusAlert();
+    this.scheduleCommute8407();
     this.scheduleWeather();
     this.scheduleNews();
 
@@ -42,6 +44,10 @@ export class PrivateScheduler {
 
   private scheduleBusAlert() {
     busAlertService.initialize(this.client);
+  }
+
+  private scheduleCommute8407() {
+    commute8407Service.initialize(this.client);
   }
 
   private scheduleNews() {
