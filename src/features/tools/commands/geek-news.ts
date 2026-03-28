@@ -2,7 +2,9 @@ import { Message } from "discord.js";
 import geekNewsService from "../../daily_news/geek-news-service";
 
 const execute = async (message: Message): Promise<void> => {
-  const progress = await message.reply("🔎 오늘의 긱뉴스 선정 기사 1건을 고르는 중입니다...");
+  const progress = await message.reply(
+    "🔎 오늘의 긱뉴스 기사를 가져와 본문을 번역하는 중입니다...",
+  );
 
   const item = await geekNewsService.fetchFeaturedItem();
   if (!item) {
@@ -10,14 +12,14 @@ const execute = async (message: Message): Promise<void> => {
     return;
   }
 
-  const embed = geekNewsService.createEmbed(item);
+  const embeds = geekNewsService.createEmbeds(item);
 
-  await progress.edit({ content: null, embeds: [embed] });
+  await progress.edit({ content: null, embeds });
 };
 
 export default {
   name: "geeknews",
-  description: "긱뉴스 메인 페이지에서 선정한 기사 1건을 요약합니다.",
+  description: "긱뉴스 메인 페이지 상단 기사 1건의 본문을 한국어로 번역합니다.",
   keywords: ["긱뉴스", "geeknews", "gn"],
   execute,
 };
