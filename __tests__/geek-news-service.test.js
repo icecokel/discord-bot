@@ -3,9 +3,15 @@ require("ts-node/register/transpile-only");
 const {
   parseGeekNewsTopItems,
   buildGeekNewsFallbackSummary,
+  buildGeekNewsFallbackTranslation,
+  buildGeekNewsFallbackSelectionReason,
   isKoreanSummary,
   parseGeekNewsSummaryResponse,
+  parseGeekNewsTranslationResponse,
   resolveGeekNewsSummary,
+  resolveGeekNewsTranslatedBody,
+  resolveGeekNewsSelectionReason,
+  extractGeekNewsArticleText,
 } = require("../src/features/daily_news/geek-news-service");
 const geekNewsService =
   require("../src/features/daily_news/geek-news-service").default;
@@ -163,33 +169,154 @@ describe("GeekNews summary helpers", () => {
   });
 });
 
+describe("GeekNews translation helpers", () => {
+  test("parses JSON translation response", () => {
+    const item = parseGeekNewsTranslationResponse(`
+      {"title":"번역된 제목","body":"첫 문단입니다.\\n\\n둘째 문단입니다.","reason":"핵심 이슈를 빠르게 파악할 수 있는 기사입니다."}
+    `);
+
+    expect(item).toEqual({
+      title: "번역된 제목",
+      body: "첫 문단입니다.\n\n둘째 문단입니다.",
+      reason: "핵심 이슈를 빠르게 파악할 수 있는 기사입니다.",
+    });
+  });
+
+  test("extracts article text from article block", () => {
+    const html = `
+      <html>
+        <body>
+          <article>
+            <h1>Original title</h1>
+            <p>First paragraph with enough length to be treated as article content.</p>
+            <p>Second paragraph continues the article body with more details.</p>
+          </article>
+        </body>
+      </html>
+    `;
+
+    expect(extractGeekNewsArticleText(html)).toContain(
+      "First paragraph with enough length to be treated as article content.",
+    );
+    expect(extractGeekNewsArticleText(html)).toContain(
+      "Second paragraph continues the article body with more details.",
+    );
+  });
+
+  test("builds fallback translation from korean source content", () => {
+    expect(
+      buildGeekNewsFallbackTranslation(
+        "기사 본문이 이미 한국어로 제공됩니다.",
+        "English description",
+        "English title",
+      ),
+    ).toBe("기사 본문이 이미 한국어로 제공됩니다.");
+  });
+
+  test("falls back to korean description when translation is not korean", () => {
+    expect(
+      resolveGeekNewsTranslatedBody(
+        "English body only",
+        "",
+        "한국어 설명입니다.",
+        "English title",
+      ),
+    ).toBe("한국어 설명입니다.");
+  });
+
+  test("returns translation fallback message when no korean text exists", () => {
+    expect(
+      resolveGeekNewsTranslatedBody(
+        undefined,
+        "English source only",
+        "English description",
+        "English title",
+      ),
+    ).toBe("한국어 번역을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.");
+  });
+
+  test("builds fallback selection reason from ranking metadata", () => {
+    expect(
+      buildGeekNewsFallbackSelectionReason({
+        rank: 1,
+        points: 120,
+        description: "English description",
+        title: "English title",
+      }),
+    ).toBe("긱뉴스 메인에서 현재 1위, 120점을 기록한 상단 기사입니다.");
+  });
+
+  test("falls back to metadata reason when ai reason is not korean", () => {
+    expect(
+      resolveGeekNewsSelectionReason("Must read today", {
+        rank: 2,
+        points: 87,
+        description: "English description",
+        title: "English title",
+      }),
+    ).toBe("긱뉴스 메인에서 현재 2위, 87점을 기록한 상단 기사입니다.");
+  });
+});
+
 describe("GeekNews embed", () => {
-  test("renders a single featured geek news item", () => {
+  test("renders translated geek news item", () => {
     const embed = geekNewsService.createEmbed({
       rank: 1,
-      title: "오늘의 선정 기사",
+      title: "Original featured story",
       link: "https://example.com/featured",
       points: 123,
       description: "기사 설명",
-      summary: "한국어 요약입니다.",
+      translatedTitle: "번역된 제목",
+      translatedBody: "한국어 본문 첫 문단입니다.\n\n한국어 본문 둘째 문단입니다.",
+      selectionReason: "기술 변화의 핵심 배경을 빠르게 파악할 수 있는 기사입니다.",
     });
 
     const json = embed.toJSON();
-    expect(json.title).toBe("🧠 오늘의 긱뉴스 선정 1건");
+    expect(json.title).toBe("🧠 오늘의 긱뉴스 번역");
     expect(json.url).toBe("https://example.com/featured");
-    expect(json.description).toBe("한국어 요약입니다.");
-    expect(json.fields).toHaveLength(1);
+    expect(json.description).toBe(
+      "한국어 본문 첫 문단입니다.\n\n한국어 본문 둘째 문단입니다.",
+    );
+    expect(json.fields).toHaveLength(5);
     expect(json.fields[0]).toMatchObject({
-      name: "오늘의 선정 기사",
-      value: "[원문 보기](https://example.com/featured)\n랭킹 1위 · 123점",
+      name: "🎯 선정 이유",
+      value: "기술 변화의 핵심 배경을 빠르게 파악할 수 있는 기사입니다.",
     });
+    expect(json.fields[1]).toMatchObject({
+      name: "📰 번역 제목",
+      value: "번역된 제목",
+    });
+    expect(json.fields[2]).toMatchObject({
+      name: "🌐 원문 제목",
+      value: "Original featured story",
+    });
+  });
+
+  test("splits long translated body into multiple embeds", () => {
+    const translatedBody = Array.from({ length: 80 }, (_, index) =>
+      `문단 ${index + 1} 입니다. 이 문단은 임베드 분할 테스트를 위해 충분히 긴 내용을 포함합니다.`,
+    ).join("\n\n");
+
+    const embeds = geekNewsService.createEmbeds({
+      rank: 1,
+      title: "Original featured story",
+      link: "https://example.com/featured",
+      points: 123,
+      description: "기사 설명",
+      translatedTitle: "번역된 제목",
+      translatedBody,
+    });
+
+    expect(embeds.length).toBeGreaterThan(1);
+    expect(embeds[0].toJSON().title).toBe("🧠 오늘의 긱뉴스 번역");
+    expect(embeds[1].toJSON().title).toBe("🧠 오늘의 긱뉴스 번역 (계속)");
   });
 
   test("renders fallback embed when featured item is missing", () => {
     const embed = geekNewsService.createEmbed(null);
     const json = embed.toJSON();
 
-    expect(json.title).toBe("🧠 오늘의 긱뉴스 선정 1건");
+    expect(json.title).toBe("🧠 오늘의 긱뉴스 번역");
     expect(json.url).toBe("https://news.hada.io/");
     expect(json.description).toBe(
       "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
