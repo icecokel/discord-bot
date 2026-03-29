@@ -10,6 +10,7 @@ interface DailySummary {
   min: number | null;
   max: number | null;
   sky: string;
+  popMax: number;
 }
 
 interface TodaySummary {
@@ -185,10 +186,12 @@ export const getShortTermForecast = async (
     let tomorrowMin = 100,
       tomorrowMax = -100;
     const tomorrowSky: { [key: number]: number } = {};
+    const tomorrowPops: number[] = [];
 
     let dayAfterMin = 100,
       dayAfterMax = -100;
     const dayAfterSky: { [key: number]: number } = {};
+    const dayAfterPops: number[] = [];
 
     items.forEach((item) => {
       const val = Number(item.fcstValue);
@@ -213,6 +216,9 @@ export const getShortTermForecast = async (
         if (item.category === "SKY") {
           tomorrowSky[val] = (tomorrowSky[val] || 0) + 1;
         }
+        if (item.category === "POP") {
+          tomorrowPops.push(val);
+        }
       }
 
       // 모레 데이터
@@ -223,6 +229,9 @@ export const getShortTermForecast = async (
         }
         if (item.category === "SKY") {
           dayAfterSky[val] = (dayAfterSky[val] || 0) + 1;
+        }
+        if (item.category === "POP") {
+          dayAfterPops.push(val);
         }
       }
     });
@@ -283,11 +292,13 @@ export const getShortTermForecast = async (
         min: tomorrowMin === 100 ? null : tomorrowMin,
         max: tomorrowMax === -100 ? null : tomorrowMax,
         sky: getSky(getMode(tomorrowSky)),
+        popMax: tomorrowPops.length > 0 ? Math.max(...tomorrowPops) : 0,
       },
       dayAfter: {
         min: dayAfterMin === 100 ? null : dayAfterMin,
         max: dayAfterMax === -100 ? null : dayAfterMax,
         sky: getSky(getMode(dayAfterSky)),
+        popMax: dayAfterPops.length > 0 ? Math.max(...dayAfterPops) : 0,
       },
     };
 
