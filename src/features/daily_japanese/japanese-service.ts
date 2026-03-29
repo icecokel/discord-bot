@@ -25,6 +25,118 @@ interface JapaneseServiceResult {
   embed: EmbedBuilder;
 }
 
+const cleanMultilineText = (value: string): string =>
+  value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+
+const stripLinePrefix = (line: string, prefixes: string[]): string | null => {
+  for (const prefix of prefixes) {
+    if (line.startsWith(prefix)) {
+      return line.slice(prefix.length).trim();
+    }
+  }
+
+  return null;
+};
+
+const parseJapaneseLesson = (sectionContent: string): DailyJapaneseData => {
+  const normalizedContent = cleanMultilineText(sectionContent);
+  const lines = normalizedContent.split("\n").filter(Boolean);
+
+  let content = "";
+  let pronunciation = "";
+  let meaning = "";
+
+  for (const line of lines) {
+    if (!content) {
+      const prefixedContent = stripLinePrefix(line, [
+        "일본어:",
+        "문장:",
+        "표현:",
+      ]);
+      if (prefixedContent) {
+        content = prefixedContent;
+        continue;
+      }
+    }
+
+    if (!pronunciation) {
+      const prefixedPronunciation = stripLinePrefix(line, [
+        "발음:",
+        "읽기:",
+        "요미:",
+      ]);
+      if (prefixedPronunciation) {
+        pronunciation = prefixedPronunciation;
+        continue;
+      }
+    }
+
+    if (!meaning) {
+      const prefixedMeaning = stripLinePrefix(line, [
+        "뜻:",
+        "의미:",
+        "한국어:",
+      ]);
+      if (prefixedMeaning) {
+        meaning = prefixedMeaning;
+      }
+    }
+  }
+
+  const slashParts = normalizedContent
+    .split(/\s*\/\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (slashParts.length >= 2) {
+    if (!content) {
+      content = slashParts[0];
+    }
+    if (!meaning) {
+      meaning = slashParts.slice(1).join(" / ");
+    }
+  }
+
+  if (!content && lines.length > 0) {
+    content = lines[0];
+  }
+
+  if (!pronunciation && lines.length >= 3) {
+    const candidate = lines[1];
+    if (!candidate.startsWith("뜻:") && !candidate.startsWith("의미:")) {
+      pronunciation = candidate;
+    }
+  }
+
+  if (!meaning) {
+    const fallbackMeaningLine = lines.find((line, index) => {
+      if (index === 0) return false;
+      return line.startsWith("뜻:") || line.startsWith("의미:");
+    });
+
+    if (fallbackMeaningLine) {
+      meaning = fallbackMeaningLine.replace(/^(뜻|의미):\s*/, "").trim();
+    } else if (lines.length >= 3) {
+      meaning = lines[2];
+    } else if (lines.length >= 2) {
+      meaning = lines[1];
+    }
+  }
+
+  return {
+    content: content || normalizedContent,
+    pronunciation,
+    meaning,
+    description: "",
+    examples: [],
+    rawExamples: "",
+  };
+};
+
 class JapaneseService {
   private categories: string[];
   private weekdayMessages: { [key: number]: string };
@@ -83,12 +195,15 @@ class JapaneseService {
 # 🚨 치명적 규칙 (무시할 경우 시스템 오류 발생)
 1. **절대 서론이나 잡담을 하지 마세요.** (예: "네, 알려드릴게요" 등 금지)
 2. **반드시 아래 템플릿 포맷을 그대로 사용하세요.**
-3. 한자에는 반드시 발음(후리가나 또는 로마자)을 괄호 안에 표기하세요. (예: ありがとうございます (아리가토))
-4. 각 섹션 제목은 주어진 이모지와 텍스트를 정확히 지켜야 합니다.
+3. 일본어 문장, 발음, 뜻을 각각 줄바꿈으로 분리하세요.
+4. 발음은 일본어 문장 안에 괄호로 섞지 말고 반드시 별도 줄에 작성하세요.
+5. 각 섹션 제목은 주어진 이모지와 텍스트를 정확히 지켜야 합니다.
 
 # 📋 응답 템플릿 (복사해서 내용만 채우세요)
 ### 🇯🇵 오늘의 기초 일본어
-[일본어 문장] ([발음]) / [한국어 의미]
+일본어: [일본어 문장]
+발음: [한글 발음]
+뜻: [한국어 의미]
 
 ### 📘 설명
 [문장이 쓰이는 상황이나 뉘앙스 설명]
@@ -118,7 +233,14 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
 
       // 2. Robust Text Parsing (Regex)
       const sections = rawResponse.split(/###\s+/);
-      const data: any = {};
+      const data: DailyJapaneseData = {
+        content: "",
+        pronunciation: "",
+        meaning: "",
+        description: "",
+        examples: [],
+        rawExamples: "",
+      };
 
       sections.forEach((section: string) => {
         const lines = section.trim().split("\n");
@@ -128,23 +250,14 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
         const content = lines.slice(1).join("\n").trim();
 
         if (title.includes("오늘의 기초 일본어")) {
-          // 일어 / 발음 / 뜻 분리 시도 (슬래시 또는 줄바꿈)
-          // 예: ありがとうございます (아리가토) / 감사합니다
-          const parts = content.split(/\//);
-          if (parts.length >= 2) {
-            data.content = parts[0].trim();
-            data.meaning = parts[1].trim();
-            // 발음은 content에 괄호로 포함되어 있다고 가정하거나 추가 파싱
-            // 여기서는 단순히 나누기만 함
-          } else {
-            // 분리 실패 시 통으로
-            data.content = content;
-            data.meaning = "";
-          }
+          const parsed = parseJapaneseLesson(content);
+          data.content = parsed.content;
+          data.pronunciation = parsed.pronunciation;
+          data.meaning = parsed.meaning;
         } else if (title.includes("설명")) {
           data.description = content;
         } else if (title.includes("따라 해보세요")) {
-          data.examplesRaw = content;
+          data.rawExamples = content;
         }
       });
 
@@ -158,10 +271,10 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
         data: {
           content: data.content || rawResponse,
           meaning: data.meaning || "",
-          pronunciation: "", // 텍스트 모드에선 별도 추출 안 함 (content에 포함됨)
+          pronunciation: data.pronunciation || "",
           description: data.description || "",
           examples: [],
-          rawExamples: data.examplesRaw || "",
+          rawExamples: data.rawExamples || "",
         },
         content: finalContent,
         weekdayMsg: this.getWeekdayMessage(),
@@ -192,17 +305,18 @@ ${recentHistory.length > 0 ? `제외할 표현(중복 금지): ${recentHistory.j
     if (hasStructuredFields && data) {
       embed.setDescription(weekdayMsg);
 
+      const lessonLines = [`### ${data.content}`];
+      if (data.pronunciation) {
+        lessonLines.push(`발음: ${data.pronunciation}`);
+      }
+      if (data.meaning) {
+        lessonLines.push(`뜻: ${data.meaning}`);
+      }
+
       embed.addFields({
         name: "🇯🇵 오늘의 기초 일본어",
-        value: `### ${data.content}`,
+        value: lessonLines.join("\n"),
       });
-
-      if (data.meaning) {
-        embed.addFields({
-          name: "💡 의미",
-          value: data.meaning,
-        });
-      }
 
       if (data.description) {
         embed.addFields({
