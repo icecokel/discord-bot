@@ -12,7 +12,11 @@ const {
   resolveGeekNewsTranslatedBody,
   resolveGeekNewsSelectionReason,
   extractGeekNewsArticleText,
+  pickUnreadGeekNewsItem,
 } = require("../src/features/daily_news/geek-news-service");
+const {
+  normalizeGeekNewsHistoryUrl,
+} = require("../src/utils/geek-news-history-store");
 const geekNewsService =
   require("../src/features/daily_news/geek-news-service").default;
 
@@ -255,6 +259,60 @@ describe("GeekNews translation helpers", () => {
         title: "English title",
       }),
     ).toBe("긱뉴스 메인에서 현재 2위, 87점을 기록한 상단 기사입니다.");
+  });
+});
+
+describe("GeekNews dedupe", () => {
+  test("normalizes tracked url by removing hash and marketing params", () => {
+    expect(
+      normalizeGeekNewsHistoryUrl(
+        "https://Example.com/post/?utm_source=discord&b=2&a=1#summary",
+      ),
+    ).toBe("https://example.com/post?a=1&b=2");
+  });
+
+  test("picks the first unread article from candidates", () => {
+    const items = [
+      {
+        rank: 1,
+        title: "이미 보낸 기사",
+        link: "https://example.com/first?utm_source=discord",
+        points: 100,
+        description: "첫 번째 설명",
+      },
+      {
+        rank: 2,
+        title: "새 기사",
+        link: "https://example.com/second",
+        points: 90,
+        description: "두 번째 설명",
+      },
+    ];
+
+    const picked = pickUnreadGeekNewsItem(items, [
+      "https://example.com/first",
+    ]);
+
+    expect(picked).toMatchObject({
+      rank: 2,
+      link: "https://example.com/second",
+    });
+  });
+
+  test("returns null when every candidate was already tracked", () => {
+    const items = [
+      {
+        rank: 1,
+        title: "이미 보낸 기사",
+        link: "https://example.com/first",
+        points: 100,
+        description: "첫 번째 설명",
+      },
+    ];
+
+    expect(
+      pickUnreadGeekNewsItem(items, ["https://example.com/first"]),
+    ).toBeNull();
   });
 });
 
