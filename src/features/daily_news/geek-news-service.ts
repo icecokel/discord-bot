@@ -1,5 +1,10 @@
 import { Client, TextBasedChannel, EmbedBuilder } from "discord.js";
 import { aiService } from "../../core/ai";
+import {
+  getTrackedGeekNewsUrls,
+  normalizeGeekNewsHistoryUrl,
+  trackGeekNewsUrl,
+} from "../../utils/geek-news-history-store";
 
 export interface GeekNewsItem {
   rank: number;
@@ -7,6 +12,7 @@ export interface GeekNewsItem {
   link: string;
   points: number;
   description: string;
+  sourceUrl?: string;
   summary?: string;
   sourceContent?: string;
   translatedTitle?: string;
@@ -52,6 +58,7 @@ const MAX_SUMMARY_LENGTH = 160;
 const MAX_SOURCE_CONTENT_LENGTH = 12000;
 const MAX_EMBED_DESCRIPTION_LENGTH = 3800;
 const MAX_EMBED_COUNT = 8;
+const FEATURED_CANDIDATE_LIMIT = 20;
 const HANGUL_REGEX = /[가-힣]/;
 const NON_KOREAN_FALLBACK_SUMMARY =
   "한국어 요약을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
@@ -241,6 +248,28 @@ const uniqueTexts = (items: string[]): string[] => {
     seen.add(normalized);
     return true;
   });
+};
+
+export const pickUnreadGeekNewsItem = (
+  items: GeekNewsItem[],
+  trackedUrls: Iterable<string>,
+): GeekNewsItem | null => {
+  const trackedUrlSet = new Set(
+    Array.from(trackedUrls)
+      .map((item) => normalizeGeekNewsHistoryUrl(item))
+      .filter(Boolean),
+  );
+
+  return (
+    items.find((item) => {
+      const candidates = [
+        normalizeGeekNewsHistoryUrl(item.sourceUrl || ""),
+        normalizeGeekNewsHistoryUrl(item.link),
+      ].filter(Boolean);
+
+      return candidates.every((candidate) => !trackedUrlSet.has(candidate));
+    }) || null
+  );
 };
 
 export const isKoreanSummary = (text: string): boolean =>
@@ -671,7 +700,9 @@ class GeekNewsService {
     }
   }
 
-  private async fetchArticleContent(url: string): Promise<string> {
+  private async fetchArticleContent(
+    url: string,
+  ): Promise<{ content: string; sourceUrl: string }> {
     try {
       const response = await fetch(url, {
         headers: {
@@ -687,24 +718,36 @@ class GeekNewsService {
 
       const html = await response.text();
       if (!html || html.startsWith("%PDF")) {
-        return "";
+        return {
+          content: "",
+          sourceUrl: normalizeGeekNewsHistoryUrl(response.url || url),
+        };
       }
 
-      return extractGeekNewsArticleText(html);
+      return {
+        content: extractGeekNewsArticleText(html),
+        sourceUrl: normalizeGeekNewsHistoryUrl(response.url || url),
+      };
     } catch (error) {
       console.error("[GeekNewsService] 기사 본문 조회 실패:", error);
-      return "";
+      return {
+        content: "",
+        sourceUrl: normalizeGeekNewsHistoryUrl(url),
+      };
     }
   }
 
   private async translateFeaturedItem(
     item: GeekNewsItem,
   ): Promise<GeekNewsItem> {
-    const sourceContent = await this.fetchArticleContent(item.link);
+    const { content: sourceContent, sourceUrl } = await this.fetchArticleContent(
+      item.link,
+    );
 
     if (!process.env.GEMINI_AI_API_KEY) {
       return {
         ...item,
+        sourceUrl,
         sourceContent,
         translatedTitle: cleanText(item.title),
         translatedBody: buildGeekNewsFallbackTranslation(
@@ -733,6 +776,7 @@ class GeekNewsService {
 
       return {
         ...item,
+        sourceUrl,
         sourceContent,
         translatedTitle: resolveGeekNewsTranslatedTitle(
           translation?.title,
@@ -750,6 +794,7 @@ class GeekNewsService {
       console.error("[GeekNewsService] 본문 번역 실패:", error);
       return {
         ...item,
+        sourceUrl,
         sourceContent,
         translatedTitle: cleanText(item.title),
         translatedBody: resolveGeekNewsTranslatedBody(
@@ -769,12 +814,34 @@ class GeekNewsService {
   }
 
   async fetchFeaturedItem(): Promise<GeekNewsItem | null> {
-    const items = await this.fetchListItems(1);
+    const items = await this.fetchListItems(FEATURED_CANDIDATE_LIMIT);
     if (items.length === 0) {
       return null;
     }
 
-    return this.translateFeaturedItem(items[0]);
+    const featuredItem = pickUnreadGeekNewsItem(items, getTrackedGeekNewsUrls());
+    if (!featuredItem) {
+      console.log("[GeekNewsService] 이미 발송한 기사만 있어 오늘 항목을 건너뜁니다.");
+      return null;
+    }
+
+    return this.translateFeaturedItem(featuredItem);
+  }
+
+  markItemAsSent(item: Pick<GeekNewsItem, "link" | "title" | "sourceUrl">): void {
+    const trackedUrls = [item.link, item.sourceUrl].filter(
+      (url): url is string => typeof url === "string" && url.trim().length > 0,
+    );
+
+    const saved = trackedUrls
+      .map((url) => trackGeekNewsUrl(url, { title: item.title }))
+      .filter((record): record is NonNullable<typeof record> => record !== null);
+
+    if (saved.length > 0) {
+      console.log(
+        `[GeekNewsService] 긱뉴스 이력 저장 완료 (${saved.map((entry) => entry.url).join(", ")})`,
+      );
+    }
   }
 
   createEmbeds(item: GeekNewsItem | null): EmbedBuilder[] {
@@ -883,6 +950,7 @@ class GeekNewsService {
         return;
       }
       await channel.send({ embeds });
+      this.markItemAsSent(item);
     } catch (error) {
       console.error("[GeekNewsService] 특정 채널 발송 실패:", error);
     }

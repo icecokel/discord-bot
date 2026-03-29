@@ -8,13 +8,16 @@ const execute = async (message: Message): Promise<void> => {
 
   const item = await geekNewsService.fetchFeaturedItem();
   if (!item) {
-    await progress.edit("❌ 긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    await progress.edit(
+      "ℹ️ 오늘은 새로 보낼 긱뉴스 기사가 없습니다. 이미 발송했거나 데이터를 가져오지 못했습니다.",
+    );
     return;
   }
 
   const embeds = geekNewsService.createEmbeds(item);
 
   await progress.edit({ content: null, embeds });
+  geekNewsService.markItemAsSent(item);
 };
 
 export default {
