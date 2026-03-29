@@ -9,6 +9,12 @@ import japaneseService from "../../features/daily_japanese/japanese-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
 import { commute8407Service } from "../../features/tools/commute-8407-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
+import {
+  buildTodayWeatherNotification,
+  buildTomorrowWeatherNotification,
+} from "../../features/tools/weather-notification-message";
+
+type WeatherNotificationTarget = "today" | "tomorrow";
 
 export class PrivateScheduler {
   private client: Client;
@@ -71,11 +77,29 @@ export class PrivateScheduler {
   }
 
   private scheduleWeather() {
-    // 매일 오전 6시 30분 (KST) 날씨 알림 (기존 로직 유지 - DM 발송)
+    this.scheduleWeatherNotification("30 6 * * *", "오전 6시 30분", "today");
+    this.scheduleWeatherNotification(
+      "30 22 * * *",
+      "오후 10시 30분",
+      "tomorrow",
+    );
+    console.log(
+      "[PrivateScheduler] 날씨 알림 등록 완료 (매일 06:30 오늘 / 22:30 내일 KST)",
+    );
+  }
+
+  private scheduleWeatherNotification(
+    cronExpression: string,
+    scheduleLabel: string,
+    target: WeatherNotificationTarget,
+  ) {
     cron.schedule(
-      "30 6 * * *",
+      cronExpression,
       async () => {
-        console.log("[PrivateScheduler] 오전 6시 30분 날씨 알림 시작");
+        const targetLabel = target === "today" ? "오늘" : "내일";
+        console.log(
+          `[PrivateScheduler] ${scheduleLabel} ${targetLabel} 날씨 알림 시작`,
+        );
 
         const users = getAllUsersWithNotification();
         console.log(
@@ -83,19 +107,24 @@ export class PrivateScheduler {
         );
 
         for (const { userId, region } of users) {
-          await this.sendWeatherDM(userId, region);
+          await this.sendWeatherDM(userId, region, target);
         }
 
-        console.log("[PrivateScheduler] 오전 6시 30분 날씨 알림 완료");
+        console.log(
+          `[PrivateScheduler] ${scheduleLabel} ${targetLabel} 날씨 알림 완료`,
+        );
       },
       {
         timezone: "Asia/Seoul",
       },
     );
-    console.log("[PrivateScheduler] 날씨 알림 등록 완료 (매일 06:30 KST)");
   }
 
-  private async sendWeatherDM(userId: string, region: string) {
+  private async sendWeatherDM(
+    userId: string,
+    region: string,
+    target: WeatherNotificationTarget,
+  ) {
     try {
       const kmaAny = kmaData as any;
       let targetData = kmaAny[region];
@@ -118,16 +147,16 @@ export class PrivateScheduler {
         return;
       }
 
-      const { today } = weatherData;
-      const { min, max, popMax } = today;
-      const minText = min !== null ? `${min}°` : "-";
-      const maxText = max !== null ? `${max}°` : "-";
       const oneLinePreview =
-        `🌤️ ${region} | 최저 ${minText} | 최고 ${maxText} | 비/눈 ${popMax}%`;
+        target === "today"
+          ? buildTodayWeatherNotification(region, weatherData.today)
+          : buildTomorrowWeatherNotification(region, weatherData.tomorrow);
 
       const user = await this.client.users.fetch(userId);
       await user.send(oneLinePreview);
-      console.log(`[PrivateScheduler] ${user.tag}에게 날씨 DM 전송 완료`);
+      console.log(
+        `[PrivateScheduler] ${user.tag}에게 ${target === "today" ? "오늘" : "내일"} 날씨 DM 전송 완료`,
+      );
     } catch (error: any) {
       console.error(
         `[PrivateScheduler] ${userId} DM 전송 실패:`,
