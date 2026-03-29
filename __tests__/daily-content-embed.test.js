@@ -29,19 +29,22 @@ describe("Daily content embed formatting", () => {
     const embed = japaneseService.createEmbed({
       category: "기초 인사",
       data: {
-        content: "ありがとうございます (아리가토)",
+        content: "ありがとうございます",
+        pronunciation: "아리가토고자이마스",
         meaning: "감사합니다",
         description: "정중하게 감사 인사를 전할 때 사용합니다.",
         rawExamples: "A: ありがとうございます\nB: どういたしまして",
       },
-      content: "ありがとうございます (아리가토)",
+      content: "ありがとうございます",
       weekdayMsg: "테스트 요일 멘트",
     });
 
-    const fields = (embed.toJSON().fields || []).map((field) => field.name);
+    const json = embed.toJSON();
+    const fields = (json.fields || []).map((field) => field.name);
     expect(fields).toContain("🇯🇵 오늘의 기초 일본어");
-    expect(fields).toContain("💡 의미");
     expect(fields).toContain("📘 설명");
     expect(fields).toContain("✨ 따라 해보세요 (예시)");
+    expect(json.fields[0].value).toContain("발음: 아리가토고자이마스");
+    expect(json.fields[0].value).toContain("뜻: 감사합니다");
   });
 });
