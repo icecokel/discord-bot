@@ -5,7 +5,7 @@ import { GlobalScheduler } from "./global-scheduler";
 export const initializeSchedulers = (client: Client): void => {
   console.log("[Scheduler] 스케줄러 초기화 시작...");
 
-  // 개인 스케줄러 (날씨, 영어/일본어, 리마인더)
+  // 개인 스케줄러 (날씨, 영어, 리마인더)
   const privateScheduler = new PrivateScheduler(client);
   privateScheduler.start();
 

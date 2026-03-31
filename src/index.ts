@@ -11,7 +11,6 @@ import "./features/admin/commands/admin-log";
 import "./features/admin/commands/admin-notice";
 import "./features/admin/commands/admin-reset";
 import "./features/admin/commands/admin-english";
-import "./features/admin/commands/admin-japanese";
 import "./features/admin/commands/admin-ai";
 import "./features/admin/commands/admin-news";
 import "./features/admin/commands/admin-help";
