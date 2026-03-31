@@ -5,7 +5,6 @@ import { getShortTermForecast } from "../../utils/kma-helper";
 import kmaData from "../../data/kma-data.json";
 import { reminderService } from "../../features/tools/reminder-service"; // 리마인더는 전역이나 PrivateScheduler에서 초기화
 import englishService from "../../features/daily_english/english-service";
-import japaneseService from "../../features/daily_japanese/japanese-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
 import { commute8407Service } from "../../features/tools/commute-8407-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
@@ -33,13 +32,12 @@ export class PrivateScheduler {
 
     if (this.targetChannelId) {
       this.scheduleEnglish();
-      this.scheduleJapanese();
       console.log(
         `[PrivateScheduler] 개인 스케줄러가 시작되었습니다. (채널: ${this.targetChannelId})`,
       );
     } else {
       console.log(
-        "[PrivateScheduler] PRIVATE_CHANNEL_ID가 없어 영어/일본어 알림은 스킵합니다.",
+        "[PrivateScheduler] PRIVATE_CHANNEL_ID가 없어 영어 알림은 스킵합니다.",
       );
     }
   }
@@ -178,20 +176,5 @@ export class PrivateScheduler {
       { timezone: "Asia/Seoul" },
     );
     console.log("[PrivateScheduler] 영어 알림 등록 완료 (매일 13:00 KST)");
-  }
-
-  private scheduleJapanese() {
-    // 매일 오후 2시 (KST) 일본어 표현 알림
-    cron.schedule(
-      "0 14 * * *",
-      async () => {
-        if (!this.targetChannelId) return;
-        console.log("[PrivateScheduler] 오후 2시 일본어 알림 시작");
-        await japaneseService.sendToChannel(this.client, this.targetChannelId);
-        console.log("[PrivateScheduler] 오후 2시 일본어 알림 완료");
-      },
-      { timezone: "Asia/Seoul" },
-    );
-    console.log("[PrivateScheduler] 일본어 알림 등록 완료 (매일 14:00 KST)");
   }
 }

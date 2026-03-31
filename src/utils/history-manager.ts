@@ -7,14 +7,25 @@ const LEGACY_HISTORY_FILE_PATH = path.join(DATA_DIR, "daily_history.json");
 
 export interface DailyHistoryData {
   english: string[]; // 최근 영어 문장 리스트
-  japanese: string[]; // 최근 일본어 문장 리스트
 }
+
+const createEmptyHistory = (): DailyHistoryData => ({ english: [] });
+
+const normalizeHistory = (value: unknown): DailyHistoryData => {
+  const history = value as Partial<Record<keyof DailyHistoryData, unknown>>;
+
+  return {
+    english: Array.isArray(history?.english)
+      ? history.english.filter((item): item is string => typeof item === "string")
+      : [],
+  };
+};
 
 export class HistoryManager {
   private history: DailyHistoryData;
 
   constructor() {
-    this.history = { english: [], japanese: [] };
+    this.history = createEmptyHistory();
     this.loadHistory();
   }
 
@@ -29,7 +40,7 @@ export class HistoryManager {
 
       if (fs.existsSync(targetPath)) {
         const data = fs.readFileSync(targetPath, "utf-8");
-        this.history = JSON.parse(data);
+        this.history = normalizeHistory(JSON.parse(data));
         console.log("[HistoryManager] 히스토리 로드 완료");
       } else {
         console.log("[HistoryManager] 히스토리 파일이 없어 새로 생성합니다.");
@@ -38,7 +49,7 @@ export class HistoryManager {
     } catch (error) {
       console.error("[HistoryManager] 히스토리 로드 실패:", error);
       // 실패 시 빈 상태로 시작
-      this.history = { english: [], japanese: [] };
+      this.history = createEmptyHistory();
     }
   }
 
@@ -63,18 +74,18 @@ export class HistoryManager {
 
   /**
    * 특정 언어의 최근 문장 리스트 가져오기
-   * @param language 'english' | 'japanese'
+   * @param language 'english'
    */
-  getRecentContents(language: "english" | "japanese"): string[] {
+  getRecentContents(language: "english"): string[] {
     return this.history[language] || [];
   }
 
   /**
    * 새로운 문장을 히스토리에 추가 (최근 30개 유지)
-   * @param language 'english' | 'japanese'
+   * @param language 'english'
    * @param content 추가할 문장 (핵심 구문)
    */
-  addHistory(language: "english" | "japanese", content: string): void {
+  addHistory(language: "english", content: string): void {
     if (!this.history[language]) {
       this.history[language] = [];
     }

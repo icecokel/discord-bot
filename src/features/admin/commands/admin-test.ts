@@ -5,7 +5,6 @@ import {
 } from "../../../core/admin-middleware";
 import { aiService } from "../../../core/ai";
 import englishService from "../../daily_english/english-service";
-import japaneseService from "../../daily_japanese/japanese-service";
 import newsService from "../../daily_news/news-service";
 import { reminderService } from "../../tools/reminder-service";
 import { getMidTermForecast, getShortTermForecast } from "../../../utils/kma-helper";
@@ -144,7 +143,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
       name: "어드민 커맨드 레지스트리",
       fn: async () => {
         const adminCommandNames = getAdminCommands().map((cmd) => cmd.name);
-        const required = ["admin", "english", "japanese", "news", "ai", "test"];
+        const required = ["admin", "english", "news", "ai", "test"];
         const missing = required.filter((name) => !adminCommandNames.includes(name));
         if (missing.length > 0) {
           return {
@@ -255,31 +254,6 @@ const handleAdminTest = async (message: Message, args: string[]) => {
             "📝 오늘의 문장",
             "📘 설명",
             "✨ 활용 예시",
-          ]);
-          return {
-            status: structured ? "PASS" : "FAIL",
-            detail: structured
-              ? "구조화된 필드 출력 확인"
-              : "Fallback 응답(간략 포맷) 발생",
-          };
-        },
-      },
-      {
-        name: "일본어 콘텐츠 품질",
-        fn: async () => {
-          if (!process.env.GEMINI_AI_API_KEY) {
-            return {
-              status: "SKIP",
-              detail: "GEMINI_AI_API_KEY 없음",
-            };
-          }
-          const content = await japaneseService.generateDailyContent();
-          const embed = japaneseService.createEmbed(content).toJSON();
-          const fields = (embed.fields || []) as Array<{ name: string }>;
-          const structured = validateEmbedFieldNames(fields, [
-            "🇯🇵 오늘의 기초 일본어",
-            "📘 설명",
-            "✨ 따라 해보세요 (예시)",
           ]);
           return {
             status: structured ? "PASS" : "FAIL",
