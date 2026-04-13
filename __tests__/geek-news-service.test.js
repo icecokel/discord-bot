@@ -380,4 +380,50 @@ describe("GeekNews embed", () => {
       "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
     );
   });
+
+  test("renders fallback embed with explicit reason", () => {
+    const embed = geekNewsService.createEmbed(null, {
+      fallbackDescription:
+        "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.",
+    });
+    const json = embed.toJSON();
+
+    expect(json.description).toBe(
+      "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.",
+    );
+  });
+});
+
+describe("GeekNews channel delivery", () => {
+  test("sends fallback reason embed instead of returning silently", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    const fetchFeaturedItemResultSpy = jest
+      .spyOn(geekNewsService, "fetchFeaturedItemResult")
+      .mockResolvedValue({
+        status: "already-sent",
+        item: null,
+        reason:
+          "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.",
+      });
+
+    const client = {
+      channels: {
+        fetch: jest.fn().mockResolvedValue({
+          isTextBased: () => true,
+          send,
+        }),
+      },
+    };
+
+    await geekNewsService.sendToChannel(client, "channel-id");
+
+    expect(send).toHaveBeenCalledTimes(1);
+    const payload = send.mock.calls[0][0];
+    expect(payload.embeds).toHaveLength(1);
+    expect(payload.embeds[0].toJSON().description).toBe(
+      "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.",
+    );
+
+    fetchFeaturedItemResultSpy.mockRestore();
+  });
 });

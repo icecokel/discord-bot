@@ -20,6 +20,12 @@ export interface GeekNewsItem {
   selectionReason?: string;
 }
 
+export interface GeekNewsFeaturedItemResult {
+  status: "ok" | "fetch-failed" | "already-sent";
+  item: GeekNewsItem | null;
+  reason?: string;
+}
+
 interface GeekNewsSummary {
   rank: number;
   summary: string;
@@ -64,6 +70,10 @@ const NON_KOREAN_FALLBACK_SUMMARY =
   "한국어 요약을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
 const NON_KOREAN_FALLBACK_TRANSLATION =
   "한국어 번역을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
+const GEEK_NEWS_FETCH_FAILED_MESSAGE =
+  "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.";
+const GEEK_NEWS_ALREADY_SENT_MESSAGE =
+  "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -557,6 +567,20 @@ export const parseGeekNewsTopItems = (
 class GeekNewsService {
   private readonly url = GEEK_NEWS_URL;
 
+  private buildBaseEmbed(title: string): EmbedBuilder {
+    return new EmbedBuilder()
+      .setColor(0xff8a00)
+      .setTitle(title)
+      .setFooter({ text: "Source: news.hada.io" })
+      .setTimestamp();
+  }
+
+  private createStatusEmbed(description: string): EmbedBuilder {
+    return this.buildBaseEmbed("🧠 오늘의 긱뉴스 번역")
+      .setURL(this.url)
+      .setDescription(description);
+  }
+
   private isSendableChannel(
     channel: unknown,
   ): channel is TextBasedChannel & {
@@ -813,19 +837,35 @@ class GeekNewsService {
     return this.summarizeItems(items);
   }
 
-  async fetchFeaturedItem(): Promise<GeekNewsItem | null> {
+  async fetchFeaturedItemResult(): Promise<GeekNewsFeaturedItemResult> {
     const items = await this.fetchListItems(FEATURED_CANDIDATE_LIMIT);
     if (items.length === 0) {
-      return null;
+      return {
+        status: "fetch-failed",
+        item: null,
+        reason: GEEK_NEWS_FETCH_FAILED_MESSAGE,
+      };
     }
 
     const featuredItem = pickUnreadGeekNewsItem(items, getTrackedGeekNewsUrls());
     if (!featuredItem) {
       console.log("[GeekNewsService] 이미 발송한 기사만 있어 오늘 항목을 건너뜁니다.");
-      return null;
+      return {
+        status: "already-sent",
+        item: null,
+        reason: GEEK_NEWS_ALREADY_SENT_MESSAGE,
+      };
     }
 
-    return this.translateFeaturedItem(featuredItem);
+    return {
+      status: "ok",
+      item: await this.translateFeaturedItem(featuredItem),
+    };
+  }
+
+  async fetchFeaturedItem(): Promise<GeekNewsItem | null> {
+    const result = await this.fetchFeaturedItemResult();
+    return result.item;
   }
 
   markItemAsSent(item: Pick<GeekNewsItem, "link" | "title" | "sourceUrl">): void {
@@ -844,21 +884,15 @@ class GeekNewsService {
     }
   }
 
-  createEmbeds(item: GeekNewsItem | null): EmbedBuilder[] {
-    const buildBaseEmbed = (title: string): EmbedBuilder =>
-      new EmbedBuilder()
-        .setColor(0xff8a00)
-        .setTitle(title)
-        .setFooter({ text: "Source: news.hada.io" })
-        .setTimestamp();
-
+  createEmbeds(
+    item: GeekNewsItem | null,
+    options: { fallbackDescription?: string } = {},
+  ): EmbedBuilder[] {
     if (!item) {
       return [
-        buildBaseEmbed("🧠 오늘의 긱뉴스 번역")
-          .setURL(this.url)
-          .setDescription(
-            "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
-          ),
+        this.createStatusEmbed(
+          options.fallbackDescription || GEEK_NEWS_FETCH_FAILED_MESSAGE,
+        ),
       ];
     }
 
@@ -896,7 +930,7 @@ class GeekNewsService {
     }
 
     return chunks.map((chunk, index) => {
-      const embed = buildBaseEmbed(
+      const embed = this.buildBaseEmbed(
         index === 0
           ? "🧠 오늘의 긱뉴스 번역"
           : "🧠 오늘의 긱뉴스 번역 (계속)",
@@ -933,24 +967,34 @@ class GeekNewsService {
     });
   }
 
-  createEmbed(item: GeekNewsItem | null): EmbedBuilder {
-    return this.createEmbeds(item)[0];
+  createEmbed(
+    item: GeekNewsItem | null,
+    options: { fallbackDescription?: string } = {},
+  ): EmbedBuilder {
+    return this.createEmbeds(item, options)[0];
   }
 
   async sendToChannel(client: Client, channelId: string): Promise<void> {
     try {
-      const item = await this.fetchFeaturedItem();
-      if (!item) {
-        return;
-      }
-      const embeds = this.createEmbeds(item);
-
+      const result = await this.fetchFeaturedItemResult();
       const channel = await client.channels.fetch(channelId);
       if (!this.isSendableChannel(channel)) {
+        console.warn(
+          `[GeekNewsService] 채널 ${channelId}은(는) 텍스트 발송이 불가능해 긱뉴스 알림을 보내지 못했습니다.`,
+        );
         return;
       }
+      const embeds = result.item
+        ? this.createEmbeds(result.item)
+        : this.createEmbeds(null, {
+            fallbackDescription:
+              result.reason || GEEK_NEWS_FETCH_FAILED_MESSAGE,
+          });
+
       await channel.send({ embeds });
-      this.markItemAsSent(item);
+      if (result.item) {
+        this.markItemAsSent(result.item);
+      }
     } catch (error) {
       console.error("[GeekNewsService] 특정 채널 발송 실패:", error);
     }
