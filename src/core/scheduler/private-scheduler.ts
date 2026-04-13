@@ -55,23 +55,33 @@ export class PrivateScheduler {
   }
 
   private scheduleNews() {
+    this.scheduleGeekNewsNotification("0 8 * * *", "오전 8시");
+    this.scheduleGeekNewsNotification("30 14 * * *", "오후 2시 30분");
+    console.log(
+      "[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:00 / 14:30 KST)",
+    );
+  }
+
+  private scheduleGeekNewsNotification(
+    cronExpression: string,
+    scheduleLabel: string,
+  ) {
     cron.schedule(
-      "0 8 * * *",
+      cronExpression,
       async () => {
         if (!this.targetChannelId) {
           console.log(
-            "[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. 08시 긱뉴스 스킵",
+            `[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. ${scheduleLabel} 긱뉴스 스킵`,
           );
           return;
         }
 
-        console.log("[PrivateScheduler] 오전 8시 긱뉴스 알림 시작");
+        console.log(`[PrivateScheduler] ${scheduleLabel} 긱뉴스 알림 시작`);
         await geekNewsService.sendToChannel(this.client, this.targetChannelId);
-        console.log("[PrivateScheduler] 오전 8시 긱뉴스 알림 완료");
+        console.log(`[PrivateScheduler] ${scheduleLabel} 긱뉴스 알림 완료`);
       },
       { timezone: "Asia/Seoul" },
     );
-    console.log("[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:00 KST)");
   }
 
   private scheduleWeather() {
