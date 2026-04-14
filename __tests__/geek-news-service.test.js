@@ -377,7 +377,7 @@ describe("GeekNews embed", () => {
     expect(json.title).toBe("🧠 오늘의 긱뉴스 번역");
     expect(json.url).toBe("https://news.hada.io/");
     expect(json.description).toBe(
-      "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.",
+      "긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io 응답 오류 또는 네트워크 문제일 수 있습니다. 잠시 후 다시 시도해주세요.",
     );
   });
 
@@ -395,6 +395,48 @@ describe("GeekNews embed", () => {
 });
 
 describe("GeekNews channel delivery", () => {
+  test("returns detailed reason when list request fails", async () => {
+    const fetchListItemsSpy = jest
+      .spyOn(geekNewsService, "fetchListItems")
+      .mockResolvedValue({
+        items: [],
+        failureReason:
+          "긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io가 HTTP 503 상태로 응답했습니다. 잠시 후 다시 시도해주세요.",
+      });
+
+    const result = await geekNewsService.fetchFeaturedItemResult();
+
+    expect(result).toEqual({
+      status: "fetch-failed",
+      item: null,
+      reason:
+        "긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io가 HTTP 503 상태로 응답했습니다. 잠시 후 다시 시도해주세요.",
+    });
+
+    fetchListItemsSpy.mockRestore();
+  });
+
+  test("returns detailed reason when list parsing finds no topics", async () => {
+    const fetchListItemsSpy = jest
+      .spyOn(geekNewsService, "fetchListItems")
+      .mockResolvedValue({
+        items: [],
+        failureReason:
+          "긱뉴스 메인 페이지는 열렸지만 기사 항목을 찾지 못했습니다. 사이트 화면 구조가 바뀌었을 수 있습니다. 잠시 후 다시 시도해주세요.",
+      });
+
+    const result = await geekNewsService.fetchFeaturedItemResult();
+
+    expect(result).toEqual({
+      status: "fetch-failed",
+      item: null,
+      reason:
+        "긱뉴스 메인 페이지는 열렸지만 기사 항목을 찾지 못했습니다. 사이트 화면 구조가 바뀌었을 수 있습니다. 잠시 후 다시 시도해주세요.",
+    });
+
+    fetchListItemsSpy.mockRestore();
+  });
+
   test("sends fallback reason embed instead of returning silently", async () => {
     const send = jest.fn().mockResolvedValue(undefined);
     const fetchFeaturedItemResultSpy = jest

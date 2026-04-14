@@ -26,6 +26,11 @@ export interface GeekNewsFeaturedItemResult {
   reason?: string;
 }
 
+interface GeekNewsListItemsResult {
+  items: GeekNewsItem[];
+  failureReason?: string;
+}
+
 interface GeekNewsSummary {
   rank: number;
   summary: string;
@@ -71,7 +76,9 @@ const NON_KOREAN_FALLBACK_SUMMARY =
 const NON_KOREAN_FALLBACK_TRANSLATION =
   "한국어 번역을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
 const GEEK_NEWS_FETCH_FAILED_MESSAGE =
-  "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.";
+  "긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io 응답 오류 또는 네트워크 문제일 수 있습니다. 잠시 후 다시 시도해주세요.";
+const GEEK_NEWS_PARSE_FAILED_MESSAGE =
+  "긱뉴스 메인 페이지는 열렸지만 기사 항목을 찾지 못했습니다. 사이트 화면 구조가 바뀌었을 수 있습니다. 잠시 후 다시 시도해주세요.";
 const GEEK_NEWS_ALREADY_SENT_MESSAGE =
   "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
 
@@ -96,6 +103,22 @@ const decodeHtmlEntities = (text: string): string => {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ");
+};
+
+const formatGeekNewsFetchFailureReason = (error: unknown): string => {
+  if (error instanceof Error) {
+    const httpStatusMatch = error.message.match(/^GeekNews HTTP (\d{3})$/);
+    if (httpStatusMatch) {
+      return `긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io가 HTTP ${httpStatusMatch[1]} 상태로 응답했습니다. 잠시 후 다시 시도해주세요.`;
+    }
+
+    const normalizedMessage = error.message.trim();
+    if (normalizedMessage) {
+      return `긱뉴스 메인 페이지 목록 조회에 실패했습니다. 네트워크 또는 요청 처리 중 오류가 발생했습니다: ${normalizedMessage}. 잠시 후 다시 시도해주세요.`;
+    }
+  }
+
+  return GEEK_NEWS_FETCH_FAILED_MESSAGE;
 };
 
 const normalizeLink = (href: string): string => {
@@ -704,7 +727,7 @@ class GeekNewsService {
     }
   }
 
-  private async fetchListItems(limit: number): Promise<GeekNewsItem[]> {
+  private async fetchListItems(limit: number): Promise<GeekNewsListItemsResult> {
     try {
       const response = await fetch(this.url, {
         headers: {
@@ -717,10 +740,22 @@ class GeekNewsService {
       }
 
       const html = await response.text();
-      return parseGeekNewsTopItems(html, limit);
+      const items = parseGeekNewsTopItems(html, limit);
+      if (items.length === 0) {
+        console.warn("[GeekNewsService] Top 뉴스 파싱 결과가 비어 있습니다.");
+        return {
+          items: [],
+          failureReason: GEEK_NEWS_PARSE_FAILED_MESSAGE,
+        };
+      }
+
+      return { items };
     } catch (error) {
       console.error("[GeekNewsService] Top 뉴스 조회 실패:", error);
-      return [];
+      return {
+        items: [],
+        failureReason: formatGeekNewsFetchFailureReason(error),
+      };
     }
   }
 
@@ -833,21 +868,24 @@ class GeekNewsService {
   }
 
   async fetchTopItems(limit: number = 5): Promise<GeekNewsItem[]> {
-    const items = await this.fetchListItems(limit);
-    return this.summarizeItems(items);
+    const result = await this.fetchListItems(limit);
+    return this.summarizeItems(result.items);
   }
 
   async fetchFeaturedItemResult(): Promise<GeekNewsFeaturedItemResult> {
-    const items = await this.fetchListItems(FEATURED_CANDIDATE_LIMIT);
-    if (items.length === 0) {
+    const listResult = await this.fetchListItems(FEATURED_CANDIDATE_LIMIT);
+    if (listResult.items.length === 0) {
       return {
         status: "fetch-failed",
         item: null,
-        reason: GEEK_NEWS_FETCH_FAILED_MESSAGE,
+        reason: listResult.failureReason || GEEK_NEWS_FETCH_FAILED_MESSAGE,
       };
     }
 
-    const featuredItem = pickUnreadGeekNewsItem(items, getTrackedGeekNewsUrls());
+    const featuredItem = pickUnreadGeekNewsItem(
+      listResult.items,
+      getTrackedGeekNewsUrls(),
+    );
     if (!featuredItem) {
       console.log("[GeekNewsService] 이미 발송한 기사만 있어 오늘 항목을 건너뜁니다.");
       return {

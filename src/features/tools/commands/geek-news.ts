@@ -9,7 +9,7 @@ const execute = async (message: Message): Promise<void> => {
   const result = await geekNewsService.fetchFeaturedItemResult();
   if (!result.item) {
     await progress.edit(
-      `ℹ️ ${result.reason || "긱뉴스 데이터를 가져오지 못했습니다. 잠시 후 다시 시도해주세요."}`,
+      `ℹ️ ${result.reason || "긱뉴스 메인 페이지 목록 조회에 실패했습니다. news.hada.io 응답 오류 또는 네트워크 문제일 수 있습니다. 잠시 후 다시 시도해주세요."}`,
     );
     return;
   }
