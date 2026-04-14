@@ -20,6 +20,7 @@ Examples:
 - Allowed `type`: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `ci`, `build`, `revert`.
 - Optional `scope` pattern: lowercase letters, numbers, `.`, `_`, `/`, `-`.
 - Do not add a space after `:`.
+- Write the Korean summary without spaces, following the repository's existing git history style.
 - Keep the title within 50 characters.
 - Do not end the title with `.`, `!`, `?`, `。`.
 - Include Korean text in the summary.
@@ -29,5 +30,7 @@ Examples:
 
 - `feat(auth):구글토큰검증추가` (O)
 - `fix:랭킹중복노출수정` (O)
+- `fix:긱뉴스미전송사유안내추가` (O)
 - `fix: ranking bug` (X, no Korean)
 - `feat: 기능추가` (X, space after `:`)
+- `fix:긱뉴스 미전송 사유 안내 추가` (X, spaces in summary)
