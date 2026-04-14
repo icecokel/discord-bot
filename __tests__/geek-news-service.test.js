@@ -114,6 +114,28 @@ describe("GeekNews top parser", () => {
     expect(items).toHaveLength(1);
     expect(items[0].points).toBe(1);
   });
+
+  test("parses title when marker span exists before anchor", () => {
+    const html = `
+      <div class='topic_row'>
+        <div class=votenum>1</div>
+        <div class=topictitle><span id='dead123'></span><a href='https://example.com/live'><h1>라이브 구조 제목</h1></a></div>
+        <div class='topicdesc'><a href='topic?id=123'>라이브 구조 설명</a></div>
+        <div class='topicinfo'><span id='tp123'>7</span> points by tester</div>
+      </div>
+      <div class='next commentTD'>next</div>
+    `;
+
+    const items = parseGeekNewsTopItems(html, 5);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      rank: 1,
+      title: "라이브 구조 제목",
+      link: "https://example.com/live",
+      points: 7,
+      description: "라이브 구조 설명",
+    });
+  });
 });
 
 describe("GeekNews summary helpers", () => {

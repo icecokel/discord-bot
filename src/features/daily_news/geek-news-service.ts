@@ -559,7 +559,7 @@ export const parseGeekNewsTopItems = (
 
     const rankMatch = row.match(/<div class=['"]?votenum['"]?>(\d+)<\/div>/);
     const titleLinkMatch = row.match(
-      /<div class=['"]?topictitle['"]?>\s*<a href=['"]([^'"]+)['"][^>]*>\s*<h1>([\s\S]*?)<\/h1>\s*<\/a>/,
+      /<div class=['"]?topictitle['"]?>[\s\S]*?<a href=['"]([^'"]+)['"][^>]*>\s*<h1>([\s\S]*?)<\/h1>\s*<\/a>/,
     );
     const descriptionMatch = row.match(
       /<div class=['"]topicdesc['"]>\s*<a [^>]*>([\s\S]*?)<\/a>\s*<\/div>/,
