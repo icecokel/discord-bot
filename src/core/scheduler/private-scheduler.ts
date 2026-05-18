@@ -6,7 +6,6 @@ import kmaData from "../../data/kma-data.json";
 import { reminderService } from "../../features/tools/reminder-service"; // 리마인더는 전역이나 PrivateScheduler에서 초기화
 import englishService from "../../features/daily_english/english-service";
 import { busAlertService } from "../../features/tools/bus-alert-service";
-import { commute8407Service } from "../../features/tools/commute-8407-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
 import {
   buildTodayWeatherNotification,
@@ -26,7 +25,6 @@ export class PrivateScheduler {
   public start() {
     this.scheduleReminder(); // 리마인더는 별도 루프지만 여기서 init
     this.scheduleBusAlert();
-    this.scheduleCommute8407();
     this.scheduleWeather();
     this.scheduleNews();
 
@@ -48,10 +46,6 @@ export class PrivateScheduler {
 
   private scheduleBusAlert() {
     busAlertService.initialize(this.client);
-  }
-
-  private scheduleCommute8407() {
-    commute8407Service.initialize(this.client);
   }
 
   private scheduleNews() {
