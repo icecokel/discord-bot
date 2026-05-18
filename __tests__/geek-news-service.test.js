@@ -136,6 +136,33 @@ describe("GeekNews top parser", () => {
       description: "라이브 구조 설명",
     });
   });
+
+  test("parses current live markup with h2 title heading", () => {
+    const html = `
+      <div class="topics">
+        <div class='topic_row' data-topic-state-id='29613' data-topic-voteable='1'>
+          <div class=votenum>1</div>
+          <div class=vote><span id='vote29613'><a class=upvote href='javascript:vote(29613, "up");'><span>▲</span></a></span></div>
+          <div class=topictitle><span id='dead29613'></span><a href='https://github.com/Andyyyy64/whichllm' rel='nofollow' id='tr1'><h2 class='topic-title-heading'>whichllm - 내 하드웨어에서 실제로 돌아가고 최고 성능을 내는 로컬 LLM 찾기</h2></a> <span class=topicurl>(github.com/Andyyyy64)</span></div>
+          <div class='topicdesc'><a href='topic?id=29613' class='c99 breakall'>파라미터 수가 아닌 실측 벤치마크 기반으로 사용자 하드웨어에 맞는 로컬 LLM을 자동 추천하는 CLI 도구</a></div>
+          <div class='topicinfo'><span id='tp29613'>4</span> points by <a href='/@xguru'>xguru</a> 12분전<span id='unvote29613'></span> | <a href='topic?id=29613&go=comments' class=u>댓글과 토론</a></div>
+        </div>
+        <div class='next commentTD'><a href='/?page=2' class=u>토픽 더 불러오기</a></div>
+      </div>
+    `;
+
+    const items = parseGeekNewsTopItems(html, 5);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      rank: 1,
+      title:
+        "whichllm - 내 하드웨어에서 실제로 돌아가고 최고 성능을 내는 로컬 LLM 찾기",
+      link: "https://github.com/Andyyyy64/whichllm",
+      points: 4,
+      description:
+        "파라미터 수가 아닌 실측 벤치마크 기반으로 사용자 하드웨어에 맞는 로컬 LLM을 자동 추천하는 CLI 도구",
+    });
+  });
 });
 
 describe("GeekNews summary helpers", () => {
