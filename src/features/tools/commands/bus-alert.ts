@@ -18,8 +18,8 @@ const createHelpEmbed = (): EmbedBuilder => {
         name: "알림 설정",
         value:
           "`!버스알림 설정 <노선번호> <정류장명/정류장ID>`\n" +
-          "예: `!버스알림 설정 8407 강남역`\n" +
-          "예: `!버스알림 설정 8407 228000173`",
+          "예: `!버스알림 설정 1000 강남역`\n" +
+          "예: `!버스알림 설정 1000 228000173`",
       },
       {
         name: "알림 목록",
@@ -157,7 +157,7 @@ const execute = async (message: Message, args: string[]) => {
   if (!routeInput || !stationInput) {
     return message.reply(
       "❌ 사용법: `!버스알림 설정 <노선번호> <정류장명/정류장ID>`\n" +
-        "예: `!버스알림 설정 8407 강남역`",
+        "예: `!버스알림 설정 1000 강남역`",
     );
   }
 
