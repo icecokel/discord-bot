@@ -22,7 +22,7 @@ export class GeminiProvider extends BaseProvider {
 
     // API Key가 없어도 인스턴스는 생성되도록 함 (실제 호출 시 에러 처리)
     this.genAI = new GoogleGenerativeAI(this.apiKey || "");
-    this.defaultModel = "gemini-3-flash-preview";
+    this.defaultModel = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 
     // 기본 생성 설정
     this.defaultConfig = {
