@@ -49,10 +49,10 @@ export class PrivateScheduler {
   }
 
   private scheduleNews() {
-    this.scheduleGeekNewsNotification("0 8 * * *", "오전 8시");
+    this.scheduleGeekNewsNotification("30 8 * * *", "오전 8시 30분");
     this.scheduleGeekNewsNotification("30 14 * * *", "오후 2시 30분");
     console.log(
-      "[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:00 / 14:30 KST)",
+      "[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:30 / 14:30 KST)",
     );
   }
 
