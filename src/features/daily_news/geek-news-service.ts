@@ -1,6 +1,7 @@
 import { Client, TextBasedChannel, EmbedBuilder } from "discord.js";
 import { aiService } from "../../core/ai";
 import {
+  GeekNewsHistoryContent,
   getTrackedGeekNewsUrls,
   normalizeGeekNewsHistoryUrl,
   trackGeekNewsUrl,
@@ -906,13 +907,26 @@ class GeekNewsService {
     return result.item;
   }
 
-  markItemAsSent(item: Pick<GeekNewsItem, "link" | "title" | "sourceUrl">): void {
+  markItemAsSent(item: GeekNewsItem): void {
     const trackedUrls = [item.link, item.sourceUrl].filter(
       (url): url is string => typeof url === "string" && url.trim().length > 0,
     );
 
+    const content: GeekNewsHistoryContent = {
+      rank: item.rank,
+      points: item.points,
+      title: item.title,
+      link: item.link,
+      description: item.description,
+      sourceUrl: item.sourceUrl,
+      sourceContent: item.sourceContent,
+      translatedTitle: item.translatedTitle,
+      translatedBody: item.translatedBody,
+      selectionReason: item.selectionReason,
+    };
+
     const saved = trackedUrls
-      .map((url) => trackGeekNewsUrl(url, { title: item.title }))
+      .map((url) => trackGeekNewsUrl(url, { title: item.title, item: content }))
       .filter((record): record is NonNullable<typeof record> => record !== null);
 
     if (saved.length > 0) {
