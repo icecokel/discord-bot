@@ -8,7 +8,21 @@ const TRACKING_QUERY_PARAM_REGEX =
 export interface GeekNewsHistoryEntry {
   url: string;
   title?: string;
+  content?: GeekNewsHistoryContent;
   savedAt: number;
+}
+
+export interface GeekNewsHistoryContent {
+  rank?: number;
+  points?: number;
+  title?: string;
+  link?: string;
+  description?: string;
+  sourceUrl?: string;
+  sourceContent?: string;
+  translatedTitle?: string;
+  translatedBody?: string;
+  selectionReason?: string;
 }
 
 interface GeekNewsHistoryData {
@@ -18,8 +32,11 @@ interface GeekNewsHistoryData {
 interface RawGeekNewsHistoryEntry {
   url?: unknown;
   title?: unknown;
+  content?: unknown;
   savedAt?: unknown;
 }
+
+type RawGeekNewsHistoryContent = Record<string, unknown>;
 
 const sortSearchParams = (url: URL): void => {
   const params = Array.from(url.searchParams.entries())
@@ -87,11 +104,54 @@ const normalizeEntry = (
       typeof entry.title === "string" && entry.title.trim().length > 0
         ? entry.title.trim()
         : undefined,
+    content: normalizeContent(entry.content),
     savedAt:
       typeof entry.savedAt === "number" && Number.isFinite(entry.savedAt)
         ? entry.savedAt
         : Date.now(),
   };
+};
+
+const normalizedString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+
+const normalizedNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+const normalizeContent = (
+  rawContent: unknown,
+): GeekNewsHistoryContent | undefined => {
+  if (!rawContent || typeof rawContent !== "object") {
+    return undefined;
+  }
+
+  const content = rawContent as RawGeekNewsHistoryContent;
+  const normalized: GeekNewsHistoryContent = {
+    rank: normalizedNumber(content.rank),
+    points: normalizedNumber(content.points),
+    title: normalizedString(content.title),
+    link:
+      typeof content.link === "string"
+        ? normalizeGeekNewsHistoryUrl(content.link)
+        : undefined,
+    description: normalizedString(content.description),
+    sourceUrl:
+      typeof content.sourceUrl === "string"
+        ? normalizeGeekNewsHistoryUrl(content.sourceUrl)
+        : undefined,
+    sourceContent: normalizedString(content.sourceContent),
+    translatedTitle: normalizedString(content.translatedTitle),
+    translatedBody: normalizedString(content.translatedBody),
+    selectionReason: normalizedString(content.selectionReason),
+  };
+
+  const compacted = Object.fromEntries(
+    Object.entries(normalized).filter(([, value]) => value !== undefined),
+  ) as GeekNewsHistoryContent;
+
+  return Object.keys(compacted).length > 0 ? compacted : undefined;
 };
 
 const loadData = (): GeekNewsHistoryData => {
@@ -130,6 +190,10 @@ export const getTrackedGeekNewsUrls = (): Set<string> => {
   return new Set(loadData().entries.map((entry) => entry.url));
 };
 
+export const getGeekNewsHistoryEntries = (): GeekNewsHistoryEntry[] => {
+  return loadData().entries;
+};
+
 export const hasTrackedGeekNewsUrl = (url: string): boolean => {
   const normalized = normalizeGeekNewsHistoryUrl(url);
   if (!normalized) {
@@ -141,7 +205,7 @@ export const hasTrackedGeekNewsUrl = (url: string): boolean => {
 
 export const trackGeekNewsUrl = (
   url: string,
-  options: { title?: string } = {},
+  options: { title?: string; item?: GeekNewsHistoryContent } = {},
 ): GeekNewsHistoryEntry | null => {
   const normalized = normalizeGeekNewsHistoryUrl(url);
   if (!normalized) {
@@ -156,6 +220,7 @@ export const trackGeekNewsUrl = (
       typeof options.title === "string" && options.title.trim().length > 0
         ? options.title.trim()
         : undefined,
+    content: normalizeContent(options.item),
     savedAt: Date.now(),
   };
 
