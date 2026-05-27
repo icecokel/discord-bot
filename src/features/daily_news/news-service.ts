@@ -1,8 +1,4 @@
-import {
-  EmbedBuilder,
-  Client,
-  TextBasedChannel,
-} from "discord.js";
+import { EmbedBuilder } from "discord.js";
 
 interface NaverNewsItem {
   title: string;
@@ -49,20 +45,6 @@ class NewsService {
     }
 
     return `${text.slice(0, maxLength - 3).trimEnd()}...`;
-  }
-
-  private isSendableChannel(
-    channel: unknown,
-  ): channel is TextBasedChannel & {
-    send: (options: any) => Promise<unknown>;
-  } {
-    if (!channel) return false;
-    const candidate = channel as any;
-    return (
-      typeof candidate.isTextBased === "function" &&
-      candidate.isTextBased() &&
-      typeof candidate.send === "function"
-    );
   }
 
   /**
@@ -188,36 +170,6 @@ class NewsService {
     } catch (error) {
       console.error("[NewsService] 테스트 발송 실패:", error);
       await msg.edit("❌ 뉴스 검색 중 오류가 발생했습니다.");
-    }
-  }
-
-  /**
-   * 특정 텍스트 채널로 뉴스 발송
-   */
-  async sendToChannel(client: Client, channelId: string) {
-    console.log(`[NewsService] 특정 채널 뉴스 발송 시작: ${channelId}`);
-    try {
-      const newsItems = await this.generateDailyNews();
-      if (!newsItems || newsItems.length === 0) {
-        console.log(
-          "[NewsService] 뉴스 내용이 없어 특정 채널 발송을 중단합니다.",
-        );
-        return;
-      }
-
-      const channel = await client.channels.fetch(channelId);
-      if (!this.isSendableChannel(channel)) {
-        console.log(
-          `[NewsService] 텍스트 채널이 아니거나 존재하지 않습니다: ${channelId}`,
-        );
-        return;
-      }
-
-      const embed = this.createEmbed(newsItems);
-      await channel.send({ embeds: [embed] });
-      console.log(`[NewsService] 특정 채널 뉴스 발송 완료: ${channelId}`);
-    } catch (error) {
-      console.error("[NewsService] 특정 채널 발송 중 오류:", error);
     }
   }
 }
