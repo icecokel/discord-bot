@@ -732,7 +732,7 @@ class GeekNewsService {
     try {
       const response = await fetch(this.url, {
         headers: {
-          "User-Agent": "daily-english-helper-bot/1.0 (+https://news.hada.io/)",
+          "User-Agent": "discord-bot/1.0 (+https://news.hada.io/)",
         },
       });
 
@@ -766,7 +766,7 @@ class GeekNewsService {
     try {
       const response = await fetch(url, {
         headers: {
-          "User-Agent": "daily-english-helper-bot/1.0 (+https://news.hada.io/)",
+          "User-Agent": "discord-bot/1.0 (+https://news.hada.io/)",
           Accept: "text/html,application/xhtml+xml",
         },
         redirect: "follow",

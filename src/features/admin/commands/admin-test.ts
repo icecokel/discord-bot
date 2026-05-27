@@ -4,9 +4,7 @@ import {
   registerAdminCommand,
 } from "../../../core/admin-middleware";
 import { aiService } from "../../../core/ai";
-import englishService from "../../daily_english/english-service";
 import newsService from "../../daily_news/news-service";
-import { reminderService } from "../../tools/reminder-service";
 import { getMidTermForecast, getShortTermForecast } from "../../../utils/kma-helper";
 import kmaData from "../../../data/kma-data.json";
 
@@ -79,14 +77,6 @@ const getRegionSample = (): {
   };
 };
 
-const validateEmbedFieldNames = (
-  fields: Array<{ name: string }>,
-  required: string[],
-): boolean => {
-  const names = fields.map((field) => field.name);
-  return required.every((requiredName) => names.includes(requiredName));
-};
-
 const hasCommandIdentifier = (
   commands: Array<{ name: string; keywords?: string[] }>,
   identifier: string,
@@ -143,7 +133,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
       name: "어드민 커맨드 레지스트리",
       fn: async () => {
         const adminCommandNames = getAdminCommands().map((cmd) => cmd.name);
-        const required = ["admin", "english", "news", "ai", "test"];
+        const required = ["admin", "news", "ai", "test"];
         const missing = required.filter((name) => !adminCommandNames.includes(name));
         if (missing.length > 0) {
           return {
@@ -154,26 +144,6 @@ const handleAdminTest = async (message: Message, args: string[]) => {
         return {
           status: "PASS",
           detail: `${adminCommandNames.length}개 어드민 커맨드 등록`,
-        };
-      },
-    },
-    {
-      name: "리마인더 파서",
-      fn: async () => {
-        const samples = ["10분 뒤", "내일 오후 3시", "3월 1일 오후 5시"];
-        const invalid = samples.filter((sample) => {
-          const ts = reminderService.parseTargetTime(sample);
-          return !ts || Number.isNaN(ts);
-        });
-        if (invalid.length > 0) {
-          return {
-            status: "FAIL",
-            detail: `파싱 실패: ${invalid.join(", ")}`,
-          };
-        }
-        return {
-          status: "PASS",
-          detail: `${samples.length}개 시간 포맷 파싱 성공`,
         };
       },
     },
@@ -235,31 +205,6 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           return {
             status: ok ? "PASS" : "FAIL",
             detail: ok ? "응답 검증 성공" : `예상 토큰 미포함: ${text.slice(0, 60)}`,
-          };
-        },
-      },
-      {
-        name: "영어 콘텐츠 품질",
-        fn: async () => {
-          if (!process.env.GEMINI_AI_API_KEY) {
-            return {
-              status: "SKIP",
-              detail: "GEMINI_AI_API_KEY 없음",
-            };
-          }
-          const content = await englishService.generateDailyContent();
-          const embed = englishService.createEmbed(content).toJSON();
-          const fields = (embed.fields || []) as Array<{ name: string }>;
-          const structured = validateEmbedFieldNames(fields, [
-            "📝 오늘의 문장",
-            "📘 설명",
-            "✨ 활용 예시",
-          ]);
-          return {
-            status: structured ? "PASS" : "FAIL",
-            detail: structured
-              ? "구조화된 필드 출력 확인"
-              : "Fallback 응답(간략 포맷) 발생",
           };
         },
       },

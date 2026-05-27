@@ -38,7 +38,7 @@ export const registerAdminCommand = (
   handler: AdminHandler,
   description: string = "No description",
 ): void => {
-  // 접두사 없이 명령어 이름 자체로 등록 (예: "english")
+  // 접두사 없이 명령어 이름 자체로 등록
   adminCommands.set(name.toLowerCase(), { handler, description });
 };
 
@@ -63,11 +63,10 @@ export const handleAdminCommand = async (
 
   // 명령어 파싱 (Prefix 없이 바로 명령어 이름 확인을 위해 공백 기준 분리)
   // 일반적인 커맨드 Prefix (!, /) 등을 고려해야 할 수도 있지만,
-  // 기획상 "/english" 처럼 Slash Command 스타일이나 특정 단어로 시작하는지 체크.
+  // 기획상 Slash Command 스타일이나 특정 단어로 시작하는지 체크.
   // 여기서는 편의상 "!" 또는 "/" 같은 접두사가 있든 없든 첫 단어를 커맨드로 간주하거나,
-  // 요구사항에 맞춰 "/english" 처럼 명시적으로 처리.
+  // 접두사가 있으면 제거해 처리.
 
-  // 요청사항: "/english" -> "english"
   const args = content.split(/ +/);
   let commandName = args[0].toLowerCase();
 

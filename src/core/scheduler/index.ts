@@ -1,17 +1,12 @@
 import { Client } from "discord.js";
 import { PrivateScheduler } from "./private-scheduler";
-import { GlobalScheduler } from "./global-scheduler";
 
 export const initializeSchedulers = (client: Client): void => {
   console.log("[Scheduler] 스케줄러 초기화 시작...");
 
-  // 개인 스케줄러 (날씨, 영어, 리마인더)
+  // 개인 스케줄러 (날씨, 긱뉴스)
   const privateScheduler = new PrivateScheduler(client);
   privateScheduler.start();
-
-  // 공용 스케줄러 (뉴스)
-  const globalScheduler = new GlobalScheduler(client);
-  globalScheduler.start();
 
   console.log("[Scheduler] 모든 스케줄러 초기화 완료");
 };
