@@ -10,7 +10,6 @@ import "./features/admin/commands/admin-data";
 import "./features/admin/commands/admin-log";
 import "./features/admin/commands/admin-notice";
 import "./features/admin/commands/admin-reset";
-import "./features/admin/commands/admin-english";
 import "./features/admin/commands/admin-ai";
 import "./features/admin/commands/admin-news";
 import "./features/admin/commands/admin-help";
@@ -39,7 +38,7 @@ client.commands = loadCommands();
 client.once("clientReady", () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 
-  // 스케줄러 초기화 (날씨, 영어 등)
+  // 스케줄러 초기화 (날씨, 긱뉴스 등)
   initializeSchedulers(client);
 });
 

@@ -3,9 +3,6 @@ import { Client } from "discord.js";
 import { getAllUsersWithNotification } from "../../utils/user-store";
 import { getShortTermForecast } from "../../utils/kma-helper";
 import kmaData from "../../data/kma-data.json";
-import { reminderService } from "../../features/tools/reminder-service"; // 리마인더는 전역이나 PrivateScheduler에서 초기화
-import englishService from "../../features/daily_english/english-service";
-import { busAlertService } from "../../features/tools/bus-alert-service";
 import geekNewsService from "../../features/daily_news/geek-news-service";
 import {
   buildTodayWeatherNotification,
@@ -23,29 +20,18 @@ export class PrivateScheduler {
   }
 
   public start() {
-    this.scheduleReminder(); // 리마인더는 별도 루프지만 여기서 init
-    this.scheduleBusAlert();
     this.scheduleWeather();
     this.scheduleNews();
 
     if (this.targetChannelId) {
-      this.scheduleEnglish();
       console.log(
         `[PrivateScheduler] 개인 스케줄러가 시작되었습니다. (채널: ${this.targetChannelId})`,
       );
     } else {
       console.log(
-        "[PrivateScheduler] PRIVATE_CHANNEL_ID가 없어 영어 알림은 스킵합니다.",
+        "[PrivateScheduler] PRIVATE_CHANNEL_ID가 없어 긱뉴스 알림은 스킵합니다.",
       );
     }
-  }
-
-  private scheduleReminder() {
-    reminderService.initialize(this.client);
-  }
-
-  private scheduleBusAlert() {
-    busAlertService.initialize(this.client);
   }
 
   private scheduleNews() {
@@ -165,20 +151,5 @@ export class PrivateScheduler {
         error.message,
       );
     }
-  }
-
-  private scheduleEnglish() {
-    // 매일 오후 1시 (KST) 영어 표현 알림
-    cron.schedule(
-      "0 13 * * *",
-      async () => {
-        if (!this.targetChannelId) return;
-        console.log("[PrivateScheduler] 오후 1시 영어 알림 시작");
-        await englishService.sendToChannel(this.client, this.targetChannelId);
-        console.log("[PrivateScheduler] 오후 1시 영어 알림 완료");
-      },
-      { timezone: "Asia/Seoul" },
-    );
-    console.log("[PrivateScheduler] 영어 알림 등록 완료 (매일 13:00 KST)");
   }
 }
