@@ -16,11 +16,11 @@ Examples:
 
 ## Commit Message
 
-- Use `type(scope):요약` or `type:요약`.
+- Use `type(scope): 요약` or `type: 요약`.
 - Allowed `type`: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `chore`, `ci`, `build`, `revert`.
 - Optional `scope` pattern: lowercase letters, numbers, `.`, `_`, `/`, `-`.
-- Do not add a space after `:`.
-- Write the Korean summary without spaces, following the repository's existing git history style.
+- Add a single space after `:`.
+- Write the Korean summary with natural spacing.
 - Keep the title within 50 characters.
 - Do not end the title with `.`, `!`, `?`, `。`.
 - Include Korean text in the summary.
@@ -28,9 +28,10 @@ Examples:
 
 Examples:
 
-- `feat(auth):구글토큰검증추가` (O)
-- `fix:랭킹중복노출수정` (O)
-- `fix:긱뉴스미전송사유안내추가` (O)
+- `feat(auth): 구글 토큰 검증 추가` (O)
+- `fix: 랭킹 중복 노출 수정` (O)
+- `fix: 긱뉴스 미전송 사유 안내 추가` (O)
 - `fix: ranking bug` (X, no Korean)
-- `feat: 기능추가` (X, space after `:`)
-- `fix:긱뉴스 미전송 사유 안내 추가` (X, spaces in summary)
+- `feat:기능 추가` (X, no space after `:`)
+- `fix:긱뉴스 미전송 사유 안내 추가` (X, no space after `:`)
+- `fix:긱뉴스미전송사유안내추가` (X, unnatural spacing)
