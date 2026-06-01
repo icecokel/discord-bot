@@ -5,6 +5,7 @@ import kmaData from "../../../data/kma-data.json";
 import {
   joinRegionTokens,
   normalizeCommandArgs,
+  resolveWeatherRegion,
 } from "../weather-command-utils";
 
 export default {
@@ -63,24 +64,16 @@ export default {
         );
       }
 
-      // 지역명 유효성 검사 (kmaData에 있는지)
-      let isValid = kmaAny[newRegion];
-      if (!isValid) {
-        const foundKey = Object.keys(kmaAny).find(
-          (key) => key.includes(newRegion) || newRegion.includes(key),
-        );
-        if (foundKey) isValid = true;
-      }
-
-      if (!isValid) {
+      const resolvedRegion = resolveWeatherRegion(kmaAny, newRegion);
+      if (!resolvedRegion) {
         return message.reply(
           `❌ **${newRegion}**은(는) 지원되지 않는 지역명입니다. 정확한 도시/구/군 이름을 입력해주세요.`,
         );
       }
 
-      userStore.setUserRegion(message.author.id, newRegion);
+      userStore.setUserRegion(message.author.id, resolvedRegion.name);
       return message.reply(
-        `✅ 기본 지역이 **${newRegion}**(으)로 설정되었습니다! 이제 지역명 없이 \`!날씨\`만 입력해도 됩니다.`,
+        `✅ 기본 지역이 **${resolvedRegion.name}**(으)로 설정되었습니다! 이제 지역명 없이 \`!날씨\`만 입력해도 됩니다.`,
       );
     }
 
@@ -128,21 +121,13 @@ export default {
       }
     }
 
-    // 데이터 조회
-    let targetData = kmaAny[regionName];
-    if (!targetData) {
-      const foundKey = Object.keys(kmaAny).find(
-        (key) => key.includes(regionName) || regionName.includes(key),
-      );
-      if (foundKey) {
-        targetData = kmaAny[foundKey];
-      }
-    }
-
-    if (!targetData) {
+    const resolvedRegion = resolveWeatherRegion(kmaAny, regionName);
+    if (!resolvedRegion) {
       return message.reply(`❌ **${regionName}** 지역을 찾을 수 없습니다.`);
     }
 
+    const targetData = resolvedRegion.data;
+    const displayRegionName = resolvedRegion.name;
     const { nx, ny } = targetData;
 
     // API 호출
@@ -157,7 +142,7 @@ export default {
 
     const embed = new EmbedBuilder()
       .setColor(0x0099ff)
-      .setTitle(`🌤️ ${regionName} 오늘 날씨`)
+      .setTitle(`🌤️ ${displayRegionName} 오늘 날씨`)
       .setTimestamp()
       .setFooter({ text: "기상청 단기예보 제공" });
 
