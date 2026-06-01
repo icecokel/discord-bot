@@ -21,7 +21,14 @@ describe("Weather command args parsing", () => {
   });
 
   test("resolves region aliases without matching generic short suffixes", () => {
-    expect(resolveWeatherRegion(kmaData, "안양동").name).toBe("안양");
-    expect(resolveWeatherRegion(kmaData, "광교").name).toBe("광교1동");
+    const anyang = resolveWeatherRegion(kmaData, "안양동");
+    const gwanggyo = resolveWeatherRegion(kmaData, "광교");
+
+    expect(anyang.name).toBe("안양");
+    expect(anyang.reason).toContain("안양동");
+    expect(anyang.reason).toContain("안양");
+    expect(gwanggyo.name).toBe("광교1동");
+    expect(gwanggyo.reason).toContain("광교");
+    expect(gwanggyo.reason).toContain("광교1동");
   });
 });

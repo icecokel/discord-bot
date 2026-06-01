@@ -78,7 +78,14 @@ export default {
     const embed = new EmbedBuilder()
       .setColor(0xffa500) // 주간은 오렌지색
       .setTitle(`🗓️ ${displayRegionName} 주간 날씨 예보`)
-      .setDescription("내일부터 7일간의 날씨 전망입니다.")
+      .setDescription(
+        [
+          "내일부터 7일간의 날씨 전망입니다.",
+          resolvedRegion.reason || "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      )
       .setTimestamp()
       .setFooter({ text: "기상청 단기/중기예보 제공" });
 
