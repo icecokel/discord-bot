@@ -1,23 +1,22 @@
 import { Message } from "discord.js";
 
 /**
- * 어드민 전용 DM 명령어 미들웨어
- * Admin 커맨드인지 확인하고 권한을 검증합니다.
+ * 관리자 전용 DM 명령어 미들웨어
  */
 
 const getAdminId = (): string | undefined => process.env.ADMIN_ID;
 
-// 어드민 명령어 핸들러 타입
+// 관리자 명령어 핸들러 타입
 type AdminHandler = (message: Message, args: string[]) => Promise<unknown>;
 
-// 어드민 명령어 핸들러 레지스트리
+// 관리자 명령어 핸들러 레지스트리
 const adminCommands = new Map<
   string,
   { handler: AdminHandler; description: string }
 >();
 
 /**
- * 어드민 여부 확인
+ * 관리자 여부 확인
  */
 export const isAdmin = (userId: string): boolean => {
   return userId === getAdminId();
@@ -31,7 +30,7 @@ export const isDM = (message: Message): boolean => {
 };
 
 /**
- * 어드민 명령어 등록
+ * 관리자 명령어 등록
  */
 export const registerAdminCommand = (
   name: string,
@@ -43,7 +42,7 @@ export const registerAdminCommand = (
 };
 
 /**
- * 등록된 어드민 명령어 목록 반환
+ * 등록된 관리자 명령어 목록 반환
  */
 export const getAdminCommands = (): { name: string; description: string }[] => {
   return Array.from(adminCommands.entries()).map(([name, { description }]) => ({
@@ -90,19 +89,13 @@ export const executeAdminCommand = async (
 };
 
 /**
- * 어드민 DM 명령어 처리
- * @returns {boolean} true면 어드민 명령어로 처리됨(실행 완료), false면 일반 명령어로 패스
+ * 관리자 DM 명령어 처리
+ * @returns true면 관리자 명령어로 처리됨, false면 다음 핸들러로 패스
  */
 export const handleAdminCommand = async (
   message: Message,
 ): Promise<boolean> => {
   const content = message.content.trim();
-
-  // 명령어 파싱 (Prefix 없이 바로 명령어 이름 확인을 위해 공백 기준 분리)
-  // 일반적인 커맨드 Prefix (!, /) 등을 고려해야 할 수도 있지만,
-  // 기획상 Slash Command 스타일이나 특정 단어로 시작하는지 체크.
-  // 여기서는 편의상 "!" 또는 "/" 같은 접두사가 있든 없든 첫 단어를 커맨드로 간주하거나,
-  // 접두사가 있으면 제거해 처리.
 
   const args = content.split(/ +/);
   let commandName = args[0].toLowerCase();
@@ -117,18 +110,15 @@ export const handleAdminCommand = async (
 
   if (commandName === "관리자" && args.length > 1) {
     const subCommandName = args[1].toLowerCase();
-    // 두 번째 단어가 등록된 어드민 명령어라면 해당 명령어로 스위칭
     if (adminCommands.has(subCommandName)) {
       commandName = subCommandName;
-      subArgsStart = 2; // "/관리자", 하위 명령어 이후부터 인자로 취급
+      subArgsStart = 2;
     }
   }
 
-  // 1. 등록된 Admin 커맨드인지 확인
   const commandEntry = adminCommands.get(commandName);
 
   if (!commandEntry) {
-    // Admin 전용 커맨드가 아니면 일반 커맨드 핸들러로 넘김
     return false;
   }
 
