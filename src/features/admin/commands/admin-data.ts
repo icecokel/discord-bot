@@ -194,21 +194,9 @@ const handleData = async (message: Message) => {
         const textChannels = guild.channels.cache.filter(
           (channel) => channel.type === ChannelType.GuildText,
         );
-        const representativeChannel =
-          textChannels.find(
-            (channel) =>
-              channel.name.toLowerCase().includes("general") ||
-              channel.name.includes("일반"),
-          ) ?? textChannels.first();
-
-        const representativeText = representativeChannel
-          ? `<#${representativeChannel.id}> (\`${representativeChannel.id}\`)`
-          : "없음";
-
         return (
           `• **${guild.name}**\n` +
-          `서버ID: \`${guild.id}\` | 인원: 👤 ${guild.memberCount}명 | 텍스트채널: ${textChannels.size}개\n` +
-          `대표 채널ID: ${representativeText}`
+          `서버ID: \`${guild.id}\` | 인원: 👤 ${guild.memberCount}명 | 텍스트채널: ${textChannels.size}개`
         );
       })
       .join("\n\n");
@@ -217,7 +205,7 @@ const handleData = async (message: Message) => {
       name: "🏰 참여 중인 서버 현황",
       value: truncateForEmbed(
         `총 **${guilds.size}**개 서버 | 총 인원: **${totalMembers}**명\n` +
-          "(아래는 서버 ID와 대표 텍스트 채널 ID)\n\n" +
+          "(아래는 서버 ID와 텍스트 채널 수)\n\n" +
           guildDetails,
       ),
       inline: false,
