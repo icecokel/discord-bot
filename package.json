@@ -12,6 +12,10 @@
     "dev": "nodemon",
     "build": "esbuild src/index.ts --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
     "start:prod": "node dist/index.js",
+    "pm2:start": "npm run build && pm2 start ecosystem.config.cjs --update-env",
+    "pm2:restart": "npm run build && pm2 restart ecosystem.config.cjs --update-env",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs discord-bot",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "prepare": "husky"
