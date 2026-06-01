@@ -222,6 +222,6 @@ const handleData = async (message: Message) => {
 };
 
 // 명령어 등록
-registerAdminCommand("data", handleData, "데이터 확인");
+registerAdminCommand("데이터", handleData, "데이터 확인");
 
 export { handleData };

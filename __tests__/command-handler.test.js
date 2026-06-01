@@ -1,6 +1,6 @@
 const { handleCommand } = require("../src/core/command-handler");
 
-const createMessage = (content = "!ping") => ({
+const createMessage = (content = "!핑") => ({
   content,
   author: {
     id: "owner-id",
@@ -21,16 +21,16 @@ describe("command handler", () => {
     const execute = jest.fn();
     const commands = new Map([
       [
-        "ping",
+        "핑",
         {
-          name: "ping",
-          keywords: ["ping"],
+          name: "핑",
+          keywords: ["핑"],
           execute,
         },
       ],
     ]);
 
-    const handled = await handleCommand(createMessage("!ping"), commands);
+    const handled = await handleCommand(createMessage("!핑"), commands);
 
     expect(handled).toBe(true);
     expect(execute).toHaveBeenCalledWith(expect.any(Object), []);

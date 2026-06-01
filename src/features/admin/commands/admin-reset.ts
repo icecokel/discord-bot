@@ -1,6 +1,6 @@
 /**
- * /admin reset <target> - 데이터 초기화
- * target: fortune (운세), list (목록 확인)
+ * /관리자 초기화 <target> - 데이터 초기화
+ * target: 운세, 목록
  */
 
 import { EmbedBuilder, Message } from "discord.js";
@@ -15,7 +15,7 @@ interface ResetTarget {
 
 // 초기화 가능한 타겟 및 파일 매핑
 const RESET_TARGETS: { [key: string]: ResetTarget } = {
-  fortune: {
+  운세: {
     file: "daily-fortunes.json",
     desc: "오늘의 운세 데이터",
     defaultContent: {},
@@ -30,14 +30,14 @@ const handleReset = async (message: Message, args: string[]) => {
   const target = args[0]?.toLowerCase();
 
   // 1. 목록 조회
-  if (!target || target === "list" || target === "help") {
+  if (!target || target === "목록" || target === "도움말") {
     const embed = new EmbedBuilder()
       .setColor(0x0099ff)
       .setTitle("🗑️ 데이터 초기화 메뉴")
       .setDescription("초기화할 대상을 선택해주세요. (복구 불가)")
       .addFields({
         name: "사용법",
-        value: "`/admin reset <target>`",
+        value: "`/관리자 초기화 <대상>`",
       });
 
     const targetList = Object.keys(RESET_TARGETS)
@@ -60,7 +60,7 @@ const handleReset = async (message: Message, args: string[]) => {
   const targetConfig = RESET_TARGETS[target];
   if (!targetConfig) {
     await message.reply(
-      `❌ 유효하지 않은 대상입니다: \`${target}\`\n\`/admin reset list\`로 목록을 확인하세요.`,
+      `❌ 유효하지 않은 대상입니다: \`${target}\`\n\`/관리자 초기화 목록\`으로 목록을 확인하세요.`,
     );
     return;
   }
@@ -89,6 +89,6 @@ const handleReset = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("reset", handleReset, "데이터 초기화");
+registerAdminCommand("초기화", handleReset, "데이터 초기화");
 
 export { handleReset };

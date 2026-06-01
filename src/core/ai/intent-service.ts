@@ -12,7 +12,6 @@ export type NaturalLanguageIntentName =
   | "geekNews.translate"
   | "game.links"
   | "user.whoami"
-  | "bot.info"
   | "bot.help"
   | "admin.log"
   | "admin.data"
@@ -42,7 +41,6 @@ const INTENT_NAMES: NaturalLanguageIntentName[] = [
   "geekNews.translate",
   "game.links",
   "user.whoami",
-  "bot.info",
   "bot.help",
   "admin.log",
   "admin.data",
@@ -146,7 +144,7 @@ const extractNoticeContent = (text: string): string => {
 };
 
 const extractResetTarget = (text: string): string | undefined => {
-  if (/운세|fortune/.test(text)) return "fortune";
+  if (/운세/.test(text)) return "운세";
   return undefined;
 };
 
@@ -192,11 +190,11 @@ export const classifyLocalIntent = (
   const weatherIntent = classifyWeatherIntent(text);
   if (weatherIntent) return weatherIntent;
 
-  if (/긱뉴스|geek\s*news|geeknews|\bgn\b|hada/.test(text)) {
+  if (/긱뉴스|하다뉴스/.test(text)) {
     return makeIntent("geekNews.translate");
   }
 
-  if (/운세|fortune|오늘운세/.test(text)) {
+  if (/운세|오늘운세/.test(text)) {
     return makeIntent("fortune.today");
   }
 
@@ -223,7 +221,7 @@ export const classifyLocalIntent = (
 
   if (/테스트|점검|상태\s*(확인|체크)?/.test(text)) {
     return makeIntent("admin.test", {
-      mode: /빠른|quick/.test(text) ? "quick" : undefined,
+      mode: /빠른/.test(text) ? "빠른" : undefined,
     });
   }
 
@@ -231,20 +229,16 @@ export const classifyLocalIntent = (
     return makeIntent("admin.news");
   }
 
-  if (/게임|game|wordle|sky\s*drop|arrow\s*drift/.test(text)) {
+  if (/게임|워들|스카이\s*드롭|애로우\s*드리프트/.test(text)) {
     return makeIntent("game.links");
   }
 
-  if (/내\s*정보|내정보|whoami|나는\s*누구|나\s*누구/.test(text)) {
+  if (/내\s*정보|내정보|나는\s*누구|나\s*누구/.test(text)) {
     return makeIntent("user.whoami");
   }
 
-  if (/도움말|명령어|사용법|help/.test(text)) {
+  if (/도움말|명령어|사용법/.test(text)) {
     return makeIntent("bot.help");
-  }
-
-  if (/봇.*정보|정보.*봇|bot.*info/.test(text)) {
-    return makeIntent("bot.info");
   }
 
   return null;
@@ -264,7 +258,6 @@ const SYSTEM_PROMPT = `너는 디스코드 봇의 자연어 의도 분류기다.
 - geekNews.translate
 - game.links
 - user.whoami
-- bot.info
 - bot.help
 - admin.log
 - admin.data

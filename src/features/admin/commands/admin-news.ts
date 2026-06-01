@@ -11,4 +11,4 @@ const newsHandler = async (message: Message) => {
 };
 
 // 명령어 등록
-registerAdminCommand("news", newsHandler, "뉴스 콘텐츠 테스트");
+registerAdminCommand("뉴스", newsHandler, "뉴스 콘텐츠 테스트");

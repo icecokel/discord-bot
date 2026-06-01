@@ -69,12 +69,12 @@ const handleLog = async (message: Message, args: string[]) => {
     }
   }
 
-  embed.setFooter({ text: "사용법: /admin log [개수]" });
+  embed.setFooter({ text: "사용법: /관리자 로그 [개수]" });
 
   await message.reply({ embeds: [embed] });
 };
 
 // 명령어 등록
-registerAdminCommand("log", handleLog, "로그 조회");
+registerAdminCommand("로그", handleLog, "로그 조회");
 
 export { handleLog };

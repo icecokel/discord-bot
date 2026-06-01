@@ -2,15 +2,15 @@ import { EmbedBuilder, Message } from "discord.js";
 import { Command } from "../../../core/loader";
 
 export default {
-  name: "help",
-  keywords: ["help", "도움말", "명령어", "사용법"],
+  name: "도움말",
+  keywords: ["도움말", "명령어", "사용법"],
   description: "사용 가능한 모든 명령어와 설명을 보여줍니다.",
   execute(message: Message, args: string[]) {
     // 0. 설명(Help) 기능
     if (
       args &&
       args[0] &&
-      ["help", "설명", "규칙", "사용법", "가이드"].includes(args[0])
+      ["도움말", "설명", "규칙", "사용법", "가이드"].includes(args[0])
     ) {
       const helpEmbed = new EmbedBuilder()
         .setColor(0x0099ff)
@@ -18,7 +18,7 @@ export default {
         .setDescription("등록된 모든 명령어의 목록과 설명을 확인합니다.")
         .addFields({
           name: "사용법",
-          value: "`!help` 또는 `!도움말`",
+          value: "`!도움말`",
         });
       return message.reply({ embeds: [helpEmbed] });
     }

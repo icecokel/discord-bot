@@ -91,7 +91,9 @@ const hasCommandIdentifier = (
 };
 
 const handleAdminTest = async (message: Message, args: string[]) => {
-  const mode = args[0]?.toLowerCase() === "quick" ? "quick" : "full";
+  const mode = ["quick", "빠른"].includes(args[0]?.toLowerCase())
+    ? "quick"
+    : "full";
 
   const tests: Array<{
     name: string;
@@ -107,12 +109,12 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           }),
         );
         const required = [
-          "ping",
-          "help",
-          "weather",
-          "weather-weekly",
-          "fortune",
-          "geeknews",
+          "핑",
+          "도움말",
+          "날씨",
+          "주간날씨",
+          "운세",
+          "긱뉴스",
         ];
         const missing = required.filter(
           (identifier) => !hasCommandIdentifier(commands, identifier),
@@ -133,7 +135,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
       name: "어드민 커맨드 레지스트리",
       fn: async () => {
         const adminCommandNames = getAdminCommands().map((cmd) => cmd.name);
-        const required = ["admin", "news", "ai", "test"];
+        const required = ["관리자", "뉴스", "질문", "테스트"];
         const missing = required.filter((name) => !adminCommandNames.includes(name));
         if (missing.length > 0) {
           return {
@@ -265,7 +267,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
 
   const embed = new EmbedBuilder()
     .setColor(failed === 0 ? 0x57f287 : 0xed4245)
-    .setTitle(`🧪 /admin test 결과 (${mode.toUpperCase()})`)
+    .setTitle(`🧪 /관리자 테스트 결과 (${mode.toUpperCase()})`)
     .setDescription(
       `총 ${results.length}개 테스트\n✅ ${passed} | ❌ ${failed} | ⏭️ ${skipped}\n총 소요: ${formatDuration(totalTime)}`,
     )
@@ -280,12 +282,12 @@ const handleAdminTest = async (message: Message, args: string[]) => {
   });
 
   embed.setFooter({
-    text: "빠른 점검은 /admin test quick",
+    text: "빠른 점검은 /관리자 테스트 빠른",
   });
 
   await progressMsg.edit({ content: null, embeds: [embed] });
 };
 
-registerAdminCommand("test", handleAdminTest, "통합 기능 점검 및 리포트");
+registerAdminCommand("테스트", handleAdminTest, "통합 기능 점검 및 리포트");
 
 export { handleAdminTest };

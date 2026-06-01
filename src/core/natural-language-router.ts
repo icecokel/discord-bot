@@ -165,29 +165,29 @@ const executeAdminIntent = async (
       const count = getNumberArg(intent, "count");
       return executeAdminCommand(
         message,
-        "log",
+        "로그",
         count ? [String(count)] : [],
       );
     }
     case "admin.data":
-      return executeAdminCommand(message, "data", []);
+      return executeAdminCommand(message, "데이터", []);
     case "admin.test": {
       const mode = getStringArg(intent, "mode");
-      return executeAdminCommand(message, "test", mode ? [mode] : []);
+      return executeAdminCommand(message, "테스트", mode ? [mode] : []);
     }
     case "admin.news":
-      return executeAdminCommand(message, "news", []);
+      return executeAdminCommand(message, "뉴스", []);
     case "admin.notice": {
       const content = getStringArg(intent, "content");
       if (!content) {
         await message.reply("공지 내용을 알려주세요.");
         return true;
       }
-      return executeAdminCommand(message, "notice", [content]);
+      return executeAdminCommand(message, "공지", [content]);
     }
     case "admin.reset": {
       const target = getStringArg(intent, "target");
-      return executeAdminCommand(message, "reset", target ? [target] : []);
+      return executeAdminCommand(message, "초기화", target ? [target] : []);
     }
     default:
       return false;
@@ -206,7 +206,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather", "날씨", "오늘날씨"],
+        ["날씨", "오늘날씨"],
         region ? [region] : [],
         intent.intent,
       );
@@ -214,7 +214,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather-weekly", "주간날씨", "주간", "weekly"],
+        ["주간날씨", "주간"],
         region ? [region] : [],
         intent.intent,
       );
@@ -226,7 +226,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather", "날씨"],
+        ["날씨"],
         ["설정", region],
         intent.intent,
       );
@@ -234,7 +234,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather", "날씨"],
+        ["날씨"],
         ["해제"],
         intent.intent,
       );
@@ -242,7 +242,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather", "날씨"],
+        ["날씨"],
         ["알림"],
         intent.intent,
       );
@@ -250,7 +250,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["weather", "날씨"],
+        ["날씨"],
         ["알림해제"],
         intent.intent,
       );
@@ -258,7 +258,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["운세", "fortune", "오늘운세"],
+        ["운세", "오늘운세"],
         [],
         intent.intent,
       );
@@ -266,7 +266,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["geeknews", "긱뉴스", "gn"],
+        ["긱뉴스"],
         [],
         intent.intent,
       );
@@ -274,7 +274,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["game", "게임"],
+        ["게임"],
         [],
         intent.intent,
       );
@@ -282,15 +282,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["whoami", "내정보", "나"],
-        [],
-        intent.intent,
-      );
-    case "bot.info":
-      return executeCommand(
-        message,
-        commands,
-        ["info", "정보"],
+        ["내정보", "나"],
         [],
         intent.intent,
       );
@@ -298,7 +290,7 @@ const executeIntent = async (
       return executeCommand(
         message,
         commands,
-        ["help", "도움말", "명령어", "사용법"],
+        ["도움말", "명령어", "사용법"],
         [],
         intent.intent,
       );

@@ -4,11 +4,11 @@ import { aiService, searchService } from "../../../core/ai"; // aiService, searc
 
 /**
  * 관리자 전용 AI 채팅 명령어
- * 사용법: /ai <질문>
+ * 사용법: /질문 <질문>
  */
 const aiHandler = async (message: Message, args: string[]) => {
   if (args.length === 0) {
-    return message.reply("💡 사용법: `/ai <질문>` 형태로 입력해주세요.");
+    return message.reply("💡 사용법: `/질문 <질문>` 형태로 입력해주세요.");
   }
 
   const question = args.join(" ");
@@ -48,4 +48,4 @@ const aiHandler = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("ai", aiHandler, "AI 채팅");
+registerAdminCommand("질문", aiHandler, "AI 채팅");

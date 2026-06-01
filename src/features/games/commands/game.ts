@@ -7,8 +7,8 @@ import {
 } from "discord.js";
 
 export default {
-  name: "game",
-  keywords: ["game", "게임"],
+  name: "게임",
+  keywords: ["게임"],
   description: "게임 센터 링크를 보여줍니다.",
   execute(message: Message) {
     const embed = new EmbedBuilder()

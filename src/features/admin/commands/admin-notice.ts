@@ -30,7 +30,7 @@ const handleNotice = async (message: Message, args: string[]) => {
 
   if (!noticeContent) {
     await message.reply(
-      "❌ 공지 내용을 입력해주세요.\n사용법: `/admin notice <공지 내용>`",
+      "❌ 공지 내용을 입력해주세요.\n사용법: `/관리자 공지 <공지 내용>`",
     );
     return;
   }
@@ -109,6 +109,6 @@ const handleNotice = async (message: Message, args: string[]) => {
 };
 
 // 명령어 등록
-registerAdminCommand("notice", handleNotice, "공지 발송");
+registerAdminCommand("공지", handleNotice, "공지 발송");
 
 export { handleNotice };
