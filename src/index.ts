@@ -5,7 +5,6 @@ import { initializeSchedulers } from "./core/scheduler";
 import { handleAdminCommand } from "./core/admin-middleware";
 import { handleCommand } from "./core/command-handler";
 import { shouldProcessMessage } from "./core/message-guard";
-import { leaveJoinedGuilds, logGuildLeaveResult } from "./core/guild-leaver";
 import { handleNaturalLanguageMessage } from "./core/natural-language-router";
 
 // 어드민 명령어 모듈 로드 (자동 등록)
@@ -40,9 +39,6 @@ client.commands = loadCommands();
 
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
-
-  const guildLeaveResult = await leaveJoinedGuilds(client);
-  logGuildLeaveResult(guildLeaveResult);
 
   // 스케줄러 초기화 (날씨, 긱뉴스 등)
   initializeSchedulers(client);
