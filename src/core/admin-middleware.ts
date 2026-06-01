@@ -52,6 +52,42 @@ export const getAdminCommands = (): { name: string; description: string }[] => {
   }));
 };
 
+export const executeAdminCommand = async (
+  message: Message,
+  commandName: string,
+  args: string[] = [],
+): Promise<boolean> => {
+  const commandEntry = adminCommands.get(commandName.toLowerCase());
+  if (!commandEntry) return false;
+
+  if (!isDM(message)) {
+    console.log(
+      `[AdminMiddleware] Ignored: Not a DM channel. (Channel Type: ${message.channel.type})`,
+    );
+    return false;
+  }
+
+  if (!isAdmin(message.author.id)) {
+    console.log(
+      `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${ADMIN_ID})`,
+    );
+    await message.reply(
+      `⛔ 관리자 권한이 없습니다. (Your ID: ${message.author.id})`,
+    );
+    return false;
+  }
+
+  console.log(`[AdminMiddleware] Executing command: ${commandName}`);
+  try {
+    await commandEntry.handler(message, args);
+  } catch (error) {
+    console.error(`[Admin] ${commandName} 명령어 오류:`, error);
+    await message.reply("❌ 명령어 실행 중 오류가 발생했습니다.");
+  }
+
+  return true;
+};
+
 /**
  * 어드민 DM 명령어 처리
  * @returns {boolean} true면 어드민 명령어로 처리됨(실행 완료), false면 일반 명령어로 패스
@@ -95,43 +131,7 @@ export const handleAdminCommand = async (
     return false;
   }
 
-  const { handler } = commandEntry;
-
   console.log(`[AdminMiddleware] Admin command detected: ${commandName}`);
-
-  // 2. Admin 전용 커맨드임. 이제 권한 검사.
-
-  // 3. DM 체크
-  if (!isDM(message)) {
-    console.log(
-      `[AdminMiddleware] Ignored: Not a DM channel. (Channel Type: ${message.channel.type})`,
-    );
-    // 보안상 무시하는 것이 원칙이나, 디버깅을 위해 잠시 활성화
-    // await message.reply("❌ 이 명령어는 DM에서만 사용할 수 있습니다.");
-    return false;
-  }
-
-  // 4. Admin ID 체크
-  if (!isAdmin(message.author.id)) {
-    console.log(
-      `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${ADMIN_ID})`,
-    );
-    // 명시적 에러 메시지 전송 (디버깅용)
-    await message.reply(
-      `⛔ 관리자 권한이 없습니다. (Your ID: ${message.author.id})`,
-    );
-    return false;
-  }
-
-  // 5. 권한 충족 -> 실행
-  console.log(`[AdminMiddleware] Executing command: ${commandName}`);
   const subArgs = args.slice(subArgsStart);
-  try {
-    await handler(message, subArgs);
-  } catch (error) {
-    console.error(`[Admin] ${commandName} 명령어 오류:`, error);
-    await message.reply("❌ 명령어 실행 중 오류가 발생했습니다.");
-  }
-
-  return true; // 처리 완료
+  return executeAdminCommand(message, commandName, subArgs);
 };

@@ -9,11 +9,11 @@ import { PREFIX } from "../config/constants";
 export const handleCommand = async (
   message: Message,
   commands: Map<string, Command>,
-): Promise<void> => {
+): Promise<boolean> => {
   const content = message.content.trim();
 
   // 1. Prefix 확인
-  if (!content.startsWith(PREFIX)) return;
+  if (!content.startsWith(PREFIX)) return false;
 
   // 2. 커맨드 및 인자 파싱
   const args = content.slice(PREFIX.length).trim().split(/ +/);
@@ -27,7 +27,7 @@ export const handleCommand = async (
         cmd.keywords.some((keyword) => keyword.toLowerCase() === commandName)),
   );
 
-  if (!command) return;
+  if (!command) return false;
 
   try {
     // 4. 로그 기록
@@ -48,4 +48,6 @@ export const handleCommand = async (
     console.error(`[Command] Execution error for ${command.name}:`, error);
     message.reply("명령어를 실행하는 중에 오류가 발생했습니다.");
   }
+
+  return true;
 };
