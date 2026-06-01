@@ -3,7 +3,6 @@ import { Client } from "discord.js";
 import { getAllUsersWithNotification } from "../../utils/user-store";
 import { getShortTermForecast } from "../../utils/kma-helper";
 import kmaData from "../../data/kma-data.json";
-import geekNewsService from "../../features/daily_news/geek-news-service";
 import {
   buildTodayWeatherNotification,
   buildTomorrowWeatherNotification,
@@ -11,9 +10,16 @@ import {
 
 type WeatherNotificationTarget = "today" | "tomorrow";
 
+export const filterOwnerNotificationUsers = (
+  users: { userId: string; region: string }[],
+  ownerId: string | undefined = process.env.ADMIN_ID,
+): { userId: string; region: string }[] => {
+  if (!ownerId) return [];
+  return users.filter((user) => user.userId === ownerId);
+};
+
 export class PrivateScheduler {
   private client: Client;
-  private readonly targetChannelId = process.env.PRIVATE_CHANNEL_ID;
 
   constructor(client: Client) {
     this.client = client;
@@ -21,46 +27,8 @@ export class PrivateScheduler {
 
   public start() {
     this.scheduleWeather();
-    this.scheduleNews();
-
-    if (this.targetChannelId) {
-      console.log(
-        `[PrivateScheduler] 개인 스케줄러가 시작되었습니다. (채널: ${this.targetChannelId})`,
-      );
-    } else {
-      console.log(
-        "[PrivateScheduler] PRIVATE_CHANNEL_ID가 없어 긱뉴스 알림은 스킵합니다.",
-      );
-    }
-  }
-
-  private scheduleNews() {
-    this.scheduleGeekNewsNotification("30 8 * * *", "오전 8시 30분");
-    this.scheduleGeekNewsNotification("30 14 * * *", "오후 2시 30분");
     console.log(
-      "[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:30 / 14:30 KST)",
-    );
-  }
-
-  private scheduleGeekNewsNotification(
-    cronExpression: string,
-    scheduleLabel: string,
-  ) {
-    cron.schedule(
-      cronExpression,
-      async () => {
-        if (!this.targetChannelId) {
-          console.log(
-            `[PrivateScheduler] PRIVATE_CHANNEL_ID 없음. ${scheduleLabel} 긱뉴스 스킵`,
-          );
-          return;
-        }
-
-        console.log(`[PrivateScheduler] ${scheduleLabel} 긱뉴스 알림 시작`);
-        await geekNewsService.sendToChannel(this.client, this.targetChannelId);
-        console.log(`[PrivateScheduler] ${scheduleLabel} 긱뉴스 알림 완료`);
-      },
-      { timezone: "Asia/Seoul" },
+      "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
     );
   }
 
@@ -89,7 +57,7 @@ export class PrivateScheduler {
           `[PrivateScheduler] ${scheduleLabel} ${targetLabel} 날씨 알림 시작`,
         );
 
-        const users = getAllUsersWithNotification();
+        const users = filterOwnerNotificationUsers(getAllUsersWithNotification());
         console.log(
           `[PrivateScheduler] 날씨 알림 대상 유저: ${users.length}명`,
         );
