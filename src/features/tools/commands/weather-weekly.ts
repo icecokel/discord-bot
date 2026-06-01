@@ -8,6 +8,7 @@ import kmaData from "../../../data/kma-data.json";
 import {
   joinRegionTokens,
   normalizeCommandArgs,
+  resolveWeatherRegion,
 } from "../weather-command-utils";
 
 export default {
@@ -54,18 +55,13 @@ export default {
     }
 
     const kmaAny = kmaData as any;
-    let targetData = kmaAny[regionName];
-    if (!targetData) {
-      const foundKey = Object.keys(kmaAny).find(
-        (key) => key.includes(regionName) || regionName.includes(key),
-      );
-      if (foundKey) targetData = kmaAny[foundKey];
-    }
-
-    if (!targetData) {
+    const resolvedRegion = resolveWeatherRegion(kmaAny, regionName);
+    if (!resolvedRegion) {
       return message.reply(`❌ **${regionName}** 지역을 찾을 수 없습니다.`);
     }
 
+    const targetData = resolvedRegion.data;
+    const displayRegionName = resolvedRegion.name;
     const { nx, ny, midCode } = targetData;
 
     // API 호출 (단기 + 중기 병행)
@@ -81,7 +77,7 @@ export default {
 
     const embed = new EmbedBuilder()
       .setColor(0xffa500) // 주간은 오렌지색
-      .setTitle(`🗓️ ${regionName} 주간 날씨 예보`)
+      .setTitle(`🗓️ ${displayRegionName} 주간 날씨 예보`)
       .setDescription("내일부터 7일간의 날씨 전망입니다.")
       .setTimestamp()
       .setFooter({ text: "기상청 단기/중기예보 제공" });

@@ -60,6 +60,16 @@ describe("natural language router", () => {
     expect(weatherExecute).toHaveBeenCalledWith(message, ["서울"]);
   });
 
+  test("passes inexact weather region phrases to the weather command", async () => {
+    const { commands, weatherExecute } = createCommands();
+    const message = createMessage("광교 날씨 알려줘");
+
+    const handled = await handleNaturalLanguageMessage(message, commands);
+
+    expect(handled).toBe(true);
+    expect(weatherExecute).toHaveBeenCalledWith(message, ["광교"]);
+  });
+
   test("routes fortune requests to the existing fortune command", async () => {
     const { commands, fortuneExecute } = createCommands();
     const message = createMessage("오늘 운세 봐줘");

@@ -89,6 +89,47 @@ const extractKnownRegion = (text: string): string | undefined => {
   );
 };
 
+const cleanRegionPhrase = (text: string): string | undefined => {
+  const cleaned = text
+    .replace(/[?!.,。！？]/g, " ")
+    .replace(/\b(today|weather|weekly)\b/gi, " ")
+    .replace(/오늘|내일|모레|이번 주|이번주|주간|일주일|7일|칠일/g, " ")
+    .replace(/날씨|기온|강수|우산/g, " ")
+    .replace(/알려줘|알려|어때|조회|확인|봐줘|보여줘|부탁|좀/g, " ")
+    .replace(/기본\s*지역|지역/g, " ")
+    .replace(/설정|저장|바꿔|해줘|해 줘/g, " ")
+    .replace(/(으로|로|은|는|이|가|을|를|의)$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned.length > 0 ? cleaned : undefined;
+};
+
+const extractRegionPhrase = (text: string): string | undefined => {
+  const setupMatch = text.match(
+    /(?:기본\s*지역|지역)\s+(.+?)(?:으로|로)?\s*(?:설정|저장|바꿔|해줘|해 줘)/,
+  );
+  if (setupMatch?.[1]) {
+    return cleanRegionPhrase(setupMatch[1]);
+  }
+
+  const beforeWeatherMatch = text.match(
+    /^(.+?)\s*(?:오늘|내일|모레|이번 주|이번주|주간)?\s*(?:날씨|기온|강수|우산)/,
+  );
+  if (beforeWeatherMatch?.[1]) {
+    return cleanRegionPhrase(beforeWeatherMatch[1]);
+  }
+
+  const afterWeatherMatch = text.match(
+    /(?:날씨|기온|강수|우산)\s+(.+?)(?:알려줘|알려|어때|조회|확인|봐줘|보여줘)?$/,
+  );
+  if (afterWeatherMatch?.[1]) {
+    return cleanRegionPhrase(afterWeatherMatch[1]);
+  }
+
+  return undefined;
+};
+
 const extractCount = (text: string): number | undefined => {
   const match = text.match(/(\d+)\s*(개|건|줄|회)?/);
   if (!match) return undefined;
@@ -117,7 +158,7 @@ const classifyWeatherIntent = (
     /기본.*지역|지역.*설정|지역.*저장/.test(text);
   if (!hasWeatherSignal) return null;
 
-  const region = extractKnownRegion(text);
+  const region = extractRegionPhrase(text) || extractKnownRegion(text);
   const args = region ? { region } : {};
 
   if (/알림|구독/.test(text)) {
