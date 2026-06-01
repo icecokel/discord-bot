@@ -5,7 +5,7 @@ import { Message } from "discord.js";
  * Admin 커맨드인지 확인하고 권한을 검증합니다.
  */
 
-const ADMIN_ID = process.env.ADMIN_ID;
+const getAdminId = (): string | undefined => process.env.ADMIN_ID;
 
 // 어드민 명령어 핸들러 타입
 type AdminHandler = (message: Message, args: string[]) => Promise<unknown>;
@@ -20,7 +20,7 @@ const adminCommands = new Map<
  * 어드민 여부 확인
  */
 export const isAdmin = (userId: string): boolean => {
-  return userId === ADMIN_ID;
+  return userId === getAdminId();
 };
 
 /**
@@ -68,8 +68,9 @@ export const executeAdminCommand = async (
   }
 
   if (!isAdmin(message.author.id)) {
+    const adminId = getAdminId();
     console.log(
-      `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${ADMIN_ID})`,
+      `[AdminMiddleware] Ignored: Unauthorized user. (User ID: ${message.author.id}, Admin ID: ${adminId})`,
     );
     await message.reply(
       `⛔ 관리자 권한이 없습니다. (Your ID: ${message.author.id})`,
