@@ -1,5 +1,5 @@
 /**
- * /admin data - 저장된 데이터 열람
+ * /관리자 데이터 - 저장된 데이터 열람
  */
 
 import { ChannelType, EmbedBuilder, Message } from "discord.js";
@@ -185,7 +185,7 @@ const handleData = async (message: Message) => {
     });
   }
 
-  // 4. Guilds (Server List)
+  // 4. 참여 중인 서버 목록
   const guilds = message.client.guilds.cache;
   if (guilds.size > 0) {
     const totalMembers = guilds.reduce((sum, guild) => sum + guild.memberCount, 0);

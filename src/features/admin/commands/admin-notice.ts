@@ -1,5 +1,5 @@
 /**
- * /admin notice <메시지> - 등록된 유저들에게 공지 발송
+ * /관리자 공지 <메시지> - 등록된 유저들에게 공지 발송
  */
 
 import { EmbedBuilder, Message } from "discord.js";

@@ -1,5 +1,5 @@
 /**
- * /admin log - 최근 명령어 로그 조회
+ * /관리자 로그 - 최근 명령어 로그 조회
  */
 
 import { EmbedBuilder, Message } from "discord.js";

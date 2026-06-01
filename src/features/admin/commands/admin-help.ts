@@ -1,5 +1,5 @@
 /**
- * /admin - 어드민 명령어 목록 조회
+ * /관리자 - 관리자 명령어 목록 조회
  */
 
 import { EmbedBuilder, Message } from "discord.js";
@@ -9,7 +9,7 @@ import {
 } from "../../../core/admin-middleware";
 
 /**
- * 어드민 도움말 핸들러
+ * 관리자 도움말 핸들러
  */
 const handleHelp = async (message: Message) => {
   const commands = getAdminCommands();
