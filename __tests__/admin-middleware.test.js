@@ -23,30 +23,30 @@ describe("admin middleware", () => {
     process.env.ADMIN_ID = originalAdminId;
   });
 
-  test("executes a direct admin command in owner DM", async () => {
+  test("executes a direct Korean admin command in owner DM", async () => {
     const {
       handleAdminCommand,
       registerAdminCommand,
     } = require("../src/core/admin-middleware");
     const handler = jest.fn().mockResolvedValue(undefined);
-    registerAdminCommand("check", handler, "점검");
+    registerAdminCommand("점검", handler, "점검");
 
-    const message = createMessage("/check now");
+    const message = createMessage("/점검 지금");
     const handled = await handleAdminCommand(message);
 
     expect(handled).toBe(true);
-    expect(handler).toHaveBeenCalledWith(message, ["now"]);
+    expect(handler).toHaveBeenCalledWith(message, ["지금"]);
   });
 
-  test("executes an /admin subcommand in owner DM", async () => {
+  test("executes a /관리자 subcommand in owner DM", async () => {
     const {
       handleAdminCommand,
       registerAdminCommand,
     } = require("../src/core/admin-middleware");
     const handler = jest.fn().mockResolvedValue(undefined);
-    registerAdminCommand("log", handler, "로그");
+    registerAdminCommand("로그", handler, "로그");
 
-    const message = createMessage("/admin log 10");
+    const message = createMessage("/관리자 로그 10");
     const handled = await handleAdminCommand(message);
 
     expect(handled).toBe(true);
@@ -59,9 +59,9 @@ describe("admin middleware", () => {
       registerAdminCommand,
     } = require("../src/core/admin-middleware");
     const handler = jest.fn().mockResolvedValue(undefined);
-    registerAdminCommand("check", handler, "점검");
+    registerAdminCommand("점검", handler, "점검");
 
-    const message = createMessage("/check", "other-id");
+    const message = createMessage("/점검", "other-id");
     const handled = await handleAdminCommand(message);
 
     expect(handled).toBe(false);

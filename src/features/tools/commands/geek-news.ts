@@ -21,8 +21,8 @@ const execute = async (message: Message): Promise<void> => {
 };
 
 export default {
-  name: "geeknews",
+  name: "긱뉴스",
   description: "긱뉴스 메인 페이지 상단 기사 1건의 본문을 한국어로 번역합니다.",
-  keywords: ["긱뉴스", "geeknews", "gn"],
+  keywords: ["긱뉴스"],
   execute,
 };

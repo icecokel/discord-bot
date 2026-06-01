@@ -112,15 +112,15 @@ export const handleAdminCommand = async (
     commandName = commandName.slice(1);
   }
 
-  // "/admin <명령어>" 형태 처리
+  // "/관리자 <명령어>" 형태 처리
   let subArgsStart = 1;
 
-  if (commandName === "admin" && args.length > 1) {
+  if (commandName === "관리자" && args.length > 1) {
     const subCommandName = args[1].toLowerCase();
     // 두 번째 단어가 등록된 어드민 명령어라면 해당 명령어로 스위칭
     if (adminCommands.has(subCommandName)) {
       commandName = subCommandName;
-      subArgsStart = 2; // "/admin", "reset" 이후부터 인자로 취급
+      subArgsStart = 2; // "/관리자", 하위 명령어 이후부터 인자로 취급
     }
   }
 

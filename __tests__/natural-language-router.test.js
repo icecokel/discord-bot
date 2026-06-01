@@ -26,10 +26,10 @@ const createCommands = () => {
     fortuneExecute,
     commands: new Map([
       [
-        "weather",
+        "날씨",
         {
-          name: "weather",
-          keywords: ["weather", "날씨", "오늘날씨"],
+          name: "날씨",
+          keywords: ["날씨", "오늘날씨"],
           execute: weatherExecute,
         },
       ],
@@ -37,7 +37,7 @@ const createCommands = () => {
         "fortune",
         {
           name: "운세",
-          keywords: ["운세", "fortune", "오늘운세"],
+          keywords: ["운세", "오늘운세"],
           execute: fortuneExecute,
         },
       ],

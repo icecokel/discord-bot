@@ -9,8 +9,8 @@ import {
 } from "../weather-command-utils";
 
 export default {
-  name: "weather",
-  keywords: ["weather", "날씨", "오늘날씨"],
+  name: "날씨",
+  keywords: ["날씨", "오늘날씨"],
   description: "오늘의 상세 날씨 정보를 확인하거나 기본 지역을 설정합니다.",
   async execute(message: Message, args: string[]) {
     const commandArgs = normalizeCommandArgs(args);
@@ -19,7 +19,7 @@ export default {
     // 0. 설명(Help) 기능
     if (
       primaryArg &&
-      ["help", "설명", "규칙", "사용법", "가이드", "정보"].includes(primaryArg)
+      ["도움말", "설명", "규칙", "사용법", "가이드", "정보"].includes(primaryArg)
     ) {
       const embed = new EmbedBuilder()
         .setColor(0x0099ff)
