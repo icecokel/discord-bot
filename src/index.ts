@@ -6,6 +6,7 @@ import { handleAdminCommand } from "./core/admin-middleware";
 import { handleCommand } from "./core/command-handler";
 import { shouldProcessMessage } from "./core/message-guard";
 import { leaveJoinedGuilds, logGuildLeaveResult } from "./core/guild-leaver";
+import { handleNaturalLanguageMessage } from "./core/natural-language-router";
 
 // 어드민 명령어 모듈 로드 (자동 등록)
 import "./features/admin/commands/admin-data";
@@ -54,7 +55,10 @@ client.on("messageCreate", async (message: Message) => {
   if (await handleAdminCommand(message)) return;
 
   // 명령어 매칭 및 실행 (중앙 핸들러 위임)
-  await handleCommand(message, client.commands);
+  if (await handleCommand(message, client.commands)) return;
+
+  // Prefix 없는 자연어 요청 처리
+  await handleNaturalLanguageMessage(message, client.commands);
 });
 
 const token = process.env.DISCORD_BOT_TOKEN;
