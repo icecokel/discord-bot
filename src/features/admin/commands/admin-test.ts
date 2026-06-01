@@ -109,7 +109,6 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           }),
         );
         const required = [
-          "핑",
           "도움말",
           "날씨",
           "주간날씨",
