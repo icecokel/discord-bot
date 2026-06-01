@@ -4,6 +4,7 @@ import { loadCommands, Command } from "./core/loader";
 import { initializeSchedulers } from "./core/scheduler";
 import { handleAdminCommand } from "./core/admin-middleware";
 import { handleCommand } from "./core/command-handler";
+import { shouldProcessMessage } from "./core/message-guard";
 
 // 어드민 명령어 모듈 로드 (자동 등록)
 import "./features/admin/commands/admin-data";
@@ -43,7 +44,7 @@ client.once("clientReady", () => {
 });
 
 client.on("messageCreate", async (message: Message) => {
-  if (message.author.bot) return;
+  if (!shouldProcessMessage(message, process.env.ADMIN_ID)) return;
 
   // 어드민 DM 명령어 우선 처리
   if (await handleAdminCommand(message)) return;
