@@ -146,6 +146,10 @@ export default {
       .setTimestamp()
       .setFooter({ text: "기상청 단기예보 제공" });
 
+    if (resolvedRegion.reason) {
+      embed.setDescription(resolvedRegion.reason);
+    }
+
     // 1. 현재 날씨 섹션
     if (current) {
       embed.addFields({
