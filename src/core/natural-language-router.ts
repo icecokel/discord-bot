@@ -23,7 +23,11 @@ import {
 
 const EXECUTION_CONFIDENCE_THRESHOLD = 0.8;
 const CHECKING_REQUEST_MESSAGE = "요청을 확인하고 있습니다...";
-const THINKING_MESSAGE = "생각하고 있습니다...";
+const ROUTING_REQUEST_MESSAGE = "어떤 기능으로 처리할지 살펴보는 중입니다...";
+const FINDING_INFO_MESSAGE = "필요한 정보를 찾고 있습니다...";
+const ORGANIZING_ANSWER_MESSAGE = "답변을 정리하고 있습니다...";
+const LONG_WAIT_MESSAGE = "조금만 더 확인해보겠습니다...";
+const LONG_WAIT_MS = 10_000;
 
 const CONFIRM_WORDS = new Set(["확인", "ㅇㅋ", "오케이", "ok", "yes", "실행"]);
 const CANCEL_WORDS = new Set(["취소", "아니", "아니요", "no", "그만"]);
@@ -133,6 +137,19 @@ const clearProgressMessage = async (
   }
 };
 
+const editProgressMessage = async (
+  progressMessage: Pick<Message, "edit"> | undefined,
+  text: string,
+): Promise<void> => {
+  if (!progressMessage) return;
+
+  try {
+    await progressMessage.edit(text);
+  } catch {
+    // 중간 상태 메시지 수정 실패는 최종 응답 생성을 막지 않는다.
+  }
+};
+
 const getAiAnswerPrefix = (result: {
   providerName: string;
   usedFallback: boolean;
@@ -198,14 +215,17 @@ const answerWithAi = async (
   progressMessage?: ProgressMessage,
 ): Promise<boolean> => {
   const waitMessage =
-    progressMessage || await message.reply(THINKING_MESSAGE);
-  await waitMessage.edit(THINKING_MESSAGE);
+    progressMessage || await message.reply(FINDING_INFO_MESSAGE);
+  await editProgressMessage(waitMessage, FINDING_INFO_MESSAGE);
   const userMessage = message.content.trim();
   const prompt = buildConversationPrompt(
     message.author.id,
     message.channel.id,
     userMessage,
   );
+  const longWaitTimer = setTimeout(() => {
+    void editProgressMessage(waitMessage, LONG_WAIT_MESSAGE);
+  }, LONG_WAIT_MS);
 
   try {
     const result = await aiService.generateTextWithProvider(
@@ -215,6 +235,8 @@ const answerWithAi = async (
         tools: searchService.getTools(),
       },
     );
+    clearTimeout(longWaitTimer);
+    await editProgressMessage(waitMessage, ORGANIZING_ANSWER_MESSAGE);
     if (result.providerName === "hermes") {
       appendConversationTurn(message.author.id, message.channel.id, {
         user: userMessage,
@@ -228,6 +250,7 @@ const answerWithAi = async (
       `${getAiAnswerPrefix(result)}${result.text}`,
     );
   } catch (error: any) {
+    clearTimeout(longWaitTimer);
     console.error("[NaturalLanguage] AI 답변 실패:", error.message);
     await waitMessage.edit("답변 생성 중 오류가 발생했습니다.");
   }
@@ -318,6 +341,7 @@ const executeIntent = async (
 
   switch (intent.intent) {
     case "weather.today":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -327,6 +351,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.weekly":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -344,6 +369,7 @@ const executeIntent = async (
         }
         return true;
       }
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -353,6 +379,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.clearRegion":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -362,6 +389,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.enableNotification":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -371,6 +399,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.disableNotification":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -380,6 +409,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "fortune.today":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -389,6 +419,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "geekNews.translate":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -398,6 +429,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "game.links":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -407,6 +439,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "user.whoami":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -416,6 +449,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "bot.help":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
@@ -430,6 +464,7 @@ const executeIntent = async (
     case "admin.news":
     case "admin.notice":
     case "admin.reset":
+      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
       await clearProgressMessage(progressMessage);
       return executeAdminIntent(message, intent);
     case "ai.answer":
