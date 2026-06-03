@@ -1,4 +1,4 @@
-name: Deploy to Termux (Cloudflare Tunnel)
+name: Deploy to icenux
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    environment: TERMUX
+    runs-on: [self-hosted, Linux, X64, icenux, discord-bot]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -15,34 +14,40 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
           cache: "npm"
 
-      - name: Install & Build
-        run: |
-          npm ci
-          npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Install cloudflared
-        run: |
-          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-          sudo dpkg -i cloudflared-linux-amd64.deb
+      - name: Run tests
+        run: npm test -- --runInBand
 
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.TERMUX_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "Host ${{ secrets.TERMUX_HOST }}" >> ~/.ssh/config
-          echo "  User ${{ secrets.TERMUX_USER }}" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-          echo "  ProxyCommand cloudflared access ssh --hostname %h" >> ~/.ssh/config
+      - name: Type check
+        run: npm run type-check
 
-      - name: Deploy bundle
-        run: |
-          scp dist/index.js ${{ secrets.TERMUX_HOST }}:~/projects/discord-bot/dist/index.js
+      - name: Build
+        run: npm run build
 
-      - name: Restart PM2 process
+      - name: Prepare deployment files
         run: |
-          ssh ${{ secrets.TERMUX_HOST }} "cd ~/projects/discord-bot && pm2 restart discord-bot --update-env && pm2 save"
+          export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"
+          DEPLOY_DIR="$HOME/projects/discord-bot"
+          mkdir -p "$DEPLOY_DIR/dist" "$DEPLOY_DIR/logs"
+          cp package.json package-lock.json ecosystem.config.cjs "$DEPLOY_DIR/"
+          cp dist/index.js "$DEPLOY_DIR/dist/index.js"
+          cd "$DEPLOY_DIR"
+          npm ci --omit=dev --ignore-scripts
+
+      - name: Restart PM2 process if available
+        run: |
+          export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"
+          DEPLOY_DIR="$HOME/projects/discord-bot"
+          if command -v pm2 >/dev/null 2>&1; then
+            cd "$DEPLOY_DIR"
+            pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs --update-env
+            pm2 save
+          else
+            echo "PM2 is not installed on this runner. Deployment cannot restart discord-bot." >&2
+            exit 1
+          fi
