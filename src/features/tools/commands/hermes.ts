@@ -1,5 +1,6 @@
 import { Message } from "discord.js";
 import { aiService } from "../../../core/ai";
+import { clearConversationContext } from "../../../core/conversation-context-store";
 
 const ADMIN_ONLY_MESSAGE = "⛔ 관리자 권한이 없습니다.";
 
@@ -9,7 +10,9 @@ const isAdmin = (message: Message): boolean => {
   );
 };
 
-const getAction = (args: string[]): "on" | "off" | "status" | "help" => {
+const getAction = (
+  args: string[],
+): "on" | "off" | "status" | "clear" | "help" => {
   const action = args[0]?.trim().toLowerCase();
 
   if (!action || ["상태", "status", "확인"].includes(action)) return "status";
@@ -17,6 +20,7 @@ const getAction = (args: string[]): "on" | "off" | "status" | "help" => {
   if (["끄기", "꺼", "off", "disable", "비활성화"].includes(action)) {
     return "off";
   }
+  if (["초기화", "리셋", "reset", "clear"].includes(action)) return "clear";
 
   return "help";
 };
@@ -59,8 +63,14 @@ export default {
       return;
     }
 
+    if (action === "clear") {
+      clearConversationContext(message.author.id, message.channel.id);
+      await message.reply("✅ 현재 채널의 Hermes 대화 맥락을 초기화했습니다.");
+      return;
+    }
+
     await message.reply(
-      "사용법: `!헤르메스 상태`, `!헤르메스 켜기`, `!헤르메스 끄기`",
+      "사용법: `!헤르메스 상태`, `!헤르메스 켜기`, `!헤르메스 끄기`, `!헤르메스 초기화`",
     );
   },
 };

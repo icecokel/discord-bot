@@ -8,11 +8,20 @@ jest.mock("../src/core/ai", () => ({
   },
 }));
 
+const mockClearConversationContext = jest.fn();
+
+jest.mock("../src/core/conversation-context-store", () => ({
+  clearConversationContext: mockClearConversationContext,
+}));
+
 const command = require("../src/features/tools/commands/hermes").default;
 
 const createMessage = (userId = "owner-id") => ({
   author: {
     id: userId,
+  },
+  channel: {
+    id: "channel-id",
   },
   reply: jest.fn(),
 });
@@ -75,5 +84,19 @@ describe("hermes command", () => {
 
     expect(mockSetPrimaryProvider).not.toHaveBeenCalled();
     expect(message.reply).toHaveBeenCalledWith("⛔ 관리자 권한이 없습니다.");
+  });
+
+  test("clears Hermes conversation context for the admin", async () => {
+    const message = createMessage();
+
+    await command.execute(message, ["초기화"]);
+
+    expect(mockClearConversationContext).toHaveBeenCalledWith(
+      "owner-id",
+      "channel-id",
+    );
+    expect(message.reply).toHaveBeenCalledWith(
+      "✅ 현재 채널의 Hermes 대화 맥락을 초기화했습니다.",
+    );
   });
 });

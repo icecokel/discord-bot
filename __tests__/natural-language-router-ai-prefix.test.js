@@ -20,6 +20,9 @@ const {
 } = require("../src/core/natural-language-router");
 const { aiService } = require("../src/core/ai");
 const { intentService } = require("../src/core/ai/intent-service");
+const {
+  clearAllConversationContexts,
+} = require("../src/core/conversation-context-store");
 
 const createMessage = (content) => {
   const edit = jest.fn();
@@ -31,6 +34,7 @@ const createMessage = (content) => {
       tag: "owner#0001",
     },
     channel: {
+      id: "channel-id",
       send: jest.fn(),
     },
     reply: jest.fn().mockResolvedValue({
@@ -43,6 +47,7 @@ const createMessage = (content) => {
 describe("natural language router AI answer prefix", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearAllConversationContexts();
     aiService.getProviderStatus.mockReturnValue({
       providerName: "hermes",
       fallbackProviderName: "gemini",
@@ -133,6 +138,33 @@ describe("natural language router AI answer prefix", () => {
     const waitMessage = await message.reply.mock.results[0].value;
     expect(waitMessage.edit).toHaveBeenCalledWith(
       "[Hermes] 헤르메스 전용 답변입니다.",
+    );
+  });
+
+  test("passes recent conversation context to Hermes mention replies", async () => {
+    aiService.generateTextWithProviderOnly
+      .mockResolvedValueOnce({
+        providerName: "hermes",
+        text: "첫 답변입니다.",
+        usedFallback: false,
+      })
+      .mockResolvedValueOnce({
+        providerName: "hermes",
+        text: "이전 답변을 바탕으로 한 두 번째 답변입니다.",
+        usedFallback: false,
+      });
+    const firstMessage = createMessage("헤르메스 리액트가 뭐야?");
+    const secondMessage = createMessage("헤르메스 그럼 상태 관리는?");
+
+    await handleNaturalLanguageMessage(firstMessage, new Map());
+    await handleNaturalLanguageMessage(secondMessage, new Map());
+
+    const secondPrompt = aiService.generateTextWithProviderOnly.mock.calls[1][1];
+    expect(secondPrompt).toContain("최근 대화");
+    expect(secondPrompt).toContain("사용자: 헤르메스 리액트가 뭐야?");
+    expect(secondPrompt).toContain("비서: 첫 답변입니다.");
+    expect(secondPrompt).toContain(
+      "현재 사용자 메시지:\n헤르메스 그럼 상태 관리는?",
     );
   });
 
