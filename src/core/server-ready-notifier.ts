@@ -1,7 +1,7 @@
 import { Client } from "discord.js";
 
 const READY_MESSAGE =
-  "✅ icenux 서버 준비 완료. discord-bot 로그인 및 스케줄러 초기화 완료. Hermes 대화 맥락 응답 준비 완료.";
+  "Hermes 출근했습니다. 질문 받을 준비도 끝났습니다.";
 
 export const notifyServerReady = async (
   client: Pick<Client, "user" | "users">,
