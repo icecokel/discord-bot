@@ -224,12 +224,11 @@ describe("natural language router AI answer prefix", () => {
       usedFallback: false,
     });
     aiService.generateText.mockResolvedValue("압축된 대화 요약");
+    let lastMessage;
 
     for (let index = 1; index <= 7; index += 1) {
-      await handleNaturalLanguageMessage(
-        createMessage(`질문 ${index}`),
-        new Map(),
-      );
+      lastMessage = createMessage(`질문 ${index}`);
+      await handleNaturalLanguageMessage(lastMessage, new Map());
     }
 
     expect(aiService.generateText).toHaveBeenCalledWith(
@@ -237,6 +236,9 @@ describe("natural language router AI answer prefix", () => {
       expect.objectContaining({
         systemInstruction: expect.stringContaining("대화 맥락 압축기"),
       }),
+    );
+    expect(lastMessage.channel.send).toHaveBeenCalledWith(
+      "대화 기억을 요약해서 정리했습니다.",
     );
   });
 });
