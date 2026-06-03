@@ -47,32 +47,32 @@ const getSafeExtension = (attachment: AttachmentLike): string => {
   return ".img";
 };
 
-const downloadImageAttachment = async (
+const buildImageFallbackReference = async (
   attachment: AttachmentLike,
   index: number,
 ): Promise<string> => {
   if (!attachment.url) {
-    return "download_status: skipped_missing_url";
+    return "fallback_image_reference: unavailable\nfallback_status: skipped_missing_url";
   }
 
   if ((attachment.size || 0) > MAX_IMAGE_BYTES) {
-    return `download_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
+    return `fallback_image_reference: unavailable\nfallback_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
   }
 
   try {
     const response = await fetch(attachment.url);
     if (!response.ok) {
-      return `download_status: failed_http_${response.status}`;
+      return `fallback_image_reference: unavailable\nfallback_status: failed_http_${response.status}`;
     }
 
     const contentLength = Number(response.headers.get("content-length"));
     if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES) {
-      return `download_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
+      return `fallback_image_reference: unavailable\nfallback_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.length > MAX_IMAGE_BYTES) {
-      return `download_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
+      return `fallback_image_reference: unavailable\nfallback_status: skipped_too_large max_bytes: ${MAX_IMAGE_BYTES}`;
     }
 
     const directory = await mkdtemp(path.join(tmpdir(), IMAGE_CONTEXT_DIR_PREFIX));
@@ -81,9 +81,13 @@ const downloadImageAttachment = async (
       `attachment-${index}${getSafeExtension(attachment)}`,
     );
     await writeFile(filePath, buffer);
-    return `download_status: downloaded\nlocal_file: ${filePath}`;
+    return [
+      "fallback_image_reference: local_file",
+      `local_file: ${filePath}`,
+      "fallback_status: downloaded",
+    ].join("\n");
   } catch (error: any) {
-    return `download_status: failed ${error.message}`;
+    return `fallback_image_reference: unavailable\nfallback_status: failed ${error.message}`;
   }
 };
 
@@ -134,11 +138,25 @@ export const buildDiscordMessageContext = async (
 
     if (isImage && downloadedImages < MAX_IMAGE_ATTACHMENTS) {
       downloadedImages += 1;
-      parts.push(await downloadImageAttachment(attachment, attachmentNumber));
+      parts.push(
+        "primary_image_reference: discord_cdn_url",
+        `discord_cdn_url: ${attachment.url || "(url 없음)"}`,
+        "reference_order: use discord_cdn_url first; use local_file only if URL access fails.",
+        await buildImageFallbackReference(attachment, attachmentNumber),
+      );
     } else if (isImage) {
-      parts.push(`download_status: skipped_image_limit max_images: ${MAX_IMAGE_ATTACHMENTS}`);
+      parts.push(
+        "primary_image_reference: discord_cdn_url",
+        `discord_cdn_url: ${attachment.url || "(url 없음)"}`,
+        "fallback_image_reference: unavailable",
+        `fallback_status: skipped_image_limit max_images: ${MAX_IMAGE_ATTACHMENTS}`,
+      );
     } else {
-      parts.push("download_status: skipped_not_image");
+      parts.push(
+        "primary_image_reference: unavailable",
+        "fallback_image_reference: unavailable",
+        "fallback_status: skipped_not_image",
+      );
     }
 
     if (index < attachments.length - 1) {

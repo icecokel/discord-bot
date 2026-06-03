@@ -79,7 +79,7 @@ HERMES_TIMEOUT_MS=60000
 HERMES_TOOLSETS=web
 ```
 
-Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 `aiService.generateText()`에서 AI 답변 공급자로만 사용한다. 봇은 현재 Discord 메시지와 첨부 메타데이터를 bridge context로 정리해 prompt에 포함하고, 이미지 첨부는 타입과 크기를 제한해 임시 파일로 내려받은 뒤 로컬 경로만 제공한다. Discord 쓰기/삭제/관리 tool은 Hermes에 열지 않는다. Hermes 답변은 최신 정보 확인을 위해 `HERMES_TOOLSETS=web`으로 웹 검색 도구를 사용할 수 있다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
+Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 `aiService.generateText()`에서 AI 답변 공급자로만 사용한다. 봇은 현재 Discord 메시지와 첨부 메타데이터를 bridge context로 정리해 prompt에 포함하고, 이미지 첨부는 Discord CDN URL을 우선 참조하되 URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공한다. Discord 쓰기/삭제/관리 tool은 Hermes에 열지 않는다. Hermes 답변은 최신 정보 확인을 위해 `HERMES_TOOLSETS=web`으로 웹 검색 도구를 사용할 수 있다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
 
 서버에서 Hermes 실행 상태를 확인할 때는 아래 smoke command를 사용한다.
 
