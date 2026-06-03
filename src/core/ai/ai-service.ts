@@ -6,6 +6,12 @@ type ProviderName = "gemini" | "hermes";
 
 const DEFAULT_PROVIDER: ProviderName = "gemini";
 
+export interface GeneratedTextResult {
+  providerName: ProviderName;
+  text: string;
+  usedFallback: boolean;
+}
+
 function resolvePrimaryProviderName(name: string | undefined): ProviderName {
   const normalizedName = name?.trim().toLowerCase();
 
@@ -47,7 +53,9 @@ function createProvider(name: ProviderName): BaseProvider {
  */
 class AIService {
   private provider: BaseProvider;
+  private providerName: ProviderName;
   private fallbackProvider?: BaseProvider;
+  private fallbackProviderName?: ProviderName;
 
   constructor() {
     const primaryProviderName = resolvePrimaryProviderName(
@@ -58,9 +66,11 @@ class AIService {
       primaryProviderName,
     );
 
+    this.providerName = primaryProviderName;
     this.provider = createProvider(primaryProviderName);
 
     if (fallbackProviderName) {
+      this.fallbackProviderName = fallbackProviderName;
       this.fallbackProvider = createProvider(fallbackProviderName);
     }
   }
@@ -75,10 +85,22 @@ class AIService {
     prompt: string,
     options: IGenerationOptions = {},
   ): Promise<string> {
+    const result = await this.generateTextWithProvider(prompt, options);
+    return result.text;
+  }
+
+  async generateTextWithProvider(
+    prompt: string,
+    options: IGenerationOptions = {},
+  ): Promise<GeneratedTextResult> {
     try {
-      return await this.provider.generateText(prompt, options);
+      return {
+        providerName: this.providerName,
+        text: await this.provider.generateText(prompt, options),
+        usedFallback: false,
+      };
     } catch (error) {
-      if (!this.fallbackProvider) {
+      if (!this.fallbackProvider || !this.fallbackProviderName) {
         throw error;
       }
 
@@ -88,7 +110,11 @@ class AIService {
         `[AIService] 기본 AI 공급자 실패, fallback 실행: ${primaryErrorMessage}`,
       );
 
-      return this.fallbackProvider.generateText(prompt, options);
+      return {
+        providerName: this.fallbackProviderName,
+        text: await this.fallbackProvider.generateText(prompt, options),
+        usedFallback: true,
+      };
     }
   }
 }
