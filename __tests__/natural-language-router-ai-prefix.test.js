@@ -94,9 +94,12 @@ describe("natural language router AI answer prefix", () => {
     expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
       "질문이 있어",
       expect.objectContaining({
-        systemInstruction: expect.stringContaining("한국어 AI 비서"),
+        systemInstruction: expect.stringContaining("정확한 답변"),
         tools: [],
       }),
     );
+
+    const [, options] = aiService.generateTextWithProvider.mock.calls[0];
+    expect(options.systemInstruction).toContain("코딩 도우미가 아니다");
   });
 });
