@@ -1,4 +1,4 @@
-import { Message } from "discord.js";
+import { ChannelType, Message } from "discord.js";
 import { Command } from "./loader";
 import { PREFIX } from "../config/constants";
 import { log } from "../utils/logger";
@@ -17,6 +17,7 @@ import {
 import {
   appendConversationTurn,
   buildConversationPrompt,
+  CONVERSATION_COMPRESSION_TURN_COUNT,
   getConversationTurns,
   replaceConversationWithSummary,
 } from "./conversation-context-store";
@@ -24,6 +25,7 @@ import {
   buildDiscordMessageContext,
   hasDiscordAttachments,
 } from "./discord-message-context";
+import { getHermesSessionName } from "./hermes-session-store";
 
 const EXECUTION_CONFIDENCE_THRESHOLD = 0.8;
 const CHECKING_REQUEST_MESSAGE = "요청을 확인하고 있습니다...";
@@ -39,6 +41,14 @@ const CONFIRM_WORDS = new Set(["확인", "ㅇㅋ", "오케이", "ok", "yes", "�
 const CANCEL_WORDS = new Set(["취소", "아니", "아니요", "no", "그만"]);
 
 type ProgressMessage = Pick<Message, "delete" | "edit">;
+
+const isAdminDmMessage = (message: Message): boolean => {
+  return Boolean(
+    process.env.ADMIN_ID &&
+      message.author.id === process.env.ADMIN_ID &&
+      message.channel.type === ChannelType.DM,
+  );
+};
 
 const getStringArg = (
   intent: NaturalLanguageIntent,
@@ -189,7 +199,7 @@ const maybeCompressConversation = async (
   message: Message,
 ): Promise<boolean> => {
   const turns = getConversationTurns(message.author.id, message.channel.id);
-  if (turns.length < 7) return false;
+  if (turns.length < CONVERSATION_COMPRESSION_TURN_COUNT) return false;
 
   const transcript = turns
     .map((turn) => `사용자: ${turn.user}\n비서: ${turn.assistant}`)
@@ -226,12 +236,15 @@ const answerWithAi = async (
   const waitMessage =
     progressMessage || await message.reply(FINDING_INFO_MESSAGE);
   await editProgressMessage(waitMessage, FINDING_INFO_MESSAGE);
+  const useHermesSession = isAdminDmMessage(message);
   const userMessage = message.content.trim() || "첨부 이미지를 확인해줘";
-  const basePrompt = buildConversationPrompt(
-    message.author.id,
-    message.channel.id,
-    userMessage,
-  );
+  const basePrompt = useHermesSession
+    ? userMessage
+    : buildConversationPrompt(
+        message.author.id,
+        message.channel.id,
+        userMessage,
+      );
   const prompt = hasDiscordAttachments(message)
     ? `${basePrompt}\n\n${await buildDiscordMessageContext(message)}`
     : basePrompt;
@@ -246,11 +259,19 @@ const answerWithAi = async (
       {
         systemInstruction: AI_ANSWER_SYSTEM_PROMPT,
         tools: searchService.getTools(),
+        ...(useHermesSession
+          ? {
+              hermesSessionName: getHermesSessionName(
+                message.author.id,
+                message.channel.id,
+              ),
+            }
+          : {}),
       },
     );
     clearTimeout(longWaitTimer);
     await editProgressMessage(waitMessage, ORGANIZING_ANSWER_MESSAGE);
-    if (result.providerName === "hermes") {
+    if (result.providerName === "hermes" && !useHermesSession) {
       appendConversationTurn(message.author.id, message.channel.id, {
         user: userMessage,
         assistant: result.text,

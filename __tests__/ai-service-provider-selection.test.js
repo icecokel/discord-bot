@@ -140,6 +140,36 @@ describe("AIService provider selection", () => {
     });
   });
 
+  test("falls back from Hermes session to Hermes oneshot before configured fallback", async () => {
+    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_FALLBACK_PROVIDER = "gemini";
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    mockHermesGenerateText
+      .mockRejectedValueOnce(new Error("session failed"))
+      .mockResolvedValueOnce("oneshot response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    const result = await service.generateTextWithProvider("prompt", {
+      hermesSessionName: "session-name",
+      model: "test",
+    });
+
+    expect(result).toEqual({
+      providerName: "hermes",
+      text: "oneshot response",
+      usedFallback: true,
+    });
+    expect(mockHermesGenerateText).toHaveBeenNthCalledWith(1, "prompt", {
+      hermesSessionName: "session-name",
+      model: "test",
+    });
+    expect(mockHermesGenerateText).toHaveBeenNthCalledWith(2, "prompt", {
+      model: "test",
+    });
+    expect(mockGeminiGenerateText).not.toHaveBeenCalled();
+  });
+
   test("normalizes AI_FALLBACK_PROVIDER casing and whitespace", async () => {
     process.env.AI_PROVIDER = "gemini";
     process.env.AI_FALLBACK_PROVIDER = " HERMES ";

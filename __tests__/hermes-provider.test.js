@@ -88,6 +88,25 @@ describe("HermesProvider", () => {
     expect(mockExecFile.mock.calls[0][1]).not.toContain("--accept-hooks");
   });
 
+  test("continues a named Hermes session when requested", async () => {
+    resolveExecFile("ok");
+    const provider = new HermesProvider();
+
+    await provider.generateText("prompt", {
+      hermesSessionName: "discord-admin-owner-id-channel-id-session",
+    });
+
+    expect(mockExecFile.mock.calls[0][1]).toEqual([
+      "--continue",
+      "discord-admin-owner-id-channel-id-session",
+      "-z",
+      "prompt",
+      "--toolsets",
+      "",
+      "--ignore-rules",
+    ]);
+  });
+
   test("includes system instruction and json-only instruction in the hermes prompt", async () => {
     resolveExecFile("{}");
     const provider = new HermesProvider();

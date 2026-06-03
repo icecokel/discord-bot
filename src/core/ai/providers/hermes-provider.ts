@@ -30,9 +30,13 @@ export class HermesProvider extends BaseProvider {
   ): Promise<string> {
     try {
       const hermesPrompt = this.buildPrompt(prompt, options);
+      const sessionArgs = options.hermesSessionName
+        ? ["--continue", String(options.hermesSessionName)]
+        : [];
       const { stdout } = await execFileAsync(
         this.hermesBin,
         [
+          ...sessionArgs,
           "-z",
           hermesPrompt,
           "--toolsets",

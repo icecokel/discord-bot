@@ -32,7 +32,7 @@ describe("conversation context store", () => {
   });
 
   test("keeps turns until the compression threshold", () => {
-    for (let index = 1; index <= 7; index += 1) {
+    for (let index = 1; index <= 10; index += 1) {
       appendConversationTurn("user-1", "channel-1", {
         user: `질문 ${index}`,
         assistant: `답변 ${index}`,
@@ -41,14 +41,14 @@ describe("conversation context store", () => {
 
     const turns = getConversationTurns("user-1", "channel-1");
 
-    expect(turns).toHaveLength(7);
+    expect(turns).toHaveLength(10);
     expect(turns[0]).toEqual({
       user: "질문 1",
       assistant: "답변 1",
     });
-    expect(turns[6]).toEqual({
-      user: "질문 7",
-      assistant: "답변 7",
+    expect(turns[9]).toEqual({
+      user: "질문 10",
+      assistant: "답변 10",
     });
   });
 
