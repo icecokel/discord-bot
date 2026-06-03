@@ -9,9 +9,14 @@ jest.mock("../src/core/ai", () => ({
 }));
 
 const mockClearConversationContext = jest.fn();
+const mockResetHermesSession = jest.fn();
 
 jest.mock("../src/core/conversation-context-store", () => ({
   clearConversationContext: mockClearConversationContext,
+}));
+
+jest.mock("../src/core/hermes-session-store", () => ({
+  resetHermesSession: mockResetHermesSession,
 }));
 
 const command = require("../src/features/tools/commands/hermes").default;
@@ -95,8 +100,12 @@ describe("hermes command", () => {
       "owner-id",
       "channel-id",
     );
+    expect(mockResetHermesSession).toHaveBeenCalledWith(
+      "owner-id",
+      "channel-id",
+    );
     expect(message.reply).toHaveBeenCalledWith(
-      "✅ 현재 채널의 Hermes 대화 맥락을 초기화했습니다.",
+      "✅ 현재 채널의 Hermes 대화 맥락과 세션을 초기화했습니다.",
     );
   });
 });

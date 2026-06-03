@@ -127,6 +127,25 @@ class AIService {
         usedFallback: false,
       };
     } catch (error) {
+      if (this.providerName === "hermes" && options.hermesSessionName) {
+        const { hermesSessionName, ...oneshotOptions } = options;
+        try {
+          return {
+            providerName: "hermes",
+            text: await this.provider.generateText(prompt, oneshotOptions),
+            usedFallback: true,
+          };
+        } catch (oneshotError) {
+          const oneshotErrorMessage =
+            oneshotError instanceof Error
+              ? oneshotError.message
+              : String(oneshotError);
+          console.error(
+            `[AIService] Hermes session fallback 실패: ${oneshotErrorMessage}`,
+          );
+        }
+      }
+
       if (!this.fallbackProvider || !this.fallbackProviderName) {
         throw error;
       }

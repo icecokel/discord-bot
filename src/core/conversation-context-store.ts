@@ -8,7 +8,7 @@ export interface ConversationContext {
   turns: ConversationTurn[];
 }
 
-const MAX_TURNS = 7;
+export const CONVERSATION_COMPRESSION_TURN_COUNT = 10;
 const conversationContexts = new Map<string, ConversationContext>();
 
 const getContextKey = (userId: string, channelId: string): string => {
@@ -22,7 +22,9 @@ export const appendConversationTurn = (
 ): void => {
   const key = getContextKey(userId, channelId);
   const context = conversationContexts.get(key) || { summary: "", turns: [] };
-  const turns = [...context.turns, turn].slice(-MAX_TURNS);
+  const turns = [...context.turns, turn].slice(
+    -CONVERSATION_COMPRESSION_TURN_COUNT,
+  );
   conversationContexts.set(key, { ...context, turns });
 };
 

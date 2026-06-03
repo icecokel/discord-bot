@@ -27,10 +27,13 @@
 
 Hermes 대화 맥락 규칙:
 
-- AI 답변 provider가 `hermes`이면 사용자+채널 단위 짧은 대화 맥락을 저장한다.
-- 다음 AI 답변 prompt에는 요약된 이전 대화와 최근 턴을 함께 넣는다.
-- 누적 7턴에 도달하면 Hermes로 요약을 생성하고, turns를 비운 뒤 summary만 유지한다.
-- `!헤르메스 초기화`로 현재 사용자+채널의 대화 맥락을 지운다.
+- 관리자 DM은 사용자+채널 단위 Hermes session을 사용한다.
+- 관리자 DM에서는 bot-managed 대화 압축을 사용하지 않는다.
+- 관리자 DM session 호출 실패 시 Hermes oneshot으로 한 번 재시도한다.
+- 일반 DM에서 AI 답변 provider가 `hermes`이면 사용자+채널 단위 짧은 대화 맥락을 저장한다.
+- 일반 DM의 다음 AI 답변 prompt에는 요약된 이전 대화와 최근 턴을 함께 넣는다.
+- 일반 DM은 누적 10턴에 도달하면 Hermes로 요약을 생성하고, turns를 비운 뒤 summary만 유지한다.
+- `!헤르메스 초기화`로 현재 사용자+채널의 bot-managed 대화 맥락과 Hermes session 매핑을 지운다.
 
 ## 현재 명령어
 

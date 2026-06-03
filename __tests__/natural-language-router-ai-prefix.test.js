@@ -66,9 +66,12 @@ const createMessage = (content, attachments = []) => {
 };
 
 describe("natural language router AI answer prefix", () => {
+  const originalAdminId = process.env.ADMIN_ID;
+
   beforeEach(() => {
     jest.clearAllMocks();
     clearAllConversationContexts();
+    delete process.env.ADMIN_ID;
     aiService.getProviderStatus.mockReturnValue({
       providerName: "hermes",
       fallbackProviderName: "gemini",
@@ -80,6 +83,10 @@ describe("natural language router AI answer prefix", () => {
       requiresConfirmation: false,
       replyMode: "answer",
     });
+  });
+
+  afterAll(() => {
+    process.env.ADMIN_ID = originalAdminId;
   });
 
   test("prefixes Hermes AI answers", async () => {
@@ -286,6 +293,33 @@ describe("natural language router AI answer prefix", () => {
     expect(secondPrompt).toContain("현재 사용자 메시지:\n그럼 상태 관리는?");
   });
 
+  test("uses Hermes session context for admin DM without bot-managed conversation compression", async () => {
+    process.env.ADMIN_ID = "owner-id";
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "세션 답변입니다.",
+      usedFallback: false,
+    });
+
+    for (let index = 1; index <= 10; index += 1) {
+      await handleNaturalLanguageMessage(
+        createMessage(`관리자 질문 ${index}`),
+        new Map(),
+      );
+    }
+
+    const firstOptions = aiService.generateTextWithProvider.mock.calls[0][1];
+    const secondPrompt = aiService.generateTextWithProvider.mock.calls[1][0];
+    const secondOptions = aiService.generateTextWithProvider.mock.calls[1][1];
+
+    expect(firstOptions.hermesSessionName).toEqual(
+      expect.stringContaining("discord-admin-owner-id-channel-id"),
+    );
+    expect(secondOptions.hermesSessionName).toBe(firstOptions.hermesSessionName);
+    expect(secondPrompt).not.toContain("최근 대화");
+    expect(aiService.generateText).not.toHaveBeenCalled();
+  });
+
   test("does not force Hermes only just because the message mentions Hermes", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
       providerName: "hermes",
@@ -307,7 +341,7 @@ describe("natural language router AI answer prefix", () => {
     expect(aiService.generateTextWithProviderOnly).not.toHaveBeenCalled();
   });
 
-  test("compresses Hermes conversation context after seven turns", async () => {
+  test("compresses Hermes conversation context after ten turns", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
       providerName: "hermes",
       text: "답변입니다.",
@@ -316,7 +350,7 @@ describe("natural language router AI answer prefix", () => {
     aiService.generateText.mockResolvedValue("압축된 대화 요약");
     let lastMessage;
 
-    for (let index = 1; index <= 7; index += 1) {
+    for (let index = 1; index <= 10; index += 1) {
       lastMessage = createMessage(`질문 ${index}`);
       await handleNaturalLanguageMessage(lastMessage, new Map());
     }
