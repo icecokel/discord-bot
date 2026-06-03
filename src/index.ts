@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Client, GatewayIntentBits, Partials, Message } from "discord.js";
 import { loadCommands, Command } from "./core/loader";
 import { initializeSchedulers } from "./core/scheduler";
+import { notifyServerReady } from "./core/server-ready-notifier";
 import { handleAdminCommand } from "./core/admin-middleware";
 import { handleCommand } from "./core/command-handler";
 import {
@@ -48,6 +49,7 @@ client.once("clientReady", async () => {
 
   // 스케줄러 초기화 (날씨, 긱뉴스 등)
   initializeSchedulers(client);
+  await notifyServerReady(client);
 });
 
 client.on("messageCreate", async (message: Message) => {
