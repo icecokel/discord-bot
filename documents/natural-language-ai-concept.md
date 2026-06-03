@@ -17,7 +17,7 @@
 - Hermes는 코딩 도우미가 아니라 정확한 답변을 찾아주는 한국어 AI 비서다.
 - 최신 정보가 필요한 질문에는 Hermes의 `web` toolset을 사용할 수 있다.
 - Hermes AI 답변은 사용자+채널 단위 짧은 대화 맥락을 사용하고, 7턴마다 요약으로 압축한다.
-- DM의 자연어 AI 답변은 현재 Discord 메시지와 첨부 메타데이터를 Hermes bridge context로 전달한다. 이미지 첨부는 타입과 크기를 제한해 임시 파일로 내려받고, Hermes에는 로컬 참조 경로만 제공한다.
+- DM의 자연어 AI 답변은 현재 Discord 메시지와 첨부 메타데이터를 Hermes bridge context로 전달한다. 이미지 첨부는 Discord CDN URL을 우선 참조하고, URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공한다.
 
 ## 문제 정의
 

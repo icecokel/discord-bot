@@ -223,7 +223,8 @@ describe("natural language router AI answer prefix", () => {
     expect(prompt).toContain("첨부 1");
     expect(prompt).toContain("sample.png");
     expect(prompt).toContain("content_type: image/png");
-    expect(prompt).toContain("local_file:");
+    expect(prompt).toContain("primary_image_reference: discord_cdn_url");
+    expect(prompt).toContain("fallback_image_reference: local_file");
     expect(prompt).toContain("Discord 쓰기/삭제/관리 도구는 제공되지 않습니다.");
   });
 
