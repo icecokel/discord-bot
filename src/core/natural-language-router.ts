@@ -159,6 +159,48 @@ const answerWithAi = async (message: Message): Promise<boolean> => {
   return true;
 };
 
+const hasHermesMention = (content: string): boolean => {
+  return /헤르메스|hermes/i.test(content);
+};
+
+export const handleHermesMentionMessage = async (
+  message: Message,
+): Promise<boolean> => {
+  if (!hasHermesMention(message.content.trim())) return false;
+
+  const status = aiService.getProviderStatus();
+
+  if (status.providerName !== "hermes") {
+    await message.reply(
+      "헤르메스가 꺼져 있습니다. `!헤르메스 켜기` 후 다시 확인해주세요.",
+    );
+    return true;
+  }
+
+  const waitMessage = await message.reply("헤르메스로 답변을 생성하고 있습니다...");
+
+  try {
+    const result = await aiService.generateTextWithProviderOnly(
+      "hermes",
+      message.content.trim(),
+      {
+        systemInstruction: AI_ANSWER_SYSTEM_PROMPT,
+        tools: searchService.getTools(),
+      },
+    );
+    await sendLongReply(
+      message,
+      waitMessage,
+      `${getAiAnswerPrefix(result)}${result.text}`,
+    );
+  } catch (error: any) {
+    console.error("[NaturalLanguage] Hermes 전용 답변 실패:", error.message);
+    await waitMessage.edit("헤르메스 답변 생성 중 오류가 발생했습니다.");
+  }
+
+  return true;
+};
+
 const buildConfirmationSummary = (
   intent: NaturalLanguageIntent,
 ): string => {
@@ -376,6 +418,8 @@ export const handleNaturalLanguageMessage = async (
 ): Promise<boolean> => {
   const content = message.content.trim();
   if (!content || content.startsWith(PREFIX)) return false;
+
+  if (await handleHermesMentionMessage(message)) return true;
 
   if (await handlePendingConfirmation(message, commands)) return true;
 

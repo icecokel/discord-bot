@@ -248,4 +248,28 @@ describe("AIService provider selection", () => {
     expect(mockGeminiProvider).toHaveBeenCalledTimes(2);
     expect(mockHermesProvider).toHaveBeenCalledTimes(1);
   });
+
+  test("generates with one requested provider without fallback", async () => {
+    process.env.AI_PROVIDER = "gemini";
+    process.env.AI_FALLBACK_PROVIDER = "hermes";
+    mockHermesGenerateText.mockResolvedValueOnce("hermes-only response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    const result = await service.generateTextWithProviderOnly(
+      "hermes",
+      "prompt",
+      { model: "test" },
+    );
+
+    expect(result).toEqual({
+      providerName: "hermes",
+      text: "hermes-only response",
+      usedFallback: false,
+    });
+    expect(mockHermesGenerateText).toHaveBeenCalledWith("prompt", {
+      model: "test",
+    });
+    expect(mockGeminiGenerateText).not.toHaveBeenCalled();
+  });
 });
