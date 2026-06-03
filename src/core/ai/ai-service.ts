@@ -144,6 +144,20 @@ class AIService {
       };
     }
   }
+
+  async generateTextWithProviderOnly(
+    providerName: ProviderName,
+    prompt: string,
+    options: IGenerationOptions = {},
+  ): Promise<GeneratedTextResult> {
+    const provider = createProvider(providerName);
+
+    return {
+      providerName,
+      text: await provider.generateText(prompt, options),
+      usedFallback: false,
+    };
+  }
 }
 
 export default AIService;
