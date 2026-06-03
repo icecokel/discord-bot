@@ -76,15 +76,15 @@ AI_PROVIDER=hermes
 AI_FALLBACK_PROVIDER=gemini
 HERMES_BIN=/home/icenux/.local/bin/hermes
 HERMES_TIMEOUT_MS=60000
-HERMES_TOOLSETS=
+HERMES_TOOLSETS=web
 ```
 
-Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 `aiService.generateText()`에서 텍스트 생성을 호출할 때만 사용한다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 운영 기본값은 `HERMES_TOOLSETS=`로 도구를 비활성화하고, hook 자동 승인은 사용하지 않는다.
+Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 `aiService.generateText()`에서 텍스트 생성을 호출할 때만 사용한다. Hermes 답변은 최신 정보 확인을 위해 `HERMES_TOOLSETS=web`으로 웹 검색 도구를 사용할 수 있다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
 
 서버에서 Hermes 실행 상태를 확인할 때는 아래 smoke command를 사용한다.
 
 ```bash
-ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "상태 확인" --toolsets "" --ignore-rules'
+ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
 ```
 
 정상 출력은 한 문장 이상의 응답 문장이다. Codex OAuth 또는 Hermes 오류가 발생하면 `AI_FALLBACK_PROVIDER`를 통해 fallback provider로 전환된다.
