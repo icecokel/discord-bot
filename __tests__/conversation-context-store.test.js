@@ -3,7 +3,9 @@ const {
   buildConversationPrompt,
   clearAllConversationContexts,
   clearConversationContext,
+  getConversationContext,
   getConversationTurns,
+  replaceConversationWithSummary,
 } = require("../src/core/conversation-context-store");
 
 describe("conversation context store", () => {
@@ -29,8 +31,8 @@ describe("conversation context store", () => {
     ]);
   });
 
-  test("keeps only the latest eight turns", () => {
-    for (let index = 1; index <= 10; index += 1) {
+  test("keeps turns until the compression threshold", () => {
+    for (let index = 1; index <= 7; index += 1) {
       appendConversationTurn("user-1", "channel-1", {
         user: `질문 ${index}`,
         assistant: `답변 ${index}`,
@@ -39,15 +41,56 @@ describe("conversation context store", () => {
 
     const turns = getConversationTurns("user-1", "channel-1");
 
-    expect(turns).toHaveLength(8);
+    expect(turns).toHaveLength(7);
     expect(turns[0]).toEqual({
-      user: "질문 3",
-      assistant: "답변 3",
+      user: "질문 1",
+      assistant: "답변 1",
     });
-    expect(turns[7]).toEqual({
-      user: "질문 10",
-      assistant: "답변 10",
+    expect(turns[6]).toEqual({
+      user: "질문 7",
+      assistant: "답변 7",
     });
+  });
+
+  test("replaces accumulated turns with a summary", () => {
+    appendConversationTurn("user-1", "channel-1", {
+      user: "첫 질문",
+      assistant: "첫 답변",
+    });
+
+    replaceConversationWithSummary(
+      "user-1",
+      "channel-1",
+      "요약된 대화 맥락",
+    );
+
+    const context = getConversationContext("user-1", "channel-1");
+    expect(context.summary).toBe("요약된 대화 맥락");
+    expect(context.turns).toEqual([]);
+  });
+
+  test("builds a prompt with summary and current turns", () => {
+    replaceConversationWithSummary(
+      "user-1",
+      "channel-1",
+      "리액트의 개념을 설명했고 사용자는 상태 관리가 궁금하다.",
+    );
+    appendConversationTurn("user-1", "channel-1", {
+      user: "상태 관리는 뭐야?",
+      assistant: "상태 관리는 UI 데이터 흐름을 다루는 방식입니다.",
+    });
+
+    const prompt = buildConversationPrompt(
+      "user-1",
+      "channel-1",
+      "그럼 Redux는?",
+    );
+
+    expect(prompt).toContain("요약된 이전 대화");
+    expect(prompt).toContain("리액트의 개념을 설명했고");
+    expect(prompt).toContain("최근 대화");
+    expect(prompt).toContain("사용자: 상태 관리는 뭐야?");
+    expect(prompt).toContain("현재 사용자 메시지:\n그럼 Redux는?");
   });
 
   test("builds a prompt with prior context and the current message", () => {
@@ -83,5 +126,6 @@ describe("conversation context store", () => {
     clearConversationContext("user-1", "channel-1");
 
     expect(getConversationTurns("user-1", "channel-1")).toEqual([]);
+    expect(getConversationContext("user-1", "channel-1").summary).toBe("");
   });
 });
