@@ -507,16 +507,7 @@ const executeIntent = async (
     case "ai.answer":
       return answerWithAi(message, progressMessage);
     case "unknown":
-      if (progressMessage) {
-        await progressMessage.edit(
-          "요청을 정확히 이해하지 못했습니다. 예: \"서울 날씨 알려줘\", \"오늘 운세 봐줘\", \"긱뉴스 번역해줘\"",
-        );
-      } else {
-        await message.reply(
-          "요청을 정확히 이해하지 못했습니다. 예: \"서울 날씨 알려줘\", \"오늘 운세 봐줘\", \"긱뉴스 번역해줘\"",
-        );
-      }
-      return true;
+      return answerWithAi(message, progressMessage);
     default:
       return false;
   }
@@ -568,10 +559,7 @@ export const handleNaturalLanguageMessage = async (
     intent.intent !== "ai.answer" &&
     intent.confidence < EXECUTION_CONFIDENCE_THRESHOLD
   ) {
-    await progressMessage.edit(
-      "요청을 확실히 이해하지 못했습니다. 지역, 대상, 작업을 조금 더 구체적으로 말해주세요.",
-    );
-    return true;
+    return answerWithAi(message, progressMessage);
   }
 
   if (intent.requiresConfirmation) {
