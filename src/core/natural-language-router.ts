@@ -14,6 +14,10 @@ import {
   getPendingAction,
   setPendingAction,
 } from "./pending-action-store";
+import {
+  appendConversationTurn,
+  buildConversationPrompt,
+} from "./conversation-context-store";
 
 const EXECUTION_CONFIDENCE_THRESHOLD = 0.8;
 
@@ -178,16 +182,26 @@ export const handleHermesMentionMessage = async (
   }
 
   const waitMessage = await message.reply("헤르메스로 답변을 생성하고 있습니다...");
+  const userMessage = message.content.trim();
+  const prompt = buildConversationPrompt(
+    message.author.id,
+    message.channel.id,
+    userMessage,
+  );
 
   try {
     const result = await aiService.generateTextWithProviderOnly(
       "hermes",
-      message.content.trim(),
+      prompt,
       {
         systemInstruction: AI_ANSWER_SYSTEM_PROMPT,
         tools: searchService.getTools(),
       },
     );
+    appendConversationTurn(message.author.id, message.channel.id, {
+      user: userMessage,
+      assistant: result.text,
+    });
     await sendLongReply(
       message,
       waitMessage,
