@@ -25,10 +25,7 @@ describe("server ready notifier", () => {
 
     expect(client.users.fetch).toHaveBeenCalledWith("admin-id");
     expect(client.send).toHaveBeenCalledWith(
-      expect.stringContaining("icenux 서버 준비 완료"),
-    );
-    expect(client.send).toHaveBeenCalledWith(
-      expect.stringContaining("Hermes 대화 맥락 응답 준비 완료"),
+      "Hermes 출근했습니다. 질문 받을 준비도 끝났습니다.",
     );
   });
 
