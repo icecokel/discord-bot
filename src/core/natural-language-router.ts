@@ -128,6 +128,13 @@ const getAiAnswerPrefix = (result: {
   return "";
 };
 
+const AI_ANSWER_SYSTEM_PROMPT = `너는 디스코드 서버에서 동작하는 한국어 AI 비서다.
+답변은 간결하고 실용적으로 한다.
+사용자가 명령 실행, 서버 작업, 배포, 코드 변경을 요청하면 실제로 할 수 있는 범위와 할 수 없는 범위를 구분해서 말한다.
+날씨, 운세, 뉴스, 관리자 기능처럼 이 봇의 기존 명령으로 처리할 수 있는 요청은 직접 답변을 꾸미지 말고 해당 기능을 쓰도록 유도한다.
+확실하지 않은 내용은 추측하지 말고 확인이 필요하다고 말한다.
+민감정보, 토큰, 비밀번호, 개인키를 요구하거나 노출하지 않는다.`;
+
 const answerWithAi = async (message: Message): Promise<boolean> => {
   const waitMessage = await message.reply("답변을 생성하고 있습니다...");
 
@@ -135,6 +142,7 @@ const answerWithAi = async (message: Message): Promise<boolean> => {
     const result = await aiService.generateTextWithProvider(
       message.content.trim(),
       {
+        systemInstruction: AI_ANSWER_SYSTEM_PROMPT,
         tools: searchService.getTools(),
       },
     );

@@ -80,4 +80,23 @@ describe("natural language router AI answer prefix", () => {
       "[Gemini fallback] 대체 답변입니다.",
     );
   });
+
+  test("passes the Discord assistant persona as system instruction", async () => {
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "답변입니다.",
+      usedFallback: false,
+    });
+    const message = createMessage("질문이 있어");
+
+    await handleNaturalLanguageMessage(message, new Map());
+
+    expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
+      "질문이 있어",
+      expect.objectContaining({
+        systemInstruction: expect.stringContaining("한국어 AI 비서"),
+        tools: [],
+      }),
+    );
+  });
 });
