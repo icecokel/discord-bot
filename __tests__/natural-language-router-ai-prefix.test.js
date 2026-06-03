@@ -6,6 +6,7 @@ jest.mock("../src/core/ai/intent-service", () => ({
 
 jest.mock("../src/core/ai", () => ({
   aiService: {
+    generateText: jest.fn(),
     generateTextWithProvider: jest.fn(),
     generateTextWithProviderOnly: jest.fn(),
     getProviderStatus: jest.fn(),
@@ -114,35 +115,8 @@ describe("natural language router AI answer prefix", () => {
     expect(options.systemInstruction).toContain("코딩 도우미가 아니다");
   });
 
-  test("uses only Hermes when a message mentions Hermes and Hermes is enabled", async () => {
-    aiService.generateTextWithProviderOnly.mockResolvedValue({
-      providerName: "hermes",
-      text: "헤르메스 전용 답변입니다.",
-      usedFallback: false,
-    });
-    const message = createMessage("헤르메스 오늘 주요 뉴스 알려줘");
-
-    const handled = await handleNaturalLanguageMessage(message, new Map());
-
-    expect(handled).toBe(true);
-    expect(intentService.classify).not.toHaveBeenCalled();
-    expect(aiService.generateTextWithProviderOnly).toHaveBeenCalledWith(
-      "hermes",
-      "헤르메스 오늘 주요 뉴스 알려줘",
-      expect.objectContaining({
-        systemInstruction: expect.stringContaining("정확한 답변"),
-        tools: [],
-      }),
-    );
-    expect(aiService.generateTextWithProvider).not.toHaveBeenCalled();
-    const waitMessage = await message.reply.mock.results[0].value;
-    expect(waitMessage.edit).toHaveBeenCalledWith(
-      "[Hermes] 헤르메스 전용 답변입니다.",
-    );
-  });
-
-  test("passes recent conversation context to Hermes mention replies", async () => {
-    aiService.generateTextWithProviderOnly
+  test("passes recent conversation context to Hermes AI answers", async () => {
+    aiService.generateTextWithProvider
       .mockResolvedValueOnce({
         providerName: "hermes",
         text: "첫 답변입니다.",
@@ -153,35 +127,60 @@ describe("natural language router AI answer prefix", () => {
         text: "이전 답변을 바탕으로 한 두 번째 답변입니다.",
         usedFallback: false,
       });
-    const firstMessage = createMessage("헤르메스 리액트가 뭐야?");
-    const secondMessage = createMessage("헤르메스 그럼 상태 관리는?");
+    const firstMessage = createMessage("리액트가 뭐야?");
+    const secondMessage = createMessage("그럼 상태 관리는?");
 
     await handleNaturalLanguageMessage(firstMessage, new Map());
     await handleNaturalLanguageMessage(secondMessage, new Map());
 
-    const secondPrompt = aiService.generateTextWithProviderOnly.mock.calls[1][1];
+    const secondPrompt = aiService.generateTextWithProvider.mock.calls[1][0];
     expect(secondPrompt).toContain("최근 대화");
-    expect(secondPrompt).toContain("사용자: 헤르메스 리액트가 뭐야?");
+    expect(secondPrompt).toContain("사용자: 리액트가 뭐야?");
     expect(secondPrompt).toContain("비서: 첫 답변입니다.");
-    expect(secondPrompt).toContain(
-      "현재 사용자 메시지:\n헤르메스 그럼 상태 관리는?",
-    );
+    expect(secondPrompt).toContain("현재 사용자 메시지:\n그럼 상태 관리는?");
   });
 
-  test("asks the user to turn Hermes on when a message mentions Hermes while disabled", async () => {
-    aiService.getProviderStatus.mockReturnValue({
-      providerName: "gemini",
-      fallbackProviderName: undefined,
+  test("does not force Hermes only just because the message mentions Hermes", async () => {
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "헤르메스 전용 답변입니다.",
+      usedFallback: false,
     });
-    const message = createMessage("헤르메스 이거 확인해줘");
+    const message = createMessage("헤르메스 오늘 주요 뉴스 알려줘");
 
     const handled = await handleNaturalLanguageMessage(message, new Map());
 
     expect(handled).toBe(true);
-    expect(intentService.classify).not.toHaveBeenCalled();
+    expect(intentService.classify).toHaveBeenCalledWith(
+      "헤르메스 오늘 주요 뉴스 알려줘",
+    );
+    expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
+      "헤르메스 오늘 주요 뉴스 알려줘",
+      expect.any(Object),
+    );
     expect(aiService.generateTextWithProviderOnly).not.toHaveBeenCalled();
-    expect(message.reply).toHaveBeenCalledWith(
-      "헤르메스가 꺼져 있습니다. `!헤르메스 켜기` 후 다시 확인해주세요.",
+  });
+
+  test("compresses Hermes conversation context after seven turns", async () => {
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "답변입니다.",
+      usedFallback: false,
+    });
+    aiService.generateText.mockResolvedValue("압축된 대화 요약");
+
+    for (let index = 1; index <= 7; index += 1) {
+      await handleNaturalLanguageMessage(
+        createMessage(`질문 ${index}`),
+        new Map(),
+      );
+    }
+
+    expect(aiService.generateText).toHaveBeenCalledWith(
+      expect.stringContaining("사용자: 질문 1"),
+      expect.objectContaining({
+        systemInstruction: expect.stringContaining("대화 맥락 압축기"),
+      }),
     );
   });
 });

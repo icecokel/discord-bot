@@ -9,10 +9,7 @@ import {
   shouldProcessMessage,
   shouldProcessNaturalLanguageMessage,
 } from "./core/message-guard";
-import {
-  handleHermesMentionMessage,
-  handleNaturalLanguageMessage,
-} from "./core/natural-language-router";
+import { handleNaturalLanguageMessage } from "./core/natural-language-router";
 
 // 관리자 명령어 모듈 로드 (자동 등록)
 import "./features/admin/commands/admin-data";
@@ -35,7 +32,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-  GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
   ],
   partials: [Partials.Channel],
@@ -60,9 +57,6 @@ client.on("messageCreate", async (message: Message) => {
 
   // Prefix 명령어 매칭 및 실행
   if (await handleCommand(message, client.commands)) return;
-
-  // Hermes 언급 메시지는 채널/DM 모두 전용 규칙으로 처리
-  if (await handleHermesMentionMessage(message)) return;
 
   // Prefix 없는 자연어 요청 처리
   if (shouldProcessNaturalLanguageMessage(message)) {

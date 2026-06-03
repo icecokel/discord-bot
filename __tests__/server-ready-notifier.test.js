@@ -28,7 +28,7 @@ describe("server ready notifier", () => {
       expect.stringContaining("icenux 서버 준비 완료"),
     );
     expect(client.send).toHaveBeenCalledWith(
-      expect.stringContaining("Hermes 언급 전용 응답 준비 완료"),
+      expect.stringContaining("Hermes 대화 맥락 응답 준비 완료"),
     );
   });
 
