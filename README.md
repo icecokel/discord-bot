@@ -10,6 +10,7 @@
 - 단, 메시지에 `헤르메스`가 언급되면 서버 채널과 DM 모두 Hermes 전용 규칙으로 처리합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 다시 확인한 뒤 실행합니다.
 - AI 답변은 Hermes를 기본 공급자로 사용하고, 실패 시 Gemini로 fallback할 수 있습니다.
+- 봇이 서버에서 준비되면 `ADMIN_ID` 사용자에게 준비 완료 DM을 보냅니다.
 
 ## 주요 기능
 
@@ -228,6 +229,7 @@ npm run start:prod
 3. `package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`를 운영 디렉토리에 반영합니다.
 4. 운영 디렉토리에서 production dependency를 설치합니다.
 5. PM2로 `discord-bot`을 재시작하고 저장합니다.
+6. 봇 로그인과 스케줄러 초기화가 끝나면 관리자 DM으로 준비 완료 알림을 보냅니다.
 
 서버 상태 확인:
 
