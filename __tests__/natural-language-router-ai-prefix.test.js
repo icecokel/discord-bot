@@ -79,9 +79,58 @@ describe("natural language router AI answer prefix", () => {
     expect(message.reply).toHaveBeenCalledWith("요청을 확인하고 있습니다...");
     expect(waitMessage.edit).toHaveBeenNthCalledWith(
       1,
-      "생각하고 있습니다...",
+      "필요한 정보를 찾고 있습니다...",
     );
+    expect(waitMessage.edit).toHaveBeenCalledWith("답변을 정리하고 있습니다...");
     expect(waitMessage.edit).toHaveBeenCalledWith("[Hermes] 답변입니다.");
+  });
+
+  test("shows an extended wait message when AI answer takes longer", async () => {
+    const setTimeoutSpy = jest
+      .spyOn(global, "setTimeout")
+      .mockImplementation((callback) => {
+        callback();
+        return 0;
+      });
+    const clearTimeoutSpy = jest
+      .spyOn(global, "clearTimeout")
+      .mockImplementation(() => undefined);
+
+    try {
+      let resolveAnswer;
+      aiService.generateTextWithProvider.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveAnswer = resolve;
+          }),
+      );
+      const message = createMessage("시간이 걸리는 질문이 있어");
+
+      const handling = handleNaturalLanguageMessage(message, new Map());
+      for (let index = 0; index < 10; index += 1) {
+        await Promise.resolve();
+      }
+
+      expect(aiService.generateTextWithProvider).toHaveBeenCalled();
+
+      const waitMessage = await message.reply.mock.results[0].value;
+      await Promise.resolve();
+
+      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
+      expect(waitMessage.edit).toHaveBeenCalledWith(
+        "조금만 더 확인해보겠습니다...",
+      );
+
+      resolveAnswer({
+        providerName: "hermes",
+        text: "늦은 답변입니다.",
+        usedFallback: false,
+      });
+      await handling;
+    } finally {
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+    }
   });
 
   test("prefixes fallback AI answers", async () => {

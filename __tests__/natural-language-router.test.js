@@ -65,6 +65,9 @@ describe("natural language router", () => {
 
     expect(handled).toBe(true);
     expect(message.reply).toHaveBeenCalledWith("요청을 확인하고 있습니다...");
+    expect(progressMessage.edit).toHaveBeenCalledWith(
+      "어떤 기능으로 처리할지 살펴보는 중입니다...",
+    );
     expect(progressMessage.delete).toHaveBeenCalled();
     expect(weatherExecute).toHaveBeenCalledWith(message, ["서울"]);
   });
