@@ -3,19 +3,25 @@ const {
 } = require("../src/core/natural-language-router");
 const { clearAllPendingActions } = require("../src/core/pending-action-store");
 
-const createMessage = (content) => ({
-  content,
-  author: {
-    id: "owner-id",
-    tag: "owner#0001",
-  },
-  channel: {
-    send: jest.fn(),
-  },
-  reply: jest.fn().mockResolvedValue({
-    edit: jest.fn(),
-  }),
-});
+const createMessage = (content) => {
+  const edit = jest.fn();
+  const deleteMessage = jest.fn();
+
+  return {
+    content,
+    author: {
+      id: "owner-id",
+      tag: "owner#0001",
+    },
+    channel: {
+      send: jest.fn(),
+    },
+    reply: jest.fn().mockResolvedValue({
+      delete: deleteMessage,
+      edit,
+    }),
+  };
+};
 
 const createCommands = () => {
   const weatherExecute = jest.fn();
@@ -55,8 +61,11 @@ describe("natural language router", () => {
     const message = createMessage("오늘 서울 날씨 알려줘");
 
     const handled = await handleNaturalLanguageMessage(message, commands);
+    const progressMessage = await message.reply.mock.results[0].value;
 
     expect(handled).toBe(true);
+    expect(message.reply).toHaveBeenCalledWith("요청을 확인하고 있습니다...");
+    expect(progressMessage.delete).toHaveBeenCalled();
     expect(weatherExecute).toHaveBeenCalledWith(message, ["서울"]);
   });
 
@@ -88,10 +97,14 @@ describe("natural language router", () => {
       requestMessage,
       commands,
     );
+    const progressMessage = await requestMessage.reply.mock.results[0].value;
 
     expect(requested).toBe(true);
     expect(weatherExecute).not.toHaveBeenCalled();
     expect(requestMessage.reply).toHaveBeenCalledWith(
+      "요청을 확인하고 있습니다...",
+    );
+    expect(progressMessage.edit).toHaveBeenCalledWith(
       expect.stringContaining("실행하려면"),
     );
 
