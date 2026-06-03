@@ -1,6 +1,14 @@
 # Discord Bot
 
-관리자 DM 중심으로 동작하는 자연어 기반 디스코드 개인 비서 봇입니다. 사용자는 한글 명령어를 직접 입력할 수도 있고, 평소 말하듯 자연어로 요청할 수도 있습니다.
+한국어 명령어와 자연어 요청을 함께 처리하는 디스코드 개인 비서 봇입니다. 기존 기능은 일반 사용자도 사용할 수 있고, 관리자 작업만 `ADMIN_ID` 권한으로 제한합니다. 단순 질문은 Hermes 기반 AI 비서가 답변하며, 최신 정보가 필요할 때 웹 검색을 사용할 수 있습니다.
+
+## 현재 컨셉
+
+- 일반 사용자는 기존 `!` 명령어 기능을 사용할 수 있습니다.
+- DM에서는 prefix 없는 자연어 요청과 단순 질문을 사용할 수 있습니다.
+- 서버 채널에서는 `!` prefix 명령어만 처리하고, 일반 대화에는 끼어들지 않습니다.
+- 관리자 기능은 DM과 `ADMIN_ID` 조건을 다시 확인한 뒤 실행합니다.
+- AI 답변은 Hermes를 기본 공급자로 사용하고, 실패 시 Gemini로 fallback할 수 있습니다.
 
 ## 주요 기능
 
@@ -9,14 +17,19 @@
   - `이번 주 부산 날씨 어때?`
   - `오늘 운세 봐줘`
   - `긱뉴스 번역해줘`
-  - `최근 로그 10개 보여줘`
+  - `수도권에서 팥빙수 맛있는집 찾아줘`
+- AI 답변
+  - Hermes / Codex OAuth 기반 한국어 답변
+  - `HERMES_TOOLSETS=web` 기준 웹 검색 지원
+  - Hermes 응답에는 `[Hermes] ` prefix 표시
+  - fallback 응답에는 `[Gemini fallback] ` prefix 표시
 - 날씨
   - 기상청 단기/중기 예보 조회
   - 기본 지역 저장/해제
   - 날씨 DM 알림 설정/해제
   - 지역 fallback 발생 시 사유 안내
 - 운세
-  - Gemini 기반 오늘의 운세 생성
+  - AI 기반 오늘의 운세 생성
   - 사용자별 하루 1회 캐싱
 - 긱뉴스
   - GeekNews 상단 기사 조회
@@ -30,6 +43,33 @@
   - 데이터 초기화
   - AI 검색 답변
   - 자체 상태 점검
+
+## 응답 조건
+
+메시지 처리 순서:
+
+1. 봇이 보낸 메시지는 무시합니다.
+2. 관리자 DM 명령어를 먼저 처리합니다.
+3. `!` prefix 기반 일반 명령어를 처리합니다.
+4. DM 메시지라면 prefix 없는 자연어 요청을 처리합니다.
+5. 확인이 필요한 요청은 `확인` 또는 `취소`를 기다립니다.
+
+권한 기준:
+
+| 구분 | 서버 채널 | DM | 권한 |
+| --- | --- | --- | --- |
+| 일반 `!` 명령어 | 가능 | 가능 | 모든 사용자 |
+| 자연어 기능 실행 | 불가 | 가능 | 모든 사용자 |
+| 단순 AI 질문 | 불가 | 가능 | 모든 사용자 |
+| 관리자 명령어 | 불가 | 가능 | `ADMIN_ID` |
+
+확인이 필요한 요청:
+
+- 공지 발송
+- 데이터 초기화
+- 날씨 지역 해제
+- 날씨 알림 켜기
+- 날씨 알림 끄기
 
 ## 명령어
 
@@ -60,32 +100,49 @@
 | `/관리자 데이터` | 저장된 데이터 현황을 확인합니다. |
 | `/관리자 초기화 <대상>` | 지정한 데이터를 초기화합니다. |
 | `/관리자 테스트 [빠른]` | 봇 상태를 점검합니다. |
-| `/질문 <질문>` | AI 검색 답변을 생성합니다. |
+| `/질문 <질문>` | 관리자 AI 답변을 생성합니다. |
 
 제거된 명령어:
 
 - `핑`
 - `info`
 
+## AI 공급자
+
+운영 기본값은 Hermes입니다.
+
+```text
+AI_PROVIDER=hermes
+AI_FALLBACK_PROVIDER=gemini
+HERMES_BIN=/home/icenux/.local/bin/hermes
+HERMES_TIMEOUT_MS=60000
+HERMES_TOOLSETS=web
+```
+
+Hermes는 디스코드 봇 안에서 텍스트 답변 공급자로만 사용합니다. Hermes의 Discord gateway는 사용하지 않습니다. 서버 파일 작업, 터미널 실행, 코드 실행 같은 toolset은 디스코드 사용자 입력에 열지 않고, 현재 봇 운영에서는 `web`만 허용합니다.
+
+AI 답변 페르소나:
+
+- 질문에 정확한 답변을 찾아주는 한국어 AI 비서
+- 코딩 도우미가 아님
+- 사실 확인과 정확성 우선
+- 확실하지 않은 내용은 추측하지 않고 확인 필요 안내
+- 토큰, 비밀번호, 개인키 등 민감정보 요청/노출 금지
+
 ## 동작 구조
-
-메시지 처리 순서:
-
-1. 봇 메시지, 비관리자 메시지, DM이 아닌 메시지를 제외합니다.
-2. 관리자 DM 명령어를 먼저 처리합니다.
-3. `!` prefix 기반 일반 명령어를 처리합니다.
-4. 남은 메시지를 자연어 라우터로 넘깁니다.
-5. 위험한 요청은 바로 실행하지 않고 `확인` 또는 `취소`를 기다립니다.
 
 핵심 파일:
 
 | 경로 | 역할 |
 | --- | --- |
 | `src/index.ts` | Discord Client 진입점과 메시지 처리 순서 |
+| `src/core/message-guard.ts` | 봇 메시지 필터와 자연어 DM 조건 |
 | `src/core/command-handler.ts` | `!` prefix 명령어 실행 |
 | `src/core/admin-middleware.ts` | 관리자 DM 명령어 처리 |
-| `src/core/natural-language-router.ts` | 자연어 intent 실행 |
+| `src/core/natural-language-router.ts` | 자연어 intent 실행과 AI 답변 |
 | `src/core/ai/intent-service.ts` | 자연어 의도 분류 |
+| `src/core/ai/ai-service.ts` | Gemini/Hermes 공급자 선택과 fallback |
+| `src/core/ai/providers/hermes-provider.ts` | Hermes CLI 공급자 |
 | `src/core/pending-action-store.ts` | 확인이 필요한 작업 보관 |
 | `scripts/generate-registry.ts` | 일반 명령어 레지스트리 자동 생성 |
 
@@ -100,11 +157,21 @@ DISCORD_BOT_TOKEN=
 ADMIN_ID=
 ```
 
+AI:
+
+```text
+AI_PROVIDER=
+AI_FALLBACK_PROVIDER=
+GEMINI_AI_API_KEY=
+GEMINI_MODEL=
+HERMES_BIN=
+HERMES_TIMEOUT_MS=
+HERMES_TOOLSETS=
+```
+
 기능별:
 
 ```text
-GEMINI_AI_API_KEY=
-GEMINI_MODEL=
 NAVER_APP_CLIENT_ID=
 NAVER_APP_CLIENT_SECRET=
 PRIVATE_CHANNEL_ID=
@@ -139,18 +206,33 @@ npm run start:prod
 
 ## 배포
 
-운영은 Termux 서버의 PM2 프로세스 기준입니다. 현재 방식은 로컬에서 빌드한 `dist/index.js`를 서버로 복사하고 PM2를 재시작합니다.
+운영 서버는 `icenux-ms7b23`이며, GitHub self-hosted runner와 PM2로 배포합니다.
+
+- runner: `discord-bot-icenux`
+- runner labels: `self-hosted`, `Linux`, `X64`, `icenux`, `discord-bot`
+- deploy dir: `/home/icenux/projects/discord-bot`
+- process: `pm2` 앱 `discord-bot`
+- workflow: `.github/workflows/main.yml`
+- trigger: `main` branch push
+
+배포 흐름:
+
+1. GitHub Actions가 self-hosted runner에서 실행됩니다.
+2. `npm ci`, 테스트, 타입 체크, 빌드를 수행합니다.
+3. `package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`를 운영 디렉토리에 반영합니다.
+4. 운영 디렉토리에서 production dependency를 설치합니다.
+5. PM2로 `discord-bot`을 재시작하고 저장합니다.
+
+서버 상태 확인:
 
 ```bash
-npm run build
-scp -F /Users/smlee/termux-infra/config/ssh-config dist/index.js termux:~/projects/discord-bot/dist/index.js
-/Users/smlee/termux-infra/scripts/tmx run 'cd ~/projects/discord-bot && pm2 restart discord-bot --update-env && pm2 save'
+ssh icenux-ms7b23 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"; pm2 status discord-bot --no-color'
 ```
 
-상태 확인:
+Hermes 웹 검색 smoke test:
 
 ```bash
-/Users/smlee/termux-infra/scripts/tmx run 'cd ~/projects/discord-bot && pm2 status discord-bot --no-color'
+ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
 ```
 
 ## 문서
@@ -158,4 +240,5 @@ scp -F /Users/smlee/termux-infra/config/ssh-config dist/index.js termux:~/projec
 - `documents/natural-language-ai-concept.md`: 제품 컨셉과 사용자 경험 원칙
 - `documents/natural-language-ai-plan.md`: 자연어 intent와 실행 매핑
 - `documents/ai-guidelines.md`: AI 사용 지침
-- `documents/pm2-deployment.md`: PM2 운영 가이드
+- `documents/pm2-deployment.md`: PM2와 icenux 운영 가이드
+- `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: Hermes/Codex OAuth 통합 계획
