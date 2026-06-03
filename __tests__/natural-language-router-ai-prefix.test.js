@@ -27,6 +27,7 @@ const {
 
 const createMessage = (content) => {
   const edit = jest.fn();
+  const deleteMessage = jest.fn();
 
   return {
     content,
@@ -39,6 +40,7 @@ const createMessage = (content) => {
       send: jest.fn(),
     },
     reply: jest.fn().mockResolvedValue({
+      delete: deleteMessage,
       edit,
     }),
     edit,
@@ -74,6 +76,11 @@ describe("natural language router AI answer prefix", () => {
 
     expect(handled).toBe(true);
     const waitMessage = await message.reply.mock.results[0].value;
+    expect(message.reply).toHaveBeenCalledWith("요청을 확인하고 있습니다...");
+    expect(waitMessage.edit).toHaveBeenNthCalledWith(
+      1,
+      "생각하고 있습니다...",
+    );
     expect(waitMessage.edit).toHaveBeenCalledWith("[Hermes] 답변입니다.");
   });
 

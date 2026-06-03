@@ -22,9 +22,13 @@ import {
 } from "./conversation-context-store";
 
 const EXECUTION_CONFIDENCE_THRESHOLD = 0.8;
+const CHECKING_REQUEST_MESSAGE = "요청을 확인하고 있습니다...";
+const THINKING_MESSAGE = "생각하고 있습니다...";
 
 const CONFIRM_WORDS = new Set(["확인", "ㅇㅋ", "오케이", "ok", "yes", "실행"]);
 const CANCEL_WORDS = new Set(["취소", "아니", "아니요", "no", "그만"]);
+
+type ProgressMessage = Pick<Message, "delete" | "edit">;
 
 const getStringArg = (
   intent: NaturalLanguageIntent,
@@ -93,7 +97,7 @@ const executeCommand = async (
 
 const sendLongReply = async (
   message: Message,
-  initialMessage: Message,
+  initialMessage: Pick<Message, "edit">,
   text: string,
 ): Promise<void> => {
   const chunks = text.match(/[\s\S]{1,1900}/g) || [];
@@ -114,6 +118,18 @@ const sendLongReply = async (
     if (chunk) {
       await (message.channel as any).send(chunk);
     }
+  }
+};
+
+const clearProgressMessage = async (
+  progressMessage: ProgressMessage | undefined,
+): Promise<void> => {
+  if (!progressMessage) return;
+
+  try {
+    await progressMessage.delete();
+  } catch {
+    // 상태 메시지 삭제 실패는 실제 명령 실행을 막지 않는다.
   }
 };
 
@@ -177,8 +193,13 @@ const maybeCompressConversation = async (
   }
 };
 
-const answerWithAi = async (message: Message): Promise<boolean> => {
-  const waitMessage = await message.reply("답변을 생성하고 있습니다...");
+const answerWithAi = async (
+  message: Message,
+  progressMessage?: ProgressMessage,
+): Promise<boolean> => {
+  const waitMessage =
+    progressMessage || await message.reply(THINKING_MESSAGE);
+  await waitMessage.edit(THINKING_MESSAGE);
   const userMessage = message.content.trim();
   const prompt = buildConversationPrompt(
     message.author.id,
@@ -236,10 +257,16 @@ const buildConfirmationSummary = (
 const requestConfirmation = async (
   message: Message,
   intent: NaturalLanguageIntent,
+  progressMessage?: ProgressMessage,
 ): Promise<boolean> => {
   const summary = buildConfirmationSummary(intent);
   setPendingAction(message.author.id, intent, summary);
-  await message.reply(`${summary}\n\n실행하려면 "확인", 취소하려면 "취소"라고 답해주세요.`);
+  const text = `${summary}\n\n실행하려면 "확인", 취소하려면 "취소"라고 답해주세요.`;
+  if (progressMessage) {
+    await progressMessage.edit(text);
+  } else {
+    await message.reply(text);
+  }
   return true;
 };
 
@@ -285,11 +312,13 @@ const executeIntent = async (
   message: Message,
   commands: Map<string, Command>,
   intent: NaturalLanguageIntent,
+  progressMessage?: ProgressMessage,
 ): Promise<boolean> => {
   const region = getStringArg(intent, "region");
 
   switch (intent.intent) {
     case "weather.today":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -298,6 +327,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.weekly":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -307,9 +337,14 @@ const executeIntent = async (
       );
     case "weather.setRegion":
       if (!region) {
-        await message.reply("기본 지역으로 설정할 지역을 알려주세요.");
+        if (progressMessage) {
+          await progressMessage.edit("기본 지역으로 설정할 지역을 알려주세요.");
+        } else {
+          await message.reply("기본 지역으로 설정할 지역을 알려주세요.");
+        }
         return true;
       }
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -318,6 +353,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.clearRegion":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -326,6 +362,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.enableNotification":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -334,6 +371,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "weather.disableNotification":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -342,6 +380,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "fortune.today":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -350,6 +389,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "geekNews.translate":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -358,6 +398,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "game.links":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -366,6 +407,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "user.whoami":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -374,6 +416,7 @@ const executeIntent = async (
         intent.intent,
       );
     case "bot.help":
+      await clearProgressMessage(progressMessage);
       return executeCommand(
         message,
         commands,
@@ -387,13 +430,20 @@ const executeIntent = async (
     case "admin.news":
     case "admin.notice":
     case "admin.reset":
+      await clearProgressMessage(progressMessage);
       return executeAdminIntent(message, intent);
     case "ai.answer":
-      return answerWithAi(message);
+      return answerWithAi(message, progressMessage);
     case "unknown":
-      await message.reply(
-        "요청을 정확히 이해하지 못했습니다. 예: \"서울 날씨 알려줘\", \"오늘 운세 봐줘\", \"긱뉴스 번역해줘\"",
-      );
+      if (progressMessage) {
+        await progressMessage.edit(
+          "요청을 정확히 이해하지 못했습니다. 예: \"서울 날씨 알려줘\", \"오늘 운세 봐줘\", \"긱뉴스 번역해줘\"",
+        );
+      } else {
+        await message.reply(
+          "요청을 정확히 이해하지 못했습니다. 예: \"서울 날씨 알려줘\", \"오늘 운세 봐줘\", \"긱뉴스 번역해줘\"",
+        );
+      }
       return true;
     default:
       return false;
@@ -434,21 +484,22 @@ export const handleNaturalLanguageMessage = async (
 
   if (await handlePendingConfirmation(message, commands)) return true;
 
+  const progressMessage = await message.reply(CHECKING_REQUEST_MESSAGE);
   const intent = await intentService.classify(content);
   if (
     intent.intent !== "unknown" &&
     intent.intent !== "ai.answer" &&
     intent.confidence < EXECUTION_CONFIDENCE_THRESHOLD
   ) {
-    await message.reply(
+    await progressMessage.edit(
       "요청을 확실히 이해하지 못했습니다. 지역, 대상, 작업을 조금 더 구체적으로 말해주세요.",
     );
     return true;
   }
 
   if (intent.requiresConfirmation) {
-    return requestConfirmation(message, intent);
+    return requestConfirmation(message, intent, progressMessage);
   }
 
-  return executeIntent(message, commands, intent);
+  return executeIntent(message, commands, intent, progressMessage);
 };
