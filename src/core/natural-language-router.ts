@@ -111,14 +111,38 @@ const sendLongReply = async (
   }
 };
 
+const getAiAnswerPrefix = (result: {
+  providerName: string;
+  usedFallback: boolean;
+}): string => {
+  if (result.usedFallback) {
+    return result.providerName === "gemini"
+      ? "[Gemini fallback] "
+      : `[${result.providerName} fallback] `;
+  }
+
+  if (result.providerName === "hermes") {
+    return "[Hermes] ";
+  }
+
+  return "";
+};
+
 const answerWithAi = async (message: Message): Promise<boolean> => {
   const waitMessage = await message.reply("답변을 생성하고 있습니다...");
 
   try {
-    const response = await aiService.generateText(message.content.trim(), {
-      tools: searchService.getTools(),
-    });
-    await sendLongReply(message, waitMessage, response);
+    const result = await aiService.generateTextWithProvider(
+      message.content.trim(),
+      {
+        tools: searchService.getTools(),
+      },
+    );
+    await sendLongReply(
+      message,
+      waitMessage,
+      `${getAiAnswerPrefix(result)}${result.text}`,
+    );
   } catch (error: any) {
     console.error("[NaturalLanguage] AI 답변 실패:", error.message);
     await waitMessage.edit("답변 생성 중 오류가 발생했습니다.");

@@ -69,6 +69,21 @@ describe("AIService provider selection", () => {
     expect(mockHermesGenerateText).toHaveBeenCalledWith("prompt", {});
   });
 
+  test("reports Hermes as the responding provider", async () => {
+    process.env.AI_PROVIDER = "hermes";
+    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    const result = await service.generateTextWithProvider("prompt");
+
+    expect(result).toEqual({
+      providerName: "hermes",
+      text: "hermes response",
+      usedFallback: false,
+    });
+  });
+
   test("normalizes AI_PROVIDER casing and whitespace", async () => {
     process.env.AI_PROVIDER = " Hermes ";
     mockHermesGenerateText.mockResolvedValueOnce("hermes response");
@@ -104,6 +119,24 @@ describe("AIService provider selection", () => {
     });
     expect(mockGeminiGenerateText).toHaveBeenCalledWith("prompt", {
       responseMimeType: "application/json",
+    });
+  });
+
+  test("reports fallback provider when fallback generates the response", async () => {
+    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_FALLBACK_PROVIDER = "gemini";
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    mockHermesGenerateText.mockRejectedValueOnce(new Error("primary failed"));
+    mockGeminiGenerateText.mockResolvedValueOnce("fallback response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    const result = await service.generateTextWithProvider("prompt");
+
+    expect(result).toEqual({
+      providerName: "gemini",
+      text: "fallback response",
+      usedFallback: true,
     });
   });
 
