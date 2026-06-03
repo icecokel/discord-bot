@@ -4,7 +4,10 @@ import { loadCommands, Command } from "./core/loader";
 import { initializeSchedulers } from "./core/scheduler";
 import { handleAdminCommand } from "./core/admin-middleware";
 import { handleCommand } from "./core/command-handler";
-import { shouldProcessMessage } from "./core/message-guard";
+import {
+  shouldProcessMessage,
+  shouldProcessNaturalLanguageMessage,
+} from "./core/message-guard";
 import { handleNaturalLanguageMessage } from "./core/natural-language-router";
 
 // 관리자 명령어 모듈 로드 (자동 등록)
@@ -54,7 +57,9 @@ client.on("messageCreate", async (message: Message) => {
   if (await handleCommand(message, client.commands)) return;
 
   // Prefix 없는 자연어 요청 처리
-  await handleNaturalLanguageMessage(message, client.commands);
+  if (shouldProcessNaturalLanguageMessage(message)) {
+    await handleNaturalLanguageMessage(message, client.commands);
+  }
 });
 
 const token = process.env.DISCORD_BOT_TOKEN;
