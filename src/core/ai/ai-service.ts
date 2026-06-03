@@ -2,7 +2,7 @@ import { GeminiProvider } from "./providers/gemini-provider";
 import { HermesProvider } from "./providers/hermes-provider";
 import { BaseProvider, IGenerationOptions } from "./providers/base-provider";
 
-type ProviderName = "gemini" | "hermes";
+export type ProviderName = "gemini" | "hermes";
 
 const DEFAULT_PROVIDER: ProviderName = "gemini";
 
@@ -52,17 +52,27 @@ function createProvider(name: ProviderName): BaseProvider {
  * 환경 설정에 따라 AI 공급자를 전환합니다.
  */
 class AIService {
-  private provider: BaseProvider;
-  private providerName: ProviderName;
+  private provider!: BaseProvider;
+  private providerName!: ProviderName;
   private fallbackProvider?: BaseProvider;
   private fallbackProviderName?: ProviderName;
 
   constructor() {
-    const primaryProviderName = resolvePrimaryProviderName(
+    this.configureProviders(
       process.env.AI_PROVIDER,
+      process.env.AI_FALLBACK_PROVIDER,
+    );
+  }
+
+  private configureProviders(
+    primaryProvider: string | undefined,
+    fallbackProvider: string | undefined,
+  ): void {
+    const primaryProviderName = resolvePrimaryProviderName(
+      primaryProvider,
     );
     const fallbackProviderName = resolveFallbackProviderName(
-      process.env.AI_FALLBACK_PROVIDER,
+      fallbackProvider,
       primaryProviderName,
     );
 
@@ -72,7 +82,24 @@ class AIService {
     if (fallbackProviderName) {
       this.fallbackProviderName = fallbackProviderName;
       this.fallbackProvider = createProvider(fallbackProviderName);
+    } else {
+      this.fallbackProviderName = undefined;
+      this.fallbackProvider = undefined;
     }
+  }
+
+  getProviderStatus(): {
+    providerName: ProviderName;
+    fallbackProviderName?: ProviderName;
+  } {
+    return {
+      providerName: this.providerName,
+      fallbackProviderName: this.fallbackProviderName,
+    };
+  }
+
+  setPrimaryProvider(providerName: ProviderName): void {
+    this.configureProviders(providerName, process.env.AI_FALLBACK_PROVIDER);
   }
 
   /**

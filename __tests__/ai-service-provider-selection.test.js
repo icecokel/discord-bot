@@ -218,4 +218,34 @@ describe("AIService provider selection", () => {
     );
     expect(mockGeminiGenerateText).toHaveBeenCalledTimes(1);
   });
+
+  test("switches the primary provider at runtime", async () => {
+    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_FALLBACK_PROVIDER = "gemini";
+    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+    mockGeminiGenerateText.mockResolvedValueOnce("gemini response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    expect(service.getProviderStatus()).toEqual({
+      providerName: "hermes",
+      fallbackProviderName: "gemini",
+    });
+
+    await expect(service.generateText("before")).resolves.toBe(
+      "hermes response",
+    );
+
+    service.setPrimaryProvider("gemini");
+
+    expect(service.getProviderStatus()).toEqual({
+      providerName: "gemini",
+      fallbackProviderName: undefined,
+    });
+    await expect(service.generateText("after")).resolves.toBe(
+      "gemini response",
+    );
+    expect(mockGeminiProvider).toHaveBeenCalledTimes(2);
+    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+  });
 });
