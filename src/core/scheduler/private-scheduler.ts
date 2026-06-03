@@ -7,8 +7,13 @@ import {
   buildTodayWeatherNotification,
   buildTomorrowWeatherNotification,
 } from "../../features/tools/weather-notification-message";
+import geekNewsService from "../../features/daily_news/geek-news-service";
 
 type WeatherNotificationTarget = "today" | "tomorrow";
+
+const GEEK_NEWS_CRON = "0 8 * * *";
+const GEEK_NEWS_FALLBACK_MESSAGE =
+  "긱뉴스 알림을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.";
 
 export const filterOwnerNotificationUsers = (
   users: { userId: string; region: string }[],
@@ -27,6 +32,7 @@ export class PrivateScheduler {
 
   public start() {
     this.scheduleWeather();
+    this.scheduleGeekNews();
     console.log(
       "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
     );
@@ -42,6 +48,21 @@ export class PrivateScheduler {
     console.log(
       "[PrivateScheduler] 날씨 알림 등록 완료 (매일 06:30 오늘 / 22:30 내일 KST)",
     );
+  }
+
+  private scheduleGeekNews() {
+    cron.schedule(
+      GEEK_NEWS_CRON,
+      async () => {
+        console.log("[PrivateScheduler] 오전 8시 긱뉴스 DM 알림 시작");
+        await this.sendGeekNewsDM();
+        console.log("[PrivateScheduler] 오전 8시 긱뉴스 DM 알림 완료");
+      },
+      {
+        timezone: "Asia/Seoul",
+      },
+    );
+    console.log("[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 08:00 KST)");
   }
 
   private scheduleWeatherNotification(
@@ -118,6 +139,35 @@ export class PrivateScheduler {
         `[PrivateScheduler] ${userId} DM 전송 실패:`,
         error.message,
       );
+    }
+  }
+
+  public async sendGeekNewsDM(
+    ownerId: string | undefined = process.env.ADMIN_ID,
+  ): Promise<void> {
+    if (!ownerId) {
+      console.log("[PrivateScheduler] ADMIN_ID가 없어 긱뉴스 DM을 건너뜁니다.");
+      return;
+    }
+
+    try {
+      const result = await geekNewsService.fetchFeaturedItemResult();
+      const embeds = result.item
+        ? geekNewsService.createEmbeds(result.item)
+        : geekNewsService.createEmbeds(null, {
+            fallbackDescription: result.reason || GEEK_NEWS_FALLBACK_MESSAGE,
+          });
+
+      const user = await this.client.users.fetch(ownerId);
+      await user.send({ embeds });
+
+      if (result.item) {
+        geekNewsService.markItemAsSent(result.item);
+      }
+
+      console.log(`[PrivateScheduler] ${user.tag}에게 긱뉴스 DM 전송 완료`);
+    } catch (error: any) {
+      console.error("[PrivateScheduler] 긱뉴스 DM 전송 실패:", error.message);
     }
   }
 }
