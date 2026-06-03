@@ -20,6 +20,10 @@ import {
   getConversationTurns,
   replaceConversationWithSummary,
 } from "./conversation-context-store";
+import {
+  buildDiscordMessageContext,
+  hasDiscordAttachments,
+} from "./discord-message-context";
 
 const EXECUTION_CONFIDENCE_THRESHOLD = 0.8;
 const CHECKING_REQUEST_MESSAGE = "요청을 확인하고 있습니다...";
@@ -222,12 +226,15 @@ const answerWithAi = async (
   const waitMessage =
     progressMessage || await message.reply(FINDING_INFO_MESSAGE);
   await editProgressMessage(waitMessage, FINDING_INFO_MESSAGE);
-  const userMessage = message.content.trim();
-  const prompt = buildConversationPrompt(
+  const userMessage = message.content.trim() || "첨부 이미지를 확인해줘";
+  const basePrompt = buildConversationPrompt(
     message.author.id,
     message.channel.id,
     userMessage,
   );
+  const prompt = hasDiscordAttachments(message)
+    ? `${basePrompt}\n\n${await buildDiscordMessageContext(message)}`
+    : basePrompt;
   const longWaitTimer = setTimeout(() => {
     void editProgressMessage(waitMessage, LONG_WAIT_MESSAGE);
   }, LONG_WAIT_MS);
@@ -524,11 +531,16 @@ export const handleNaturalLanguageMessage = async (
   commands: Map<string, Command>,
 ): Promise<boolean> => {
   const content = message.content.trim();
-  if (!content || content.startsWith(PREFIX)) return false;
+  const hasAttachments = hasDiscordAttachments(message);
+  if ((!content && !hasAttachments) || content.startsWith(PREFIX)) return false;
 
   if (await handlePendingConfirmation(message, commands)) return true;
 
   const progressMessage = await message.reply(CHECKING_REQUEST_MESSAGE);
+  if (!content && hasAttachments) {
+    return answerWithAi(message, progressMessage);
+  }
+
   const intent = await intentService.classify(content);
   if (
     intent.intent !== "unknown" &&

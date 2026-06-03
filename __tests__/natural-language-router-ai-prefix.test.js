@@ -25,7 +25,21 @@ const {
   clearAllConversationContexts,
 } = require("../src/core/conversation-context-store");
 
-const createMessage = (content) => {
+const createAttachment = ({
+  id = "attachment-id",
+  name = "image.png",
+  contentType = "image/png",
+  size = 128,
+  url = "https://cdn.discordapp.com/attachments/image.png",
+} = {}) => ({
+  id,
+  name,
+  contentType,
+  size,
+  url,
+});
+
+const createMessage = (content, attachments = []) => {
   const edit = jest.fn();
   const deleteMessage = jest.fn();
 
@@ -37,8 +51,12 @@ const createMessage = (content) => {
     },
     channel: {
       id: "channel-id",
+      type: 1,
       send: jest.fn(),
     },
+    attachments: new Map(
+      attachments.map((attachment) => [attachment.id, attachment]),
+    ),
     reply: jest.fn().mockResolvedValue({
       delete: deleteMessage,
       edit,
@@ -169,6 +187,77 @@ describe("natural language router AI answer prefix", () => {
 
     const [, options] = aiService.generateTextWithProvider.mock.calls[0];
     expect(options.systemInstruction).toContain("코딩 도우미가 아니다");
+  });
+
+  test("passes current Discord image attachment context to Hermes answers", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      headers: {
+        get: jest.fn(() => "128"),
+      },
+      arrayBuffer: jest.fn().mockResolvedValue(Buffer.from("png-bytes")),
+    });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "이미지를 확인했습니다.",
+      usedFallback: false,
+    });
+    const message = createMessage("이 이미지 봐줘", [
+      createAttachment({
+        name: "sample.png",
+        contentType: "image/png",
+        size: 128,
+        url: "https://cdn.discordapp.com/attachments/sample.png",
+      }),
+    ]);
+
+    try {
+      await handleNaturalLanguageMessage(message, new Map());
+    } finally {
+      fetchSpy.mockRestore();
+    }
+
+    const prompt = aiService.generateTextWithProvider.mock.calls[0][0];
+    expect(prompt).toContain("Discord bridge context");
+    expect(prompt).toContain("현재 메시지");
+    expect(prompt).toContain("첨부 1");
+    expect(prompt).toContain("sample.png");
+    expect(prompt).toContain("content_type: image/png");
+    expect(prompt).toContain("local_file:");
+    expect(prompt).toContain("Discord 쓰기/삭제/관리 도구는 제공되지 않습니다.");
+  });
+
+  test("handles image-only Discord messages as Hermes answers", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      headers: {
+        get: jest.fn(() => "128"),
+      },
+      arrayBuffer: jest.fn().mockResolvedValue(Buffer.from("png-bytes")),
+    });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "이미지만 보고 답했습니다.",
+      usedFallback: false,
+    });
+    const message = createMessage("", [
+      createAttachment({
+        name: "only-image.jpg",
+        contentType: "image/jpeg",
+        size: 128,
+        url: "https://cdn.discordapp.com/attachments/only-image.jpg",
+      }),
+    ]);
+
+    try {
+      const handled = await handleNaturalLanguageMessage(message, new Map());
+
+      expect(handled).toBe(true);
+      expect(intentService.classify).not.toHaveBeenCalled();
+      expect(aiService.generateTextWithProvider).toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   test("passes recent conversation context to Hermes AI answers", async () => {
