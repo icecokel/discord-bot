@@ -341,6 +341,68 @@ describe("natural language router AI answer prefix", () => {
     expect(aiService.generateTextWithProviderOnly).not.toHaveBeenCalled();
   });
 
+  test("passes unknown natural language requests to Hermes answers", async () => {
+    intentService.classify.mockResolvedValueOnce({
+      intent: "unknown",
+      confidence: 0,
+      args: {},
+      requiresConfirmation: false,
+      replyMode: "answer",
+    });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "요청을 다시 해석해서 답했습니다.",
+      usedFallback: false,
+    });
+    const message = createMessage("이건 라우터가 모를만한 질문");
+
+    const handled = await handleNaturalLanguageMessage(message, new Map());
+
+    expect(handled).toBe(true);
+    expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
+      "이건 라우터가 모를만한 질문",
+      expect.any(Object),
+    );
+    const waitMessage = await message.reply.mock.results[0].value;
+    expect(waitMessage.edit).toHaveBeenCalledWith(
+      "[Hermes] 요청을 다시 해석해서 답했습니다.",
+    );
+    expect(waitMessage.edit).not.toHaveBeenCalledWith(
+      expect.stringContaining("요청을 정확히 이해하지 못했습니다"),
+    );
+  });
+
+  test("passes low-confidence routed requests to Hermes answers", async () => {
+    intentService.classify.mockResolvedValueOnce({
+      intent: "weather.today",
+      confidence: 0.4,
+      args: { region: "서울" },
+      requiresConfirmation: false,
+      replyMode: "answer",
+    });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "애매한 요청을 확인해서 답했습니다.",
+      usedFallback: false,
+    });
+    const message = createMessage("서울 이거 뭐였지");
+
+    const handled = await handleNaturalLanguageMessage(message, new Map());
+
+    expect(handled).toBe(true);
+    expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
+      "서울 이거 뭐였지",
+      expect.any(Object),
+    );
+    const waitMessage = await message.reply.mock.results[0].value;
+    expect(waitMessage.edit).toHaveBeenCalledWith(
+      "[Hermes] 애매한 요청을 확인해서 답했습니다.",
+    );
+    expect(waitMessage.edit).not.toHaveBeenCalledWith(
+      expect.stringContaining("요청을 확실히 이해하지 못했습니다"),
+    );
+  });
+
   test("compresses Hermes conversation context after ten turns", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
       providerName: "hermes",
