@@ -12,7 +12,6 @@ export type NaturalLanguageIntentName =
   | "geekNews.translate"
   | "game.links"
   | "user.whoami"
-  | "bot.help"
   | "admin.log"
   | "admin.data"
   | "admin.test"
@@ -41,7 +40,6 @@ const INTENT_NAMES: NaturalLanguageIntentName[] = [
   "geekNews.translate",
   "game.links",
   "user.whoami",
-  "bot.help",
   "admin.log",
   "admin.data",
   "admin.test",
@@ -148,11 +146,21 @@ const extractResetTarget = (text: string): string | undefined => {
   return undefined;
 };
 
+const hasExplicitResetRequest = (text: string): boolean =>
+  /초기화\s*(해|해줘|해주세요|시켜|시켜줘)|리셋\s*(해|해줘|해주세요)|reset\s*(please|now)?/.test(
+    text,
+  );
+
 const classifyWeatherIntent = (
   text: string,
 ): NaturalLanguageIntent | null => {
+  const hasExplicitRainSignal =
+    /(^|[\s,?!.,。！？])비\s*(와|오|올|옴|내리|내려|내림|확률|예보|\?)/.test(
+      text,
+    ) || /비가|비는|비도|비를|비올|비와|비오|비옴/.test(text);
   const hasWeatherSignal =
-    /날씨|비\s*(와|오|올|옴)?|기온|강수|우산|춥|더워|덥/.test(text) ||
+    /날씨|기온|강수|우산|춥|더워|덥/.test(text) ||
+    hasExplicitRainSignal ||
     /기본.*지역|지역.*설정|지역.*저장/.test(text);
   if (!hasWeatherSignal) return null;
 
@@ -194,11 +202,7 @@ export const classifyLocalIntent = (
     return makeIntent("geekNews.translate");
   }
 
-  if (/운세|오늘운세/.test(text)) {
-    return makeIntent("fortune.today");
-  }
-
-  if (/최근.*로그|로그.*보여|log/.test(text)) {
+  if (/최근.*로그|로그.*(보여|조회|확인)|log\s*(show|check)?$/.test(text)) {
     const count = extractCount(text);
     return makeIntent("admin.log", count ? { count } : {});
   }
@@ -209,24 +213,28 @@ export const classifyLocalIntent = (
     });
   }
 
-  if (/초기화|리셋|reset/.test(text)) {
+  if (/(초기화|리셋|reset)/.test(text) && hasExplicitResetRequest(text)) {
     return makeIntent("admin.reset", {
       target: extractResetTarget(text),
     });
   }
 
-  if (/데이터|저장.*현황|설정.*현황/.test(text)) {
+  if (/(데이터|저장.*현황|설정.*현황)/.test(text) && /(현황|보여|조회|확인)/.test(text)) {
     return makeIntent("admin.data");
   }
 
-  if (/테스트|점검|상태\s*(확인|체크)?/.test(text)) {
+  if (/네이버.*뉴스.*(테스트|확인|조회)|뉴스.*테스트/.test(text)) {
+    return makeIntent("admin.news");
+  }
+
+  if (/테스트|점검|상태\s*(확인|체크)/.test(text)) {
     return makeIntent("admin.test", {
       mode: /빠른/.test(text) ? "빠른" : undefined,
     });
   }
 
-  if (/네이버.*뉴스|뉴스.*테스트|주요.*뉴스/.test(text)) {
-    return makeIntent("admin.news");
+  if (/운세|오늘운세/.test(text)) {
+    return makeIntent("fortune.today");
   }
 
   if (/게임|워들|스카이\s*드롭|애로우\s*드리프트/.test(text)) {
@@ -235,10 +243,6 @@ export const classifyLocalIntent = (
 
   if (/내\s*정보|내정보|나는\s*누구|나\s*누구/.test(text)) {
     return makeIntent("user.whoami");
-  }
-
-  if (/도움말|명령어|사용법/.test(text)) {
-    return makeIntent("bot.help");
   }
 
   return null;
@@ -258,7 +262,6 @@ const SYSTEM_PROMPT = `너는 디스코드 봇의 자연어 의도 분류기다.
 - geekNews.translate
 - game.links
 - user.whoami
-- bot.help
 - admin.log
 - admin.data
 - admin.test
@@ -274,6 +277,8 @@ const SYSTEM_PROMPT = `너는 디스코드 봇의 자연어 의도 분류기다.
 3. 지역명은 args.region, 개수는 args.count, 공지 내용은 args.content, reset 대상은 args.target에 넣어라.
 4. notice, reset, 알림 변경, 지역 삭제는 requiresConfirmation을 true로 설정해라.
 5. 사용자가 단순 질문을 하면 ai.answer로 분류해라.
+6. 사용자가 관리자 기능의 결과나 서버 상황을 질문/설명하는 경우에는 admin.*를 실행하지 말고 ai.answer로 분류해라.
+7. admin.*는 "실행해줘", "보여줘", "확인해줘", "테스트해줘", "보내줘", "초기화해줘"처럼 명시적 실행 요청일 때만 사용해라.
 
 반환 형식:
 {
