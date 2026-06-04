@@ -259,6 +259,7 @@ const answerWithAi = async (
       {
         systemInstruction: AI_ANSWER_SYSTEM_PROMPT,
         tools: searchService.getTools(),
+        disableProviderFallback: true,
         ...(useHermesSession
           ? {
               hermesSessionName: getHermesSessionName(

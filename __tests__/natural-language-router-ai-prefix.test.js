@@ -158,10 +158,10 @@ describe("natural language router AI answer prefix", () => {
     }
   });
 
-  test("prefixes fallback AI answers", async () => {
+  test("prefixes non-Gemini fallback AI answers", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "gemini",
-      text: "대체 답변입니다.",
+      providerName: "hermes",
+      text: "세션 대체 답변입니다.",
       usedFallback: true,
     });
     const message = createMessage("질문이 있어");
@@ -170,7 +170,28 @@ describe("natural language router AI answer prefix", () => {
 
     const waitMessage = await message.reply.mock.results[0].value;
     expect(waitMessage.edit).toHaveBeenCalledWith(
-      "[Gemini fallback] 대체 답변입니다.",
+      "[hermes fallback] 세션 대체 답변입니다.",
+    );
+  });
+
+  test("disables configured provider fallback for public Hermes answers", async () => {
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    aiService.generateTextWithProvider.mockRejectedValue(
+      new Error("Hermes unavailable"),
+    );
+    const message = createMessage("질문이 있어");
+
+    await handleNaturalLanguageMessage(message, new Map());
+
+    expect(aiService.generateTextWithProvider).toHaveBeenCalledWith(
+      "질문이 있어",
+      expect.objectContaining({
+        disableProviderFallback: true,
+      }),
+    );
+    const waitMessage = await message.reply.mock.results[0].value;
+    expect(waitMessage.edit).toHaveBeenCalledWith(
+      "답변 생성 중 오류가 발생했습니다.",
     );
   });
 

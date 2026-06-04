@@ -140,6 +140,23 @@ describe("AIService provider selection", () => {
     });
   });
 
+  test("does not use configured fallback when fallback is disabled", async () => {
+    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_FALLBACK_PROVIDER = "gemini";
+    const error = new Error("primary failed");
+    mockHermesGenerateText.mockRejectedValueOnce(error);
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    await expect(
+      service.generateTextWithProvider("prompt", {
+        disableProviderFallback: true,
+      }),
+    ).rejects.toThrow(error);
+
+    expect(mockGeminiGenerateText).not.toHaveBeenCalled();
+  });
+
   test("falls back from Hermes session to Hermes oneshot before configured fallback", async () => {
     process.env.AI_PROVIDER = "hermes";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
