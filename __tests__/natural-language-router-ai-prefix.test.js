@@ -346,7 +346,7 @@ describe("natural language router AI answer prefix", () => {
 
   test("enables coding toolsets and admin persona only for admin DM Hermes sessions", async () => {
     process.env.ADMIN_ID = "owner-id";
-    process.env.HERMES_ADMIN_TOOLSETS = "web,terminal,file,code_execution";
+    process.env.HERMES_ADMIN_TOOLSETS = "web,browser,terminal,file,code_execution";
     aiService.generateTextWithProvider.mockResolvedValue({
       providerName: "hermes",
       text: "서버 작업 결과입니다.",
@@ -363,10 +363,27 @@ describe("natural language router AI answer prefix", () => {
     expect(options.hermesSessionName).toEqual(
       expect.stringContaining("discord-admin-owner-id-channel-id"),
     );
-    expect(options.hermesToolsets).toBe("web,terminal,file,code_execution");
+    expect(options.hermesToolsets).toBe("web,browser,terminal,file,code_execution");
     expect(options.systemInstruction).toContain("관리자 DM");
     expect(options.systemInstruction).toContain("서버 작업");
     expect(options.systemInstruction).not.toContain("코딩 도우미가 아니다");
+  });
+
+  test("uses browser automation in the default admin Hermes toolsets", async () => {
+    process.env.ADMIN_ID = "owner-id";
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "브라우저 확인 결과입니다.",
+      usedFallback: false,
+    });
+
+    await handleNaturalLanguageMessage(
+      createMessage("크롬 열고 example.com 들어가봐"),
+      new Map(),
+    );
+
+    const [, options] = aiService.generateTextWithProvider.mock.calls[0];
+    expect(options.hermesToolsets).toBe("web,browser,terminal,file,code_execution");
   });
 
   test("does not force Hermes only just because the message mentions Hermes", async () => {
