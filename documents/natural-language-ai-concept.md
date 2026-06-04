@@ -79,7 +79,7 @@ Hermes 답변 원칙:
 - 토큰, 비밀번호, 개인키 같은 민감정보를 요구하거나 노출하지 않는다.
 - 기존 봇 기능으로 처리 가능한 요청은 직접 꾸며 답하지 않고 해당 기능 사용을 유도한다.
 
-현재 운영에서는 일반 DM에 `HERMES_TOOLSETS=web`만 허용한다. 관리자 DM Hermes session에는 `HERMES_ADMIN_TOOLSETS`로 `browser`, `terminal`, `file`, `code_execution`을 별도로 허용한다.
+현재 운영에서는 일반 DM에 `HERMES_TOOLSETS=web`만 허용한다. 관리자 DM Hermes session에는 `HERMES_ADMIN_TOOLSETS`로 `browser`, `terminal`, `file`, `code_execution`, `discord-bot-fs` MCP를 별도로 허용한다. `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP이며, 쓰기/수정/삭제 도구는 allowlist에 포함하지 않는다.
 
 관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
 
