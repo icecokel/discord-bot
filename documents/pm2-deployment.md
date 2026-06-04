@@ -89,6 +89,8 @@ HERMES_ADMIN_TOOLSETS=web,browser,terminal,file,code_execution
 
 Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 `aiService.generateText()`에서 AI 답변 공급자로만 사용한다. 관리자 DM은 Hermes session을 사용하고, session 호출 실패 시 Hermes oneshot으로 한 번 재시도한다. 일반 DM은 oneshot과 bot-managed 10턴 압축 기억을 사용한다. 봇은 현재 Discord 메시지와 첨부 메타데이터를 bridge context로 정리해 prompt에 포함하고, 이미지 첨부는 Discord CDN URL을 우선 참조하되 URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공한다. Discord 쓰기/삭제/관리 tool은 Hermes에 열지 않는다. 일반 DM은 최신 정보 확인을 위해 `HERMES_TOOLSETS=web`으로 웹 검색 도구만 사용하고, 관리자 DM은 `HERMES_ADMIN_TOOLSETS`로 브라우저 자동화, 서버 파일, 터미널, 코드 실행 toolset을 별도로 사용한다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
 
+관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
+
 서버에서 Hermes 실행 상태를 확인할 때는 아래 smoke command를 사용한다.
 
 ```bash

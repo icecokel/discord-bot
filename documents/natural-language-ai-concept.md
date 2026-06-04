@@ -81,6 +81,8 @@ Hermes 답변 원칙:
 
 현재 운영에서는 일반 DM에 `HERMES_TOOLSETS=web`만 허용한다. 관리자 DM Hermes session에는 `HERMES_ADMIN_TOOLSETS`로 `browser`, `terminal`, `file`, `code_execution`을 별도로 허용한다.
 
+관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
+
 관리자 `!헤르메스` 토글은 런타임 상태만 변경한다. PM2 재시작 후에는 `.env`의 `AI_PROVIDER` 값으로 다시 초기화된다. `!헤르메스 초기화`는 현재 사용자+채널의 bot-managed 대화 맥락과 Hermes session 매핑을 지운다.
 
 ### 4. 키워드 라우터와 AI 답변자를 분리한다

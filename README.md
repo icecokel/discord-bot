@@ -130,6 +130,8 @@ HERMES_ADMIN_TOOLSETS=web,browser,terminal,file,code_execution
 
 Hermes는 디스코드 봇 안에서 AI 답변 공급자로 사용합니다. Hermes의 Discord gateway는 사용하지 않으며, `discord.js` 봇이 현재 메시지와 첨부 메타데이터를 검증된 bridge context로 정리해 Hermes prompt에 전달합니다. 관리자 DM은 사용자+채널 단위 Hermes session을 사용하고, session 호출 실패 시 Hermes oneshot으로 한 번 재시도합니다. 일반 DM은 기존 oneshot 구조와 bot-managed 10턴 압축 기억을 유지합니다. 이미지 첨부는 Discord CDN URL을 우선 참조하고, URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공합니다. Discord 메시지 전송, 삭제, 관리 tool은 Hermes에 열지 않고, 최종 응답 전송은 봇이 담당합니다. 일반 DM은 `HERMES_TOOLSETS=web`만 사용하고, 관리자 DM은 `HERMES_ADMIN_TOOLSETS`로 브라우저 자동화, 서버 파일, 터미널, 코드 실행 toolset을 별도로 열 수 있습니다.
 
+관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않습니다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문합니다.
+
 관리자는 실행 중인 봇에서 `!헤르메스 켜기`, `!헤르메스 끄기`, `!헤르메스 상태`로 primary AI 공급자를 토글할 수 있습니다. 이 토글은 런타임 상태만 바꾸며, PM2 재시작 후에는 `.env`의 `AI_PROVIDER` 기준으로 다시 초기화됩니다. `!헤르메스 초기화`는 현재 사용자+채널의 bot-managed 대화 맥락과 Hermes session 매핑을 지웁니다.
 
 AI 답변 페르소나:
