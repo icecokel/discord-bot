@@ -5,7 +5,7 @@ import {
 } from "../../../core/admin-middleware";
 import { aiService } from "../../../core/ai";
 import newsService from "../../daily_news/news-service";
-import { getMidTermForecast, getShortTermForecast } from "../../../utils/kma-helper";
+import { getShortTermForecast } from "../../../utils/kma-helper";
 import kmaData from "../../../data/kma-data.json";
 
 type TestStatus = "PASS" | "FAIL" | "SKIP";
@@ -52,7 +52,6 @@ const getRegionSample = (): {
   regionName: string;
   nx: number;
   ny: number;
-  midCode?: string | null;
 } => {
   const data = kmaData as Record<
     string,
@@ -73,7 +72,6 @@ const getRegionSample = (): {
     regionName: preferred,
     nx: region.nx,
     ny: region.ny,
-    midCode: region.midCode,
   };
 };
 
@@ -109,7 +107,6 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           }),
         );
         const required = [
-          "도움말",
           "날씨",
           "주간날씨",
           "운세",
@@ -149,7 +146,7 @@ const handleAdminTest = async (message: Message, args: string[]) => {
       },
     },
     {
-      name: "날씨 API (단기/중기)",
+      name: "날씨 API (단기)",
       fn: async () => {
         const sample = getRegionSample();
         const short = await getShortTermForecast(sample.nx, sample.ny);
@@ -160,29 +157,9 @@ const handleAdminTest = async (message: Message, args: string[]) => {
           };
         }
 
-        if (!sample.midCode) {
-          return {
-            status: "SKIP",
-            detail: `중기 코드 없음 (${sample.regionName})`,
-          };
-        }
-
-        const mid = await getMidTermForecast(sample.midCode);
-        if (!mid) {
-          const hint = !process.env.WEATHER_MIDDLE_END_POINT
-            ? "WEATHER_MIDDLE_END_POINT 누락"
-            : !process.env.WEATHER_MIDDLE_API_KEY
-              ? "WEATHER_MIDDLE_API_KEY 누락"
-              : "인증/권한 오류 가능성(WEATHER_MIDDLE_API_KEY 확인)";
-          return {
-            status: "FAIL",
-            detail: `중기 예보 실패 (${sample.regionName}) - ${hint}`,
-          };
-        }
-
         return {
           status: "PASS",
-          detail: `${sample.regionName} 단기/중기 예보 조회 성공`,
+          detail: `${sample.regionName} 단기 예보 조회 성공`,
         };
       },
     },

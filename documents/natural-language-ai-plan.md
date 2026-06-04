@@ -45,7 +45,6 @@ Hermes 대화 맥락 규칙:
 - `!긱뉴스`
 - `!게임`
 - `!내정보`
-- `!도움말`
 - `!헤르메스 상태|켜기|끄기|초기화` (관리자 전용)
 
 관리자 명령어:
@@ -77,7 +76,6 @@ Hermes 대화 맥락 규칙:
 - `geekNews.translate`
 - `game.links`
 - `user.whoami`
-- `bot.help`
 - `admin.log`
 - `admin.data`
 - `admin.test`
@@ -87,7 +85,7 @@ Hermes 대화 맥락 규칙:
 - `ai.answer`
 - `unknown`
 
-`bot.info`와 `bot.ping` 계열 intent는 사용하지 않는다.
+`bot.help`, `bot.info`, `bot.ping` 계열 intent는 사용하지 않는다.
 
 ## 실행 매핑
 
@@ -103,7 +101,6 @@ Hermes 대화 맥락 규칙:
 | `geekNews.translate` | `긱뉴스` | `[]` |
 | `game.links` | `게임` | `[]` |
 | `user.whoami` | `내정보` | `[]` |
-| `bot.help` | `도움말` | `[]` |
 | `admin.log` | 관리자 `로그` | `[count]` |
 | `admin.data` | 관리자 `데이터` | `[]` |
 | `admin.test` | 관리자 `테스트` | `[mode]` |

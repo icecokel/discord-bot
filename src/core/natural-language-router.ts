@@ -485,16 +485,6 @@ const executeIntent = async (
         [],
         intent.intent,
       );
-    case "bot.help":
-      await editProgressMessage(progressMessage, ROUTING_REQUEST_MESSAGE);
-      await clearProgressMessage(progressMessage);
-      return executeCommand(
-        message,
-        commands,
-        ["도움말", "명령어", "사용법"],
-        [],
-        intent.intent,
-      );
     case "admin.log":
     case "admin.data":
     case "admin.test":
