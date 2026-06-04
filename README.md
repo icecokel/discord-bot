@@ -145,8 +145,8 @@ AI 답변 페르소나:
 | `src/core/message-guard.ts` | 봇 메시지 필터와 자연어 DM 조건 |
 | `src/core/command-handler.ts` | `!` prefix 명령어 실행 |
 | `src/core/admin-middleware.ts` | 관리자 DM 명령어 처리 |
-| `src/core/natural-language-router.ts` | 자연어 intent 실행과 AI 답변 |
-| `src/core/ai/intent-service.ts` | 자연어 의도 분류 |
+| `src/core/natural-language-router.ts` | 자연어 키워드 실행과 AI 답변 |
+| `src/core/ai/intent-service.ts` | 키워드 기반 기능 판별 |
 | `src/core/ai/ai-service.ts` | Gemini/Hermes 공급자 선택과 fallback |
 | `src/core/ai/providers/hermes-provider.ts` | Hermes CLI 공급자 |
 | `src/core/pending-action-store.ts` | 확인이 필요한 작업 보관 |
