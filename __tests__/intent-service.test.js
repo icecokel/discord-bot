@@ -1,6 +1,20 @@
-const { classifyLocalIntent } = require("../src/core/ai/intent-service");
+jest.mock("../src/core/ai", () => ({
+  aiService: {
+    generateText: jest.fn(),
+  },
+}));
+
+const {
+  classifyLocalIntent,
+  intentService,
+} = require("../src/core/ai/intent-service");
+const { aiService } = require("../src/core/ai");
 
 describe("intent service local classifier", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test("classifies weather lookup with a known region", () => {
     const intent = classifyLocalIntent("오늘 서울 날씨 알려줘");
 
@@ -147,5 +161,27 @@ describe("intent service local classifier", () => {
         region: "서울",
       },
     });
+  });
+
+  test("does not use AI classification for unknown messages", async () => {
+    const intent = await intentService.classify("이 구조를 어떻게 바꾸면 좋을까?");
+
+    expect(intent).toMatchObject({
+      intent: "unknown",
+      confidence: 0,
+    });
+    expect(aiService.generateText).not.toHaveBeenCalled();
+  });
+
+  test("uses only keyword classification for supported messages", async () => {
+    const intent = await intentService.classify("서울 날씨 알려줘");
+
+    expect(intent).toMatchObject({
+      intent: "weather.today",
+      args: {
+        region: "서울",
+      },
+    });
+    expect(aiService.generateText).not.toHaveBeenCalled();
   });
 });

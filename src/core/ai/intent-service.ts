@@ -1,4 +1,3 @@
-import { aiService } from "./index";
 import kmaData from "../../data/kma-data.json";
 
 export type NaturalLanguageIntentName =
@@ -28,27 +27,6 @@ export interface NaturalLanguageIntent {
   requiresConfirmation: boolean;
   replyMode: "execute" | "answer" | "clarify";
 }
-
-const INTENT_NAMES: NaturalLanguageIntentName[] = [
-  "weather.today",
-  "weather.weekly",
-  "weather.setRegion",
-  "weather.clearRegion",
-  "weather.enableNotification",
-  "weather.disableNotification",
-  "fortune.today",
-  "geekNews.translate",
-  "game.links",
-  "user.whoami",
-  "admin.log",
-  "admin.data",
-  "admin.test",
-  "admin.news",
-  "admin.notice",
-  "admin.reset",
-  "ai.answer",
-  "unknown",
-];
 
 const CONFIRMATION_INTENTS = new Set<NaturalLanguageIntentName>([
   "admin.notice",
@@ -248,106 +226,12 @@ export const classifyLocalIntent = (
   return null;
 };
 
-const SYSTEM_PROMPT = `너는 디스코드 봇의 자연어 의도 분류기다.
-사용자의 한국어 메시지를 보고 실행할 intent와 인자를 JSON으로만 반환한다.
-
-지원 intent:
-- weather.today
-- weather.weekly
-- weather.setRegion
-- weather.clearRegion
-- weather.enableNotification
-- weather.disableNotification
-- fortune.today
-- geekNews.translate
-- game.links
-- user.whoami
-- admin.log
-- admin.data
-- admin.test
-- admin.news
-- admin.notice
-- admin.reset
-- ai.answer
-- unknown
-
-규칙:
-1. JSON 이외의 텍스트를 출력하지 마라.
-2. 확신이 낮으면 unknown을 반환해라.
-3. 지역명은 args.region, 개수는 args.count, 공지 내용은 args.content, reset 대상은 args.target에 넣어라.
-4. notice, reset, 알림 변경, 지역 삭제는 requiresConfirmation을 true로 설정해라.
-5. 사용자가 단순 질문을 하면 ai.answer로 분류해라.
-6. 사용자가 관리자 기능의 결과나 서버 상황을 질문/설명하는 경우에는 admin.*를 실행하지 말고 ai.answer로 분류해라.
-7. admin.*는 "실행해줘", "보여줘", "확인해줘", "테스트해줘", "보내줘", "초기화해줘"처럼 명시적 실행 요청일 때만 사용해라.
-
-반환 형식:
-{
-  "intent": "...",
-  "confidence": 0.0,
-  "args": {},
-  "requiresConfirmation": false,
-  "replyMode": "execute"
-}`;
-
-const parseIntentResponse = (rawResponse: string): NaturalLanguageIntent => {
-  const cleaned = rawResponse
-    .trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  const parsed = JSON.parse(cleaned) as Partial<NaturalLanguageIntent>;
-  const intent = parsed.intent;
-
-  if (!intent || !INTENT_NAMES.includes(intent)) {
-    return makeIntent("unknown", {}, 0);
-  }
-
-  const confidence =
-    typeof parsed.confidence === "number" ? parsed.confidence : 0;
-  const args =
-    parsed.args && typeof parsed.args === "object" && !Array.isArray(parsed.args)
-      ? (parsed.args as Record<string, unknown>)
-      : {};
-  const requiresConfirmation =
-    typeof parsed.requiresConfirmation === "boolean"
-      ? parsed.requiresConfirmation
-      : CONFIRMATION_INTENTS.has(intent);
-  const replyMode =
-    parsed.replyMode === "answer" || parsed.replyMode === "clarify"
-      ? parsed.replyMode
-      : intent === "ai.answer"
-        ? "answer"
-        : "execute";
-
-  return {
-    intent,
-    confidence,
-    args,
-    requiresConfirmation:
-      requiresConfirmation || CONFIRMATION_INTENTS.has(intent),
-    replyMode,
-  };
-};
-
 class IntentService {
   async classify(text: string): Promise<NaturalLanguageIntent> {
     const localIntent = classifyLocalIntent(text);
     if (localIntent) return localIntent;
 
-    try {
-      const response = await aiService.generateText(text, {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        config: {
-          temperature: 0.1,
-          maxOutputTokens: 500,
-        },
-      });
-      return parseIntentResponse(response);
-    } catch (error: any) {
-      console.error("[IntentService] 의도 분류 실패:", error.message);
-      return makeIntent("unknown", {}, 0);
-    }
+    return makeIntent("unknown", {}, 0);
   }
 }
 
