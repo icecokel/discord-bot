@@ -131,7 +131,16 @@ const handleAdminTest = async (message: Message, args: string[]) => {
       name: "어드민 커맨드 레지스트리",
       fn: async () => {
         const adminCommandNames = getAdminCommands().map((cmd) => cmd.name);
-        const required = ["관리자", "뉴스", "질문", "테스트"];
+        const required = [
+          "관리자",
+          "뉴스",
+          "질문",
+          "테스트",
+          "서버상태",
+          "디스크",
+          "프로세스",
+          "배포상태",
+        ];
         const missing = required.filter((name) => !adminCommandNames.includes(name));
         if (missing.length > 0) {
           return {
