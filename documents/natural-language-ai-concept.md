@@ -79,7 +79,7 @@ Hermes 답변 원칙:
 - 토큰, 비밀번호, 개인키 같은 민감정보를 요구하거나 노출하지 않는다.
 - 기존 봇 기능으로 처리 가능한 요청은 직접 꾸며 답하지 않고 해당 기능 사용을 유도한다.
 
-현재 운영에서는 `HERMES_TOOLSETS=web`만 허용한다. `terminal`, `file`, `code_execution`, `browser` 같은 toolset은 디스코드 사용자 입력에 열지 않는다.
+현재 운영에서는 일반 DM에 `HERMES_TOOLSETS=web`만 허용한다. 관리자 DM Hermes session에는 `HERMES_ADMIN_TOOLSETS`로 `browser`, `terminal`, `file`, `code_execution`을 별도로 허용한다.
 
 관리자 `!헤르메스` 토글은 런타임 상태만 변경한다. PM2 재시작 후에는 `.env`의 `AI_PROVIDER` 값으로 다시 초기화된다. `!헤르메스 초기화`는 현재 사용자+채널의 bot-managed 대화 맥락과 Hermes session 매핑을 지운다.
 
