@@ -71,6 +71,10 @@ describe("admin test command", () => {
       { name: "뉴스" },
       { name: "질문" },
       { name: "테스트" },
+      { name: "서버상태" },
+      { name: "디스크" },
+      { name: "프로세스" },
+      { name: "배포상태" },
     ]);
     getShortTermForecast.mockResolvedValue({ forecast: "short" });
     getMidTermForecast.mockResolvedValue({ forecast: "mid" });
