@@ -40,7 +40,7 @@ export class HermesProvider extends BaseProvider {
           "-z",
           hermesPrompt,
           "--toolsets",
-          process.env.HERMES_TOOLSETS ?? DEFAULT_TOOLSETS,
+          options.hermesToolsets ?? process.env.HERMES_TOOLSETS ?? DEFAULT_TOOLSETS,
           "--ignore-rules",
         ],
         {
