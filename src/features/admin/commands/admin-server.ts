@@ -93,6 +93,7 @@ export const redactEnvSummary = (): string => {
     `AI_PROVIDER=${process.env.AI_PROVIDER || "unset"}`,
     `AI_FALLBACK_PROVIDER=${process.env.AI_FALLBACK_PROVIDER || "unset"}`,
     `HERMES_TOOLSETS=${process.env.HERMES_TOOLSETS || "unset"}`,
+    `HERMES_ADMIN_TOOLSETS=${process.env.HERMES_ADMIN_TOOLSETS || "unset"}`,
     `ADMIN_ID_SET=${Boolean(process.env.ADMIN_ID)}`,
     `DISCORD_TOKEN_SET=${Boolean(process.env.DISCORD_BOT_TOKEN)}`,
     `HERMES_BIN_SET=${Boolean(process.env.HERMES_BIN)}`,

@@ -88,6 +88,24 @@ describe("HermesProvider", () => {
     expect(mockExecFile.mock.calls[0][1]).not.toContain("--accept-hooks");
   });
 
+  test("uses per-request Hermes toolsets before the environment default", async () => {
+    process.env.HERMES_TOOLSETS = "web";
+    resolveExecFile("ok");
+    const provider = new HermesProvider();
+
+    await provider.generateText("prompt", {
+      hermesToolsets: "web,terminal,file,code_execution",
+    });
+
+    expect(mockExecFile.mock.calls[0][1]).toEqual([
+      "-z",
+      "prompt",
+      "--toolsets",
+      "web,terminal,file,code_execution",
+      "--ignore-rules",
+    ]);
+  });
+
   test("continues a named Hermes session when requested", async () => {
     resolveExecFile("ok");
     const provider = new HermesProvider();

@@ -67,11 +67,13 @@ const createMessage = (content, attachments = []) => {
 
 describe("natural language router AI answer prefix", () => {
   const originalAdminId = process.env.ADMIN_ID;
+  const originalHermesAdminToolsets = process.env.HERMES_ADMIN_TOOLSETS;
 
   beforeEach(() => {
     jest.clearAllMocks();
     clearAllConversationContexts();
     delete process.env.ADMIN_ID;
+    delete process.env.HERMES_ADMIN_TOOLSETS;
     aiService.getProviderStatus.mockReturnValue({
       providerName: "hermes",
       fallbackProviderName: "gemini",
@@ -87,6 +89,7 @@ describe("natural language router AI answer prefix", () => {
 
   afterAll(() => {
     process.env.ADMIN_ID = originalAdminId;
+    process.env.HERMES_ADMIN_TOOLSETS = originalHermesAdminToolsets;
   });
 
   test("prefixes Hermes AI answers", async () => {
@@ -339,6 +342,31 @@ describe("natural language router AI answer prefix", () => {
     expect(secondOptions.hermesSessionName).toBe(firstOptions.hermesSessionName);
     expect(secondPrompt).not.toContain("최근 대화");
     expect(aiService.generateText).not.toHaveBeenCalled();
+  });
+
+  test("enables coding toolsets and admin persona only for admin DM Hermes sessions", async () => {
+    process.env.ADMIN_ID = "owner-id";
+    process.env.HERMES_ADMIN_TOOLSETS = "web,terminal,file,code_execution";
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "hermes",
+      text: "서버 작업 결과입니다.",
+      usedFallback: false,
+    });
+
+    await handleNaturalLanguageMessage(
+      createMessage("서버 안에서 현재 프로젝트 상태 확인해줘"),
+      new Map(),
+    );
+
+    const [, options] = aiService.generateTextWithProvider.mock.calls[0];
+
+    expect(options.hermesSessionName).toEqual(
+      expect.stringContaining("discord-admin-owner-id-channel-id"),
+    );
+    expect(options.hermesToolsets).toBe("web,terminal,file,code_execution");
+    expect(options.systemInstruction).toContain("관리자 DM");
+    expect(options.systemInstruction).toContain("서버 작업");
+    expect(options.systemInstruction).not.toContain("코딩 도우미가 아니다");
   });
 
   test("does not force Hermes only just because the message mentions Hermes", async () => {
