@@ -120,15 +120,16 @@ class AIService {
     prompt: string,
     options: IGenerationOptions = {},
   ): Promise<GeneratedTextResult> {
+    const { disableProviderFallback, ...providerOptions } = options;
     try {
       return {
         providerName: this.providerName,
-        text: await this.provider.generateText(prompt, options),
+        text: await this.provider.generateText(prompt, providerOptions),
         usedFallback: false,
       };
     } catch (error) {
-      if (this.providerName === "hermes" && options.hermesSessionName) {
-        const { hermesSessionName, ...oneshotOptions } = options;
+      if (this.providerName === "hermes" && providerOptions.hermesSessionName) {
+        const { hermesSessionName, ...oneshotOptions } = providerOptions;
         try {
           return {
             providerName: "hermes",
@@ -146,7 +147,11 @@ class AIService {
         }
       }
 
-      if (!this.fallbackProvider || !this.fallbackProviderName) {
+      if (
+        disableProviderFallback ||
+        !this.fallbackProvider ||
+        !this.fallbackProviderName
+      ) {
         throw error;
       }
 
@@ -158,7 +163,7 @@ class AIService {
 
       return {
         providerName: this.fallbackProviderName,
-        text: await this.fallbackProvider.generateText(prompt, options),
+        text: await this.fallbackProvider.generateText(prompt, providerOptions),
         usedFallback: true,
       };
     }
