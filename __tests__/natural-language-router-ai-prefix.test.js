@@ -366,6 +366,9 @@ describe("natural language router AI answer prefix", () => {
     expect(options.hermesToolsets).toBe("web,browser,terminal,file,code_execution");
     expect(options.systemInstruction).toContain("관리자 DM");
     expect(options.systemInstruction).toContain("서버 작업");
+    expect(options.systemInstruction).toContain("삭제");
+    expect(options.systemInstruction).toContain("애매하거나 고민되는 경우");
+    expect(options.systemInstruction).toContain("사용자에게 질문");
     expect(options.systemInstruction).not.toContain("코딩 도우미가 아니다");
   });
 
