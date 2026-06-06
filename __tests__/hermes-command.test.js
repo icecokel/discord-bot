@@ -1,5 +1,6 @@
 const mockGetProviderStatus = jest.fn();
 const mockSetPrimaryProvider = jest.fn();
+const mockClearAdminConversationContext = jest.fn();
 
 jest.mock("../src/core/ai", () => ({
   aiService: {
@@ -8,12 +9,11 @@ jest.mock("../src/core/ai", () => ({
   },
 }));
 
-const mockClearConversationContext = jest.fn();
-const mockResetHermesSession = jest.fn();
-
-jest.mock("../src/core/conversation-context-store", () => ({
-  clearConversationContext: mockClearConversationContext,
+jest.mock("../src/core/admin-conversation-context-store", () => ({
+  clearAdminConversationContext: mockClearAdminConversationContext,
 }));
+
+const mockResetHermesSession = jest.fn();
 
 jest.mock("../src/core/hermes-session-store", () => ({
   resetHermesSession: mockResetHermesSession,
@@ -91,21 +91,21 @@ describe("hermes command", () => {
     expect(message.reply).toHaveBeenCalledWith("⛔ 관리자 권한이 없습니다.");
   });
 
-  test("clears Hermes conversation context for the admin", async () => {
+  test("clears Hermes session for the admin", async () => {
     const message = createMessage();
 
     await command.execute(message, ["초기화"]);
 
-    expect(mockClearConversationContext).toHaveBeenCalledWith(
-      "owner-id",
-      "channel-id",
-    );
     expect(mockResetHermesSession).toHaveBeenCalledWith(
       "owner-id",
       "channel-id",
     );
+    expect(mockClearAdminConversationContext).toHaveBeenCalledWith(
+      "owner-id",
+      "channel-id",
+    );
     expect(message.reply).toHaveBeenCalledWith(
-      "✅ 현재 채널의 Hermes 대화 맥락과 세션을 초기화했습니다.",
+      "✅ 현재 채널의 Hermes 세션과 관리자 대화 기억을 초기화했습니다.",
     );
   });
 });
