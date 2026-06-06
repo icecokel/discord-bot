@@ -20,6 +20,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate command registry
+        run: npm run gen:registry
+
       - name: Run tests
         run: npm test -- --runInBand
 
