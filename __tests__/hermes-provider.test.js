@@ -47,7 +47,7 @@ describe("HermesProvider", () => {
       "hermes",
       ["-z", "Say hello", "--toolsets", "", "--ignore-rules"],
       expect.objectContaining({
-        timeout: 60000,
+        timeout: 30 * 60 * 1000,
         maxBuffer: 1024 * 1024,
         env: expect.objectContaining({
           PATH: expect.stringContaining("/Users/tester/.local/bin"),

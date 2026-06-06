@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import { BaseProvider, IGenerationOptions } from "./base-provider";
 
 const execFileAsync = promisify(execFile);
-const DEFAULT_TIMEOUT_MS = 60000;
+const DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_MAX_BUFFER = 1024 * 1024;
 const DEFAULT_TOOLSETS = "";
 

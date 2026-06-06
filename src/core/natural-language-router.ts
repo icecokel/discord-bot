@@ -9,8 +9,9 @@ import { getHermesSessionName } from "./hermes-session-store";
 
 const FINDING_INFO_MESSAGE = "필요한 정보를 찾고 있습니다...";
 const ORGANIZING_ANSWER_MESSAGE = "답변을 정리하고 있습니다...";
-const LONG_WAIT_MESSAGE = "조금만 더 확인해보겠습니다...";
-const LONG_WAIT_MS = 10_000;
+const BACKGROUND_NOTICE_MESSAGE =
+  "요청 확인했습니다. 작업이 길어지고 있어 완료되면 따로 보고드리겠습니다.";
+const BACKGROUND_NOTICE_MS = 60_000;
 const DEFAULT_HERMES_ADMIN_TOOLSETS =
   "web,browser,terminal,file,code_execution,discord-bot-fs";
 
@@ -44,6 +45,24 @@ const sendLongReply = async (
   await initialMessage.edit(firstChunk);
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
+    if (chunk) {
+      await (message.channel as any).send(chunk);
+    }
+  }
+};
+
+const sendLongChannelMessage = async (
+  message: Message,
+  text: string,
+): Promise<void> => {
+  const chunks = text.match(/[\s\S]{1,1900}/g) || [];
+
+  if (chunks.length === 0) {
+    await (message.channel as any).send("답변을 생성하지 못했습니다.");
+    return;
+  }
+
+  for (const chunk of chunks) {
     if (chunk) {
       await (message.channel as any).send(chunk);
     }
@@ -106,11 +125,8 @@ const answerWithAdminHermes = async (
   const prompt = hasDiscordAttachments(message)
     ? `${basePrompt}\n\n${await buildDiscordMessageContext(message)}`
     : basePrompt;
-  const longWaitTimer = setTimeout(() => {
-    void editProgressMessage(waitMessage, LONG_WAIT_MESSAGE);
-  }, LONG_WAIT_MS);
 
-  try {
+  const answerPromise = (async (): Promise<string> => {
     const result = await aiService.generateTextWithProvider(prompt, {
       systemInstruction: ADMIN_AI_ANSWER_SYSTEM_PROMPT,
       tools: searchService.getTools(),
@@ -122,19 +138,62 @@ const answerWithAdminHermes = async (
       hermesToolsets:
         process.env.HERMES_ADMIN_TOOLSETS || DEFAULT_HERMES_ADMIN_TOOLSETS,
     });
-    clearTimeout(longWaitTimer);
-    await editProgressMessage(waitMessage, ORGANIZING_ANSWER_MESSAGE);
+
     appendAdminConversationTurn(message.author.id, message.channel.id, {
       user: userMessage,
       assistant: result.text,
     });
-    await sendLongReply(
-      message,
-      waitMessage,
-      `${getAiAnswerPrefix(result)}${result.text}`,
+    return `${getAiAnswerPrefix(result)}${result.text}`;
+  })();
+
+  let backgroundNoticeTimer: NodeJS.Timeout | undefined;
+  const backgroundNoticePromise = new Promise<"background">((resolve) => {
+    backgroundNoticeTimer = setTimeout(
+      () => resolve("background"),
+      BACKGROUND_NOTICE_MS,
     );
+  });
+
+  const answerOutcome = answerPromise
+    .then((text) => ({ kind: "answer" as const, text }))
+    .catch((error) => ({ kind: "error" as const, error }));
+
+  const firstOutcome = await Promise.race([
+    answerOutcome,
+    backgroundNoticePromise.then((kind) => ({ kind })),
+  ]);
+
+  if (firstOutcome.kind === "background") {
+    await editProgressMessage(waitMessage, BACKGROUND_NOTICE_MESSAGE);
+    void answerPromise
+      .then((text) => sendLongChannelMessage(message, text))
+      .catch(async (error: any) => {
+        console.error(
+          "[NaturalLanguage] 백그라운드 Hermes 답변 실패:",
+          error.message,
+        );
+        await sendLongChannelMessage(
+          message,
+          "Hermes 작업이 완료되지 못했습니다. 범위를 줄여 다시 요청해주세요.",
+        );
+      });
+
+    return true;
+  }
+
+  if (backgroundNoticeTimer) {
+    clearTimeout(backgroundNoticeTimer);
+  }
+
+  if (firstOutcome.kind === "answer") {
+    await editProgressMessage(waitMessage, ORGANIZING_ANSWER_MESSAGE);
+    await sendLongReply(message, waitMessage, firstOutcome.text);
+    return true;
+  }
+
+  try {
+    throw firstOutcome.error;
   } catch (error: any) {
-    clearTimeout(longWaitTimer);
     console.error("[NaturalLanguage] 관리자 Hermes 답변 실패:", error.message);
     await waitMessage.edit("답변 생성 중 오류가 발생했습니다.");
   }

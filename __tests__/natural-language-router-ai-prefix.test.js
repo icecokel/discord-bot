@@ -224,49 +224,42 @@ describe("natural language router admin Hermes answer", () => {
     expect(prompt).toContain("fallback_image_reference: local_file");
   });
 
-  test("shows an extended wait message when admin Hermes answer takes longer", async () => {
-    const setTimeoutSpy = jest
-      .spyOn(global, "setTimeout")
-      .mockImplementation((callback) => {
-        callback();
-        return 0;
-      });
-    const clearTimeoutSpy = jest
-      .spyOn(global, "clearTimeout")
-      .mockImplementation(() => undefined);
+  test("sends a follow-up message when admin Hermes answer takes longer", async () => {
+    jest.useFakeTimers();
 
-    try {
-      let resolveAnswer;
-      aiService.generateTextWithProvider.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveAnswer = resolve;
-          }),
-      );
-      const message = createMessage({ content: "시간이 걸리는 질문" });
+    let resolveAnswer;
+    aiService.generateTextWithProvider.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAnswer = resolve;
+        }),
+    );
+    const message = createMessage({ content: "시간이 걸리는 질문" });
 
-      const handling = handleNaturalLanguageMessage(message);
-      for (let index = 0; index < 10; index += 1) {
-        await Promise.resolve();
-      }
-
-      const waitMessage = await message.reply.mock.results[0].value;
+    const handling = handleNaturalLanguageMessage(message);
+    for (let index = 0; index < 10; index += 1) {
       await Promise.resolve();
-
-      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10000);
-      expect(waitMessage.edit).toHaveBeenCalledWith(
-        "조금만 더 확인해보겠습니다...",
-      );
-
-      resolveAnswer({
-        providerName: "hermes",
-        text: "늦은 답변입니다.",
-        usedFallback: false,
-      });
-      await handling;
-    } finally {
-      setTimeoutSpy.mockRestore();
-      clearTimeoutSpy.mockRestore();
     }
+
+    const waitMessage = await message.reply.mock.results[0].value;
+    jest.advanceTimersByTime(60000);
+    await handling;
+
+    expect(waitMessage.edit).toHaveBeenCalledWith(
+      "요청 확인했습니다. 작업이 길어지고 있어 완료되면 따로 보고드리겠습니다.",
+    );
+    expect(message.channel.send).not.toHaveBeenCalled();
+
+    resolveAnswer({
+      providerName: "hermes",
+      text: "늦은 답변입니다.",
+      usedFallback: false,
+    });
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+
+    expect(message.channel.send).toHaveBeenCalledWith("[Hermes] 늦은 답변입니다.");
+    jest.useRealTimers();
   });
 });

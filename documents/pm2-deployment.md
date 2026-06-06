@@ -82,12 +82,14 @@ ssh icenux-ms7b23 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scrip
 AI_PROVIDER=hermes
 AI_FALLBACK_PROVIDER=gemini
 HERMES_BIN=/home/icenux/.local/bin/hermes
-HERMES_TIMEOUT_MS=60000
+HERMES_TIMEOUT_MS=1800000
 HERMES_TOOLSETS=web
 HERMES_ADMIN_TOOLSETS=web,browser,terminal,file,code_execution,discord-bot-fs
 ```
 
 Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 관리자 DM의 AI 답변 공급자로만 사용한다. 관리자 DM은 Hermes session을 사용하고, 봇이 관리자 최근 대화 10턴을 prompt에 함께 포함한다. session 호출 실패 시 Hermes oneshot으로 한 번 재시도한다. 일반 DM의 AI 답변과 bot-managed 압축 기억은 사용하지 않는다. 봇은 현재 관리자 Discord 메시지와 첨부 메타데이터를 bridge context로 정리해 prompt에 포함하고, 이미지 첨부는 Discord CDN URL을 우선 참조하되 URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공한다. Discord 쓰기/삭제/관리 tool은 Hermes에 열지 않는다. 관리자 DM은 `HERMES_ADMIN_TOOLSETS`로 브라우저 자동화, 서버 파일, 터미널, 코드 실행, `discord-bot-fs` MCP toolset을 별도로 사용한다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
+
+관리자 Hermes 요청이 60초 안에 끝나면 상태 메시지를 최종 답변으로 수정한다. 60초를 넘기면 완료 후 별도 보고하겠다는 선응답을 남기고, Hermes 작업은 최대 30분까지 백그라운드로 계속 실행한 뒤 새 메시지로 결과를 보낸다.
 
 `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP이다. `~/.hermes/config.yaml`의 `mcp_servers.discord-bot-fs.tools.include`에는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`만 포함한다. `write_file`, `edit_file`, `create_directory`, `move_file`은 포함하지 않는다.
 
