@@ -9,7 +9,12 @@ export const shouldProcessMessage = (
 };
 
 export const shouldProcessNaturalLanguageMessage = (
-  message: Pick<Message, "channel">,
+  message: Pick<Message, "author" | "channel">,
+  adminId?: string,
 ): boolean => {
-  return message.channel.type === ChannelType.DM;
+  return Boolean(
+    adminId &&
+      message.author.id === adminId &&
+      message.channel.type === ChannelType.DM,
+  );
 };

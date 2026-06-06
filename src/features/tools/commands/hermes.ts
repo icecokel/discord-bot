@@ -1,6 +1,6 @@
 import { Message } from "discord.js";
+import { clearAdminConversationContext } from "../../../core/admin-conversation-context-store";
 import { aiService } from "../../../core/ai";
-import { clearConversationContext } from "../../../core/conversation-context-store";
 import { resetHermesSession } from "../../../core/hermes-session-store";
 
 const ADMIN_ONLY_MESSAGE = "⛔ 관리자 권한이 없습니다.";
@@ -65,10 +65,10 @@ export default {
     }
 
     if (action === "clear") {
-      clearConversationContext(message.author.id, message.channel.id);
+      clearAdminConversationContext(message.author.id, message.channel.id);
       resetHermesSession(message.author.id, message.channel.id);
       await message.reply(
-        "✅ 현재 채널의 Hermes 대화 맥락과 세션을 초기화했습니다.",
+        "✅ 현재 채널의 Hermes 세션과 관리자 대화 기억을 초기화했습니다.",
       );
       return;
     }

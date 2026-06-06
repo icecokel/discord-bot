@@ -45,12 +45,22 @@ describe("message guard", () => {
     expect(shouldProcessMessage(createMessage(), undefined)).toBe(true);
   });
 
-  test("allows natural language handling only in DM", () => {
-    expect(shouldProcessNaturalLanguageMessage(createMessage())).toBe(true);
+  test("allows natural language handling only in admin DM", () => {
+    expect(
+      shouldProcessNaturalLanguageMessage(createMessage(), "owner-id"),
+    ).toBe(true);
+    expect(
+      shouldProcessNaturalLanguageMessage(
+        createMessage({ userId: "other-id" }),
+        "owner-id",
+      ),
+    ).toBe(false);
     expect(
       shouldProcessNaturalLanguageMessage(
         createMessage({ channelType: ChannelType.GuildText }),
+        "owner-id",
       ),
     ).toBe(false);
+    expect(shouldProcessNaturalLanguageMessage(createMessage())).toBe(false);
   });
 });
