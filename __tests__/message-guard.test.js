@@ -1,5 +1,8 @@
 const { ChannelType } = require("discord.js");
-const { shouldProcessMessage } = require("../src/core/message-guard");
+const {
+  shouldProcessMessage,
+  shouldProcessNaturalLanguageMessage,
+} = require("../src/core/message-guard");
 
 const createMessage = ({
   bot = false,
@@ -16,8 +19,11 @@ const createMessage = ({
 });
 
 describe("message guard", () => {
-  test("accepts only project owner DM messages", () => {
+  test("accepts user messages regardless of admin ownership", () => {
     expect(shouldProcessMessage(createMessage(), "owner-id")).toBe(true);
+    expect(
+      shouldProcessMessage(createMessage({ userId: "other-id" }), "owner-id"),
+    ).toBe(true);
   });
 
   test("rejects bot messages", () => {
@@ -26,22 +32,35 @@ describe("message guard", () => {
     );
   });
 
-  test("rejects non-DM messages from the owner", () => {
+  test("accepts guild user messages for prefix command handling", () => {
     expect(
       shouldProcessMessage(
         createMessage({ channelType: ChannelType.GuildText }),
         "owner-id",
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  test("rejects DM messages from non-owner users", () => {
+  test("accepts user messages when owner id is missing", () => {
+    expect(shouldProcessMessage(createMessage(), undefined)).toBe(true);
+  });
+
+  test("allows natural language handling only in admin DM", () => {
     expect(
-      shouldProcessMessage(createMessage({ userId: "other-id" }), "owner-id"),
+      shouldProcessNaturalLanguageMessage(createMessage(), "owner-id"),
+    ).toBe(true);
+    expect(
+      shouldProcessNaturalLanguageMessage(
+        createMessage({ userId: "other-id" }),
+        "owner-id",
+      ),
     ).toBe(false);
-  });
-
-  test("rejects all user messages when owner id is missing", () => {
-    expect(shouldProcessMessage(createMessage(), undefined)).toBe(false);
+    expect(
+      shouldProcessNaturalLanguageMessage(
+        createMessage({ channelType: ChannelType.GuildText }),
+        "owner-id",
+      ),
+    ).toBe(false);
+    expect(shouldProcessNaturalLanguageMessage(createMessage())).toBe(false);
   });
 });
