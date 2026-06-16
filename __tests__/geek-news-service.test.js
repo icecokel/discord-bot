@@ -17,6 +17,7 @@ const {
 const {
   normalizeGeekNewsHistoryUrl,
 } = require("../src/utils/geek-news-history-store");
+const { aiService } = require("../src/core/ai");
 const geekNewsService =
   require("../src/features/daily_news/geek-news-service").default;
 
@@ -516,5 +517,120 @@ describe("GeekNews channel delivery", () => {
     );
 
     fetchFeaturedItemResultSpy.mockRestore();
+  });
+
+  test("translates featured item with Hermes only without Gemini key", async () => {
+    const originalGeminiKey = process.env.GEMINI_AI_API_KEY;
+    delete process.env.GEMINI_AI_API_KEY;
+
+    const fetchListItemsSpy = jest
+      .spyOn(geekNewsService, "fetchListItems")
+      .mockResolvedValue({
+        items: [
+          {
+            rank: 1,
+            title: "Original title",
+            link: "https://example.com/story",
+            points: 42,
+            description: "Original description",
+          },
+        ],
+      });
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      url: "https://example.com/story",
+      text: jest.fn().mockResolvedValue(`
+        <article>
+          <p>Original article body with enough content to parse as article text.</p>
+          <p>Second paragraph for the translation payload.</p>
+        </article>
+      `),
+    });
+    const aiSpy = jest
+      .spyOn(aiService, "generateTextWithProviderOnly")
+      .mockResolvedValue({
+        providerName: "hermes",
+        text: JSON.stringify({
+          title: "번역된 제목",
+          body: "한국어 번역 본문입니다.",
+          reason: "오늘 살펴볼 만한 기술 변화입니다.",
+        }),
+        usedFallback: false,
+      });
+
+    try {
+      const result = await geekNewsService.fetchFeaturedItemResult();
+
+      expect(result.status).toBe("ok");
+      expect(result.item).toMatchObject({
+        translatedTitle: "번역된 제목",
+        translatedBody: "한국어 번역 본문입니다.",
+        selectionReason: "오늘 살펴볼 만한 기술 변화입니다.",
+      });
+      expect(aiSpy).toHaveBeenCalledWith(
+        "hermes",
+        expect.any(String),
+        expect.objectContaining({
+          responseMimeType: "application/json",
+        }),
+      );
+    } finally {
+      if (originalGeminiKey === undefined) {
+        delete process.env.GEMINI_AI_API_KEY;
+      } else {
+        process.env.GEMINI_AI_API_KEY = originalGeminiKey;
+      }
+      fetchListItemsSpy.mockRestore();
+      fetchSpy.mockRestore();
+      aiSpy.mockRestore();
+    }
+  });
+
+  test("returns visible failure reason when Hermes translation fails", async () => {
+    const fetchListItemsSpy = jest
+      .spyOn(geekNewsService, "fetchListItems")
+      .mockResolvedValue({
+        items: [
+          {
+            rank: 1,
+            title: "Original title",
+            link: "https://example.com/story",
+            points: 42,
+            description: "Original description",
+          },
+        ],
+      });
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      url: "https://example.com/story",
+      text: jest.fn().mockResolvedValue("<article>Original body</article>"),
+    });
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const aiSpy = jest
+      .spyOn(aiService, "generateTextWithProviderOnly")
+      .mockRejectedValue(new Error("Hermes unavailable"));
+
+    try {
+      const result = await geekNewsService.fetchFeaturedItemResult();
+
+      expect(result).toEqual({
+        status: "fetch-failed",
+        item: null,
+        reason:
+          "긱뉴스 Hermes 번역에 실패했습니다: Hermes unavailable",
+      });
+
+      const embed = geekNewsService.createEmbed(null, {
+        fallbackDescription: result.reason,
+      });
+      expect(embed.toJSON().description).toBe(
+        "긱뉴스 Hermes 번역에 실패했습니다: Hermes unavailable",
+      );
+    } finally {
+      fetchListItemsSpy.mockRestore();
+      fetchSpy.mockRestore();
+      consoleSpy.mockRestore();
+      aiSpy.mockRestore();
+    }
   });
 });

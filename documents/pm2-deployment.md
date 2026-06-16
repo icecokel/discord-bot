@@ -91,6 +91,8 @@ Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 
 
 관리자 Hermes 요청이 60초 안에 끝나면 상태 메시지를 최종 답변으로 수정한다. 60초를 넘기면 완료 후 별도 보고하겠다는 선응답을 남기고, Hermes 작업은 최대 30분까지 백그라운드로 계속 실행한 뒤 새 메시지로 결과를 보낸다.
 
+긱뉴스 스케줄러의 AI 요약/번역은 Gemini fallback을 사용하지 않고 Hermes만 호출한다. Hermes 요약/번역이 실패하면 원문 기반 대체 번역을 보내지 않고, 관리자 DM embed에 실패 사유를 표시한다.
+
 `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP이다. `~/.hermes/config.yaml`의 `mcp_servers.discord-bot-fs.tools.include`에는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`만 포함한다. `write_file`, `edit_file`, `create_directory`, `move_file`은 포함하지 않는다.
 
 관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
@@ -101,7 +103,7 @@ Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 
 ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
 ```
 
-정상 출력은 한 문장 이상의 응답 문장이다. Codex OAuth 또는 Hermes 오류가 발생하면 `AI_FALLBACK_PROVIDER`를 통해 fallback provider로 전환된다.
+정상 출력은 한 문장 이상의 응답 문장이다. 관리자 DM 일반 Hermes 응답은 공급자 설정을 따르지만, 긱뉴스 AI 요약/번역은 Hermes 전용으로 실행되며 fallback provider로 전환하지 않는다.
 
 이 Hermes 통합은 새로운 런타임/데이터 파일명을 추가하지 않는다. 저장소에 새로 추가하는 파일은 kebab-case를 따라야 하며, `README.md`는 기존 conventional 파일명이다.
 

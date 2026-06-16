@@ -82,6 +82,8 @@ const GEEK_NEWS_PARSE_FAILED_MESSAGE =
   "긱뉴스 메인 페이지는 열렸지만 기사 항목을 찾지 못했습니다. 사이트 화면 구조가 바뀌었을 수 있습니다. 잠시 후 다시 시도해주세요.";
 const GEEK_NEWS_ALREADY_SENT_MESSAGE =
   "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
+const GEEK_NEWS_AI_FAILED_MESSAGE =
+  "긱뉴스 Hermes 번역에 실패했습니다. Hermes 상태를 확인한 뒤 다시 시도해주세요.";
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -120,6 +122,38 @@ const formatGeekNewsFetchFailureReason = (error: unknown): string => {
   }
 
   return GEEK_NEWS_FETCH_FAILED_MESSAGE;
+};
+
+const formatGeekNewsAiFailureReason = (
+  stage: "요약" | "번역",
+  error: unknown,
+): string => {
+  const candidate = error as {
+    killed?: boolean;
+    signal?: string;
+    message?: string;
+  };
+
+  if (candidate?.killed && candidate?.signal === "SIGTERM") {
+    return `긱뉴스 Hermes ${stage}에 실패했습니다. Hermes 실행 시간이 초과되었습니다.`;
+  }
+
+  const rawMessage =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  const firstLine = rawMessage
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+
+  if (!firstLine) {
+    return `긱뉴스 Hermes ${stage}에 실패했습니다. Hermes가 오류를 반환했습니다.`;
+  }
+
+  return `긱뉴스 Hermes ${stage}에 실패했습니다: ${truncateText(firstLine, 500)}`;
 };
 
 const normalizeLink = (href: string): string => {
@@ -679,15 +713,9 @@ class GeekNewsService {
       return items;
     }
 
-    if (!process.env.GEMINI_AI_API_KEY) {
-      return items.map((item) => ({
-        ...item,
-        summary: buildGeekNewsFallbackSummary(item.description, item.title),
-      }));
-    }
-
     try {
-      const rawResponse = await aiService.generateText(
+      const result = await aiService.generateTextWithProviderOnly(
+        "hermes",
         this.buildSummaryPrompt(items),
         {
           systemInstruction:
@@ -699,6 +727,7 @@ class GeekNewsService {
           },
         },
       );
+      const rawResponse = result.text;
 
       const summaryMap = new Map(
         parseGeekNewsSummaryResponse(rawResponse).map((item) => [
@@ -706,6 +735,10 @@ class GeekNewsService {
           item.summary,
         ]),
       );
+
+      if (summaryMap.size === 0) {
+        throw new Error("Hermes 요약 응답을 JSON으로 파싱하지 못했습니다.");
+      }
 
       return items.map((item) => ({
         ...item,
@@ -716,15 +749,8 @@ class GeekNewsService {
         ),
       }));
     } catch (error) {
-      console.error("[GeekNewsService] AI 요약 실패:", error);
-      return items.map((item) => ({
-        ...item,
-        summary: resolveGeekNewsSummary(
-          undefined,
-          item.description,
-          item.title,
-        ),
-      }));
+      console.error("[GeekNewsService] Hermes 요약 실패:", error);
+      throw new Error(formatGeekNewsAiFailureReason("요약", error));
     }
   }
 
@@ -804,22 +830,9 @@ class GeekNewsService {
       item.link,
     );
 
-    if (!process.env.GEMINI_AI_API_KEY) {
-      return {
-        ...item,
-        sourceUrl,
-        sourceContent,
-        translatedTitle: cleanText(item.title),
-        translatedBody: buildGeekNewsFallbackTranslation(
-          sourceContent,
-          item.description,
-          item.title,
-        ),
-      };
-    }
-
     try {
-      const rawResponse = await aiService.generateText(
+      const result = await aiService.generateTextWithProviderOnly(
+        "hermes",
         this.buildTranslationPrompt(item, sourceContent),
         {
           systemInstruction:
@@ -831,40 +844,40 @@ class GeekNewsService {
           },
         },
       );
+      const rawResponse = result.text;
 
       const translation = parseGeekNewsTranslationResponse(rawResponse);
+      if (!translation) {
+        throw new Error("Hermes 번역 응답을 JSON으로 파싱하지 못했습니다.");
+      }
+
+      const translatedTitle = cleanText(translation.title);
+      const translatedBody = cleanTranslatedBodyText(translation.body);
+      const selectionReason = cleanReasonText(translation.reason);
+
+      if (!isKoreanSummary(translatedTitle)) {
+        throw new Error("Hermes 번역 제목이 한국어가 아닙니다.");
+      }
+
+      if (!isKoreanSummary(translatedBody)) {
+        throw new Error("Hermes 번역 본문이 한국어가 아닙니다.");
+      }
+
+      if (!isKoreanSummary(selectionReason)) {
+        throw new Error("Hermes 선정 이유가 한국어가 아닙니다.");
+      }
 
       return {
         ...item,
         sourceUrl,
         sourceContent,
-        translatedTitle: resolveGeekNewsTranslatedTitle(
-          translation?.title,
-          item.title,
-        ),
-        translatedBody: resolveGeekNewsTranslatedBody(
-          translation?.body,
-          sourceContent,
-          item.description,
-          item.title,
-        ),
-        selectionReason: resolveGeekNewsSelectionReason(translation?.reason, item),
+        translatedTitle,
+        translatedBody,
+        selectionReason,
       };
     } catch (error) {
-      console.error("[GeekNewsService] 본문 번역 실패:", error);
-      return {
-        ...item,
-        sourceUrl,
-        sourceContent,
-        translatedTitle: cleanText(item.title),
-        translatedBody: resolveGeekNewsTranslatedBody(
-          undefined,
-          sourceContent,
-          item.description,
-          item.title,
-        ),
-        selectionReason: resolveGeekNewsSelectionReason(undefined, item),
-      };
+      console.error("[GeekNewsService] Hermes 본문 번역 실패:", error);
+      throw new Error(formatGeekNewsAiFailureReason("번역", error));
     }
   }
 
@@ -896,10 +909,21 @@ class GeekNewsService {
       };
     }
 
-    return {
-      status: "ok",
-      item: await this.translateFeaturedItem(featuredItem),
-    };
+    try {
+      return {
+        status: "ok",
+        item: await this.translateFeaturedItem(featuredItem),
+      };
+    } catch (error) {
+      return {
+        status: "fetch-failed",
+        item: null,
+        reason:
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : GEEK_NEWS_AI_FAILED_MESSAGE,
+      };
+    }
   }
 
   async fetchFeaturedItem(): Promise<GeekNewsItem | null> {

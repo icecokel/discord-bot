@@ -103,6 +103,8 @@ Hermes는 디스코드 봇 안에서 관리자 AI provider로 사용합니다. H
 
 Hermes 응답이 60초 안에 끝나면 기존 상태 메시지를 최종 답변으로 수정합니다. 60초를 넘기면 먼저 "완료되면 따로 보고" 메시지를 남기고, Hermes 작업은 최대 30분까지 계속 실행한 뒤 새 메시지로 결과를 보고합니다.
 
+긱뉴스 스케줄러의 AI 요약/번역은 Gemini 키 유무와 무관하게 Hermes만 사용합니다. Hermes 요약/번역이 실패하면 Gemini fallback이나 원문 기반 대체 번역을 사용하지 않고, 관리자 DM embed에 실패 사유를 표시합니다.
+
 `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP입니다. 허용 도구는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`이고, `write_file`, `edit_file`, `create_directory`, `move_file`은 allowlist에 포함하지 않습니다.
 
 관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않습니다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문합니다.
