@@ -17,25 +17,37 @@ jest.mock("../src/features/daily_news/geek-news-service", () => ({
 }));
 
 const {
-  filterOwnerNotificationUsers,
+  resolveAdminWeatherNotificationUsers,
   PrivateScheduler,
 } = require("../src/core/scheduler/private-scheduler");
 
 describe("private scheduler owner-only filtering", () => {
-  test("keeps only the admin notification target", () => {
+  test("uses the configured admin weather region without user preferences", () => {
+    expect(
+      resolveAdminWeatherNotificationUsers([], "admin-id", "부산"),
+    ).toEqual([{ userId: "admin-id", region: "부산" }]);
+  });
+
+  test("falls back to the admin preference region when no weather region is configured", () => {
     const users = [
       { userId: "admin-id", region: "서울" },
       { userId: "other-id", region: "부산" },
     ];
 
-    expect(filterOwnerNotificationUsers(users, "admin-id")).toEqual([
+    expect(resolveAdminWeatherNotificationUsers(users, "admin-id")).toEqual([
       { userId: "admin-id", region: "서울" },
     ]);
   });
 
-  test("keeps no notification targets when admin id is missing", () => {
+  test("uses a default admin weather region when admin preference is missing", () => {
+    expect(resolveAdminWeatherNotificationUsers([], "admin-id")).toEqual([
+      { userId: "admin-id", region: "서울" },
+    ]);
+  });
+
+  test("keeps no weather target when admin id is missing", () => {
     expect(
-      filterOwnerNotificationUsers([{ userId: "admin-id", region: "서울" }]),
+      resolveAdminWeatherNotificationUsers([{ userId: "admin-id", region: "서울" }]),
     ).toEqual([]);
   });
 });

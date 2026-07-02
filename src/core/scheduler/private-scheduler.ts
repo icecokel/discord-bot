@@ -12,15 +12,34 @@ import geekNewsService from "../../features/daily_news/geek-news-service";
 type WeatherNotificationTarget = "today" | "tomorrow";
 
 const GEEK_NEWS_CRON = "0 8 * * *";
+const DEFAULT_ADMIN_WEATHER_REGION = "서울";
 const GEEK_NEWS_FALLBACK_MESSAGE =
   "긱뉴스 알림을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.";
 
-export const filterOwnerNotificationUsers = (
+const normalizeRegion = (region: string | undefined): string | null => {
+  const trimmed = region?.trim();
+  return trimmed ? trimmed : null;
+};
+
+export const resolveAdminWeatherNotificationUsers = (
   users: { userId: string; region: string }[],
   ownerId: string | undefined = process.env.ADMIN_ID,
+  configuredRegion: string | undefined = process.env.WEATHER_ADMIN_REGION,
 ): { userId: string; region: string }[] => {
   if (!ownerId) return [];
-  return users.filter((user) => user.userId === ownerId);
+
+  const configured = normalizeRegion(configuredRegion);
+  if (configured) {
+    return [{ userId: ownerId, region: configured }];
+  }
+
+  const ownerPreference = users.find((user) => user.userId === ownerId);
+  return [
+    {
+      userId: ownerId,
+      region: normalizeRegion(ownerPreference?.region) || DEFAULT_ADMIN_WEATHER_REGION,
+    },
+  ];
 };
 
 export class PrivateScheduler {
@@ -78,9 +97,11 @@ export class PrivateScheduler {
           `[PrivateScheduler] ${scheduleLabel} ${targetLabel} 날씨 알림 시작`,
         );
 
-        const users = filterOwnerNotificationUsers(getAllUsersWithNotification());
+        const users = resolveAdminWeatherNotificationUsers(
+          getAllUsersWithNotification(),
+        );
         console.log(
-          `[PrivateScheduler] 날씨 알림 대상 유저: ${users.length}명`,
+          `[PrivateScheduler] 운영자 날씨 알림 대상: ${users.length}명`,
         );
 
         for (const { userId, region } of users) {

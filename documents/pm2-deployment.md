@@ -28,7 +28,7 @@ npm run build
 
 스케줄러는 별도 cron이나 별도 PM2 프로세스가 아니라 `discord-bot` PM2 프로세스 안에서 초기화된다.
 
-- 날씨 DM: 알림을 켠 관리자에게 매일 06:30 오늘 날씨, 22:30 내일 날씨를 보낸다.
+- 날씨 DM: `ADMIN_ID` 운영자에게 매일 06:30 오늘 날씨, 22:30 내일 날씨를 보낸다. 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용한다.
 - 긱뉴스 DM: 매일 08:00 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보낸다.
 
 ## 상태 확인
@@ -70,7 +70,11 @@ ssh icenux-ms7b23 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scrip
 - `GEMINI_MODEL`
 - `NAVER_APP_CLIENT_ID`
 - `NAVER_APP_CLIENT_SECRET`
-- `WEATHER_*`
+- `WEATHER_ADMIN_REGION`
+- `WEATHER_SHORT_END_POINT`
+- `WEATHER_SHORT_API_KRY`
+- `WEATHER_MIDDLE_END_POINT`
+- `WEATHER_MIDDLE_API_KEY`
 
 `.env`는 저장소에 커밋하지 않는다.
 
