@@ -1,169 +1,53 @@
-# 기존 Hermes 에이전트 목표 문서
+# Legacy Hermes Provider Notes
 
 ## 상태
 
-이 문서는 기존 Hermes provider 운영 기준을 보존한 historical 문서다. 현재 운영 기준은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조이며, 기준 문서는 `documents/codex-app-server-provider.md`다.
+이 문서는 과거 Hermes 에이전트 운영 목표를 현재 구현 기준으로 정리한 legacy 참고 문서다. 현재 운영 기준은 `documents/codex-app-server-provider.md`이며, icenux 운영 기본값은 `AI_PROVIDER=codex`다.
 
-## 한 줄 목표
+## 현재 결론
 
-Hermes는 과거 운영에서 자연어 명령어 판별기가 아니라, icenux 서버에 상주하며 관리자 작업, 리서치, 도구 실행, 장기 맥락을 담당하는 개인 작업 에이전트로 운영했다.
+- Hermes gateway는 사용하지 않는다.
+- `HermesProvider` 구현은 legacy provider로 남아 있지만 현재 기본 경로가 아니다.
+- `!헤르메스` prefix 명령은 Hermes를 켜지 않고 Codex 제어 호환 alias로 동작한다.
+- `!헤르메스 켜기`는 `AI_PROVIDER`를 런타임에서 `codex`로 바꾼다.
+- `!헤르메스 끄기`는 primary provider를 `gemini`로 바꾼다.
+- `!헤르메스 초기화`는 관리자 대화 기억, Codex thread 매핑, legacy Hermes session 매핑을 함께 지운다.
 
-## 배경
+## 남겨 둔 이유
 
-Hermes를 단순 자연어 봇으로 쓰면 서버 작업 에이전트로서의 장점이 흐려진다. 이 프로젝트에서 Hermes의 가치는 자연어 입력 자체가 아니라, 서버에 붙어 있는 세션형 에이전트가 웹, 브라우저, 터미널, 파일 조회, MCP 도구를 상황에 맞게 사용하는 데 있다.
+Hermes 관련 코드는 즉시 제거하지 않고 다음 목적의 호환 계층으로 남긴다.
 
-조사 기준으로 Hermes 사용자는 대체로 다음 기대를 가지고 세팅한다.
+- 기존 운영 습관상 `!헤르메스` 명령을 입력해도 Codex 제어가 동작하게 한다.
+- `AI_PROVIDER=hermes`로 수동 전환할 수 있는 legacy provider 코드를 보존한다.
+- 과거 Hermes session 매핑이 남아 있어도 Codex 초기화와 함께 정리되도록 한다.
 
-- 여러 채널에서 호출 가능한 상주형 개인 에이전트
-- 장기 기억과 세션 기반 맥락 유지
-- MCP와 toolset을 통한 외부 시스템 접근
-- 웹 검색, 브라우저 자동화, 파일 조회, 터미널 실행 같은 실제 작업 수행
-- 스케줄러와 자동화 작업의 판단/요약/보고
-- 강한 도구를 열되, 위험 작업은 확인 후 실행하는 운영 하네스
+## 현재 관리자 AI 구조
 
-참고 자료:
+현재 관리자 DM 자연어 경로는 Codex app-server를 사용한다.
 
-- Hermes Agent 공식 사이트: `https://hermes-agent.ai/`
-- NousResearch Hermes Agent: `https://github.com/NousResearch/hermes-agent`
-- Hermes tools 문서: `https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/tools.md`
-- Hermes MCP 문서: `https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/mcp.md`
+```text
+Discord 관리자 DM
+  -> natural-language-router
+  -> aiService
+  -> CodexProvider
+  -> codex app-server
+```
 
-## 제품 역할 분리
+관리자 DM 채널별 Codex thread 매핑은 메모리 기반이다. 봇은 관리자 최근 대화 10턴도 별도로 prompt에 포함한다.
 
-### 디스코드 봇
+## 안전 경계
 
-디스코드 봇은 사용자 입력을 받고, 권한을 확인하고, 최종 응답을 전송하는 게이트웨이다.
+과거 Hermes 운영에서 정한 안전 경계는 현재 Codex 운영에도 그대로 적용한다.
 
-담당 범위:
+- Discord 메시지 전송, 삭제, 채널 관리 도구는 AI provider에 제공하지 않는다.
+- 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단은 바로 실행하지 않는다.
+- 위험 작업은 대상, 영향 범위, 되돌리는 방법을 요약한 뒤 사용자 확인을 받아야 한다.
+- 토큰, 비밀번호, 개인키 같은 민감정보 값은 출력하지 않는다.
 
-- 관리자 DM 명령어 처리
-- `/질문` 관리자 단발 AI 답변 처리
-- 관리자용 `!헤르메스` 제어 명령 처리
-- 관리자 DM 조건 확인
-- Discord 메시지, 첨부, 채널 정보를 검증된 컨텍스트로 정리
-- Hermes 응답을 Discord에 최종 전송
+## 제거 검토 조건
 
-디스코드 봇은 Hermes에게 Discord 쓰기, 삭제, 관리 권한을 직접 넘기지 않는다.
+아래 조건을 만족하면 legacy Hermes provider와 `!헤르메스` alias 제거를 검토할 수 있다.
 
-### Hermes
-
-Hermes는 과거 구현에서 관리자 작업을 보조하는 세션형 에이전트였다. 현재 운영 기본값은 Codex이며, 이 역할은 Codex provider가 담당한다. `!헤르메스` 명령은 현재 Hermes를 켜지 않고 Codex 제어 호환 alias로 동작한다.
-
-담당 범위:
-
-- 관리자 DM의 연속 대화 맥락 유지
-- 웹 검색과 최신 정보 확인
-- 브라우저를 통한 사이트 확인
-- 서버 상태와 배포 상태 조사
-- 프로젝트 파일 read-only 조회
-- 터미널/코드 실행 기반 진단
-- 애매한 요청에 대한 추가 질문
-- 위험 작업 전 확인 요청
-
-Hermes는 일반 사용자 기능을 대체하지 않는다.
-
-## 운영 목표
-
-### 1. 일반 사용자 기능은 제거한다
-
-날씨, 운세, 긱뉴스, 게임, 내 정보 같은 일반 사용자 기능은 더 이상 Discord 입력으로 실행하지 않는다. 스케줄러 내부에서 필요한 날씨/긱뉴스 서비스만 유지한다.
-
-목표:
-
-- AI 기반 기능 판별을 사용하지 않는다.
-- 일반 사용자 DM 자연어 답변을 사용하지 않는다.
-- prefix 명령어 레지스트리에는 관리자용 `코덱스`와 `헤르메스` 호환 alias만 남긴다.
-- 스케줄러 의존 서비스는 유지한다.
-
-### 2. 과거 Hermes는 관리자 DM에서 강하게 썼다
-
-과거 관리자 DM에서는 운영 기본값으로 Hermes session을 사용했다. 이 영역은 단순 질의응답보다 실제 작업 조사가 중요하다. 현재는 같은 사용자 경험을 Codex app-server thread/turn 기반으로 제공한다.
-
-허용 방향:
-
-- `web`: 최신 정보와 레퍼런스 확인
-- `browser`: 사이트 접속과 화면 확인
-- `terminal`: 서버 상태와 프로세스 조사
-- `file`: 필요한 파일 조회
-- `code_execution`: 진단용 코드 실행
-- `discord-bot-fs`: 프로젝트 디렉터리 read-only MCP
-
-일반 DM은 Hermes로 전달하지 않는다. 일반 사용자가 관리자 명령어를 시도하면 무시가 아니라 권한 없음 응답을 받을 수 있다.
-
-### 3. 위험 작업은 확인 없이는 실행하지 않는다
-
-Hermes가 강한 도구를 사용할수록 안전 규칙이 더 중요하다.
-
-바로 실행하지 않는 작업:
-
-- 삭제
-- 초기화
-- 덮어쓰기
-- 강제 재설정
-- 권한 변경
-- 대량 발송
-- 서비스 중단
-- 운영 데이터 변경
-
-처리 기준:
-
-- 대상, 영향 범위, 되돌리는 방법을 요약한다.
-- 사용자 확인을 받은 뒤에만 진행한다.
-- 애매하거나 고민되는 경우에는 작업하지 않고 질문한다.
-- 토큰, 비밀번호, 개인키 같은 민감정보는 출력하지 않는다.
-
-### 4. MCP는 최소 권한으로 붙인다
-
-MCP는 Hermes의 핵심 확장 지점이지만, 모든 도구를 열어두면 오작동과 권한 문제가 커진다.
-
-과거 Hermes 기준:
-
-- `discord-bot-fs`는 `/home/icenux/projects/discord-bot`만 대상으로 한다.
-- 허용 도구는 read/list/search/info 계열로 제한한다.
-- 쓰기, 수정, 생성, 이동 도구는 allowlist에 포함하지 않는다.
-
-향후 MCP를 추가할 때도 기본값은 read-only로 둔다. 쓰기 도구가 필요하면 작업 단위별로 별도 검토한다.
-
-### 5. 세션과 기억은 관리자 작업 중심으로 유지한다
-
-세션형 에이전트의 기억 가치는 일반 질문보다 관리자 작업에서 크다.
-
-목표:
-
-- 현재 관리자 DM은 운영 기본값에서 Codex thread로 연속 작업 맥락을 유지한다.
-- 봇은 관리자 최근 대화 10턴을 prompt에 함께 포함해 provider thread 기억을 보강한다.
-- `!코덱스 초기화`와 `!헤르메스 초기화`는 현재 관리자 Codex thread와 legacy Hermes session 매핑을 함께 폐기한다.
-- 일반 DM의 bot-managed 맥락은 사용하지 않는다.
-
-`/질문 <질문>` 관리자 명령어는 이 세션형 작업 경로와 별도다. 현재 AI 공급자를 사용하는 단발 답변이며, 관리자 최근 대화 10턴과 background follow-up 흐름을 사용하지 않는다.
-
-## 비목표
-
-현재 목표에 포함하지 않는 것:
-
-- Hermes를 서버 채널의 자유 대화 챗봇으로 운영
-- 일반 사용자 자연어 기능 판별
-- Hermes에게 Discord 메시지 삭제/전송/관리 도구 제공
-- 일반 사용자에게 터미널, 파일, 브라우저 toolset 제공
-- MCP 쓰기 도구를 기본 활성화
-- 명령어 기능을 모두 제거하고 Hermes 하나로 통합
-
-## 성공 기준
-
-아래 조건을 만족하면 현재 목표에 맞게 운영 중인 것으로 본다.
-
-- 일반 사용자 기능 요청은 처리하지 않는다.
-- prefix 명령어 레지스트리에는 관리자용 `코덱스`와 `헤르메스` 호환 alias만 남아 있다.
-- 현재 관리자 DM은 운영 기본값에서 Codex thread를 사용해 이전 맥락을 이어간다.
-- 관리자 DM에서 웹, 브라우저, 서버 조회, 파일 read-only 조회가 가능하다.
-- 위험 작업 요청에는 바로 실행하지 않고 확인을 요청한다.
-- Hermes는 Discord 쓰기/삭제/관리 권한을 직접 갖지 않는다.
-- 운영 서버 재시작 후 관리자에게 준비 완료 알림을 보낸다.
-
-## 향후 검토 항목
-
-- 관리자 DM 전용 MCP toolset을 작업 유형별 profile로 더 세분화
-- Hermes cron을 디스코드 봇 스케줄러와 분리할지 검토
-- 프로젝트 문서 검색 전용 read-only MCP 추가
-- 브라우저 자동화 결과를 스크린샷 기반으로 검증하는 흐름 추가
-- 장기 기억에 저장해도 되는 정보와 저장하면 안 되는 정보의 정책 분리
+- 운영자가 `!코덱스` 명령만 사용한다.
+- `AI_PROVIDER=hermes` 수동 복구 경로가 더 이상 필요 없다.
+- 문서와 테스트에서 Hermes 호환 alias 의존성이 제거된다.

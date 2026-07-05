@@ -4,7 +4,7 @@
 
 일반 사용자 기능을 제거하고, icenux 서버의 스케줄러와 관리자 AI 에이전트만 운영하는 관리자 중심 디스코드 봇.
 
-## 전환 메모
+## 현재 구현 메모
 
 현재 구현은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조이며, 운영 기준은 `documents/codex-app-server-provider.md`에 둔다. Hermes provider는 legacy 호환용으로만 남긴다.
 
@@ -13,7 +13,7 @@
 이 프로젝트는 더 이상 일반 사용자용 명령어 봇이나 DM 자연어 챗봇이 아니다. 남기는 범위는 두 가지다.
 
 - PM2 프로세스 안에서 실행되는 스케줄러
-- `ADMIN_ID` 관리자만 사용할 수 있는 명령어와 관리자 AI session
+- `ADMIN_ID` 관리자만 사용할 수 있는 명령어와 관리자 AI thread
 
 핵심 방향:
 
@@ -34,7 +34,7 @@
 담당 범위:
 
 - 관리자 DM 명령어 처리
-- 관리자 AI session 호출
+- 관리자 AI thread 호출
 - `/질문` 관리자 명령어의 단발 AI 답변
 - 현재 `!코덱스` 상태/토글/초기화 처리
 - 기존 `!헤르메스` Codex 제어 호환 alias 처리

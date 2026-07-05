@@ -76,6 +76,9 @@ ssh icenux-external 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scr
 - `CODEX_TIMEOUT_MS`
 - `CODEX_SANDBOX`
 - `CODEX_APPROVAL_POLICY`
+- `CODEX_ADMIN_SEARCH`
+- `CODEX_ADMIN_SANDBOX`
+- `CODEX_ADMIN_APPROVAL_POLICY`
 - `NAVER_APP_CLIENT_ID`
 - `NAVER_APP_CLIENT_SECRET`
 - `WEATHER_ADMIN_REGION`
@@ -95,12 +98,15 @@ ssh icenux-external 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scr
 ```bash
 AI_PROVIDER=codex
 AI_FALLBACK_PROVIDER=gemini
-CODEX_BIN=/home/icenux/.local/npm-global/bin/codex
-CODEX_MODEL=gpt-5.4
+CODEX_BIN=/home/icenux/.local/bin/codex
+CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
 CODEX_TIMEOUT_MS=1800000
 CODEX_SANDBOX=read-only
 CODEX_APPROVAL_POLICY=never
+CODEX_ADMIN_SEARCH=true
+CODEX_ADMIN_SANDBOX=read-only
+CODEX_ADMIN_APPROVAL_POLICY=
 ```
 
 봇은 유일한 Discord gateway로 남고, PM2 프로세스 내부에서 `codex app-server` child process를 장기 실행한다. 통신은 stdio JSON-RPC를 사용하며, 관리자 DM 채널별 Codex thread를 유지한다. Discord 메시지 전송, 삭제, 채널 관리 도구는 Codex에 제공하지 않는다.
@@ -114,7 +120,7 @@ ssh icenux-external 'codex login --device-auth'
 
 파일 기반 인증 캐시를 쓰는 경우 `~/.codex/auth.json`은 비밀번호처럼 취급한다. 값은 로그, PR, 이슈, Discord 메시지에 출력하지 않는다. 봇 전용 상태를 분리하려면 `CODEX_HOME=/home/icenux/.codex-discord-bot`를 추가하고 해당 경로 기준으로 다시 로그인한다.
 
-현재 배포 디렉터리 `~/projects/discord-bot`는 전체 소스 checkout이 아니라 실행 산출물 디렉터리다. 1차 전환은 운영 안정성을 우선해 이 경로를 `CODEX_WORKDIR`로 사용하고, Codex가 원본 TypeScript와 테스트까지 조사해야 할 필요가 생기면 read-only 소스 checkout을 별도로 둔다.
+현재 배포 디렉터리 `~/projects/discord-bot`는 전체 소스 checkout이 아니라 실행 산출물 디렉터리다. 운영은 이 경로를 `CODEX_WORKDIR`로 사용하고, Codex가 원본 TypeScript와 테스트까지 조사해야 할 필요가 생기면 read-only 소스 checkout을 별도로 둔다.
 
 서버 smoke test는 `initialize -> initialized -> thread/start -> turn/start -> turn/completed`까지 확인하는 스크립트로 확장할 수 있다. 기본 점검은 아래 명령으로 수행한다.
 
@@ -123,7 +129,7 @@ ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$PATH"; codex --ve
 ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "codex auth file exists"'
 ```
 
-세부 설계와 전환 순서는 `documents/codex-app-server-provider.md`를 기준으로 한다.
+세부 설계와 운영 기준은 `documents/codex-app-server-provider.md`를 기준으로 한다.
 
 ## Legacy Hermes Provider
 

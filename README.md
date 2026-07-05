@@ -86,13 +86,13 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 | 일반 사용자 기능 | 불가 | 불가 | 해당 없음 |
 | 스케줄러 발송 | 해당 없음 | 가능 | 스케줄러 내부 |
 | 관리자 명령어 | 불가 | 가능 | `ADMIN_ID` |
-| 관리자 AI session | 불가 | 가능 | `ADMIN_ID` |
+| 관리자 AI thread | 불가 | 가능 | `ADMIN_ID` |
 | `!코덱스` 제어 | 가능 | 가능 | `ADMIN_ID` |
 | `!헤르메스` 호환 alias | 가능 | 가능 | `ADMIN_ID` |
 
 ## AI 공급자
 
-현재 운영 기본값은 Hermes 없이 Codex app-server를 직접 호출하는 `AI_PROVIDER=codex` 구조입니다.
+현재 운영 기본값은 Hermes 없이 Codex app-server를 직접 호출하는 `AI_PROVIDER=codex` 구조입니다. 코드에서 `AI_PROVIDER`가 비어 있으면 Gemini로 시작하지만, icenux 운영 `.env`는 Codex를 명시합니다.
 
 ### Codex app-server 직접 연동
 
@@ -103,17 +103,20 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 ```text
 AI_PROVIDER=codex
 AI_FALLBACK_PROVIDER=gemini
-CODEX_BIN=/home/icenux/.local/npm-global/bin/codex
-CODEX_MODEL=gpt-5.4
+CODEX_BIN=/home/icenux/.local/bin/codex
+CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
 CODEX_TIMEOUT_MS=1800000
 CODEX_SANDBOX=read-only
 CODEX_APPROVAL_POLICY=never
+CODEX_ADMIN_SEARCH=true
+CODEX_ADMIN_SANDBOX=read-only
+CODEX_ADMIN_APPROVAL_POLICY=
 ```
 
 서버에는 Codex CLI와 인증 캐시가 필요합니다. 파일 기반 인증 캐시를 쓰는 경우 `~/.codex/auth.json`은 비밀번호처럼 취급하고 로그, PR, 이슈, Discord 메시지에 출력하지 않습니다.
 
-세부 설계와 전환 순서는 `documents/codex-app-server-provider.md`를 기준으로 합니다.
+세부 설계와 운영 기준은 `documents/codex-app-server-provider.md`를 기준으로 합니다.
 
 긱뉴스 스케줄러의 AI 요약/번역도 Codex만 사용합니다. Codex 요약/번역이 실패하면 Gemini fallback이나 원문 기반 대체 번역을 사용하지 않고, 관리자 DM embed에 실패 사유를 표시합니다.
 
@@ -128,9 +131,9 @@ HERMES_TOOLSETS=web
 HERMES_ADMIN_TOOLSETS=web,browser,terminal,file,code_execution,discord-bot-fs
 ```
 
-Hermes provider 구현은 과거 운영 호환을 위해 남아 있지만 현재 기본 경로는 아닙니다. `!헤르메스` prefix 명령도 Hermes를 켜지 않고 Codex 제어 alias로 동작합니다.
+Hermes provider 구현은 과거 운영 호환을 위해 남아 있지만 현재 기본 경로는 아닙니다. `!헤르메스` prefix 명령도 Codex 제어 alias로 동작합니다.
 
-`discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP입니다. 허용 도구는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`이고, `write_file`, `edit_file`, `create_directory`, `move_file`은 allowlist에 포함하지 않습니다.
+`discord-bot-fs` MCP는 legacy Hermes 운영에서 쓰던 read-only filesystem MCP입니다. 현재 Codex 기본 경로는 `CODEX_WORKDIR`와 sandbox 정책으로 파일 접근 범위를 제한합니다.
 
 관리자 DM AI는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않습니다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문합니다.
 
@@ -256,9 +259,9 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 ## 문서
 
 - `documents/codex-app-server-provider.md`: Hermes 없는 Codex app-server 직접 연동 기준
-- `documents/hermes-agent-goal.md`: 기존 Hermes 에이전트 운영 목표와 경계
+- `documents/hermes-agent-goal.md`: legacy Hermes provider와 `!헤르메스` 호환 alias 기준
 - `documents/natural-language-ai-concept.md`: 관리자 AI 중심 컨셉
 - `documents/natural-language-ai-plan.md`: 관리자 AI 운영 플랜
 - `documents/ai-guidelines.md`: AI 사용 지침
 - `documents/pm2-deployment.md`: PM2와 icenux 운영 가이드
-- `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: Hermes/Codex OAuth 통합 계획
+- `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: 완료된 legacy Hermes 통합 계획과 현재 Codex 대체 상태
