@@ -1,16 +1,16 @@
 const mockGeminiGenerateText = jest.fn();
-const mockHermesGenerateText = jest.fn();
+const mockCodexGenerateText = jest.fn();
 
 const mockGeminiProvider = jest.fn();
 
-const mockHermesProvider = jest.fn();
+const mockCodexProvider = jest.fn();
 
 jest.mock("../src/core/ai/providers/gemini-provider", () => ({
   GeminiProvider: mockGeminiProvider,
 }));
 
-jest.mock("../src/core/ai/providers/hermes-provider", () => ({
-  HermesProvider: mockHermesProvider,
+jest.mock("../src/core/ai/providers/codex-provider", () => ({
+  CodexProvider: mockCodexProvider,
 }));
 
 const loadAiService = () => require("../src/core/ai/ai-service").default;
@@ -24,8 +24,8 @@ describe("AIService provider selection", () => {
     mockGeminiProvider.mockImplementation(() => ({
       generateText: mockGeminiGenerateText,
     }));
-    mockHermesProvider.mockImplementation(() => ({
-      generateText: mockHermesGenerateText,
+    mockCodexProvider.mockImplementation(() => ({
+      generateText: mockCodexGenerateText,
     }));
     process.env = { ...originalEnv };
     delete process.env.AI_PROVIDER;
@@ -49,60 +49,60 @@ describe("AIService provider selection", () => {
 
     expect(result).toBe("gemini response");
     expect(mockGeminiProvider).toHaveBeenCalledTimes(1);
-    expect(mockHermesProvider).not.toHaveBeenCalled();
+    expect(mockCodexProvider).not.toHaveBeenCalled();
     expect(mockGeminiGenerateText).toHaveBeenCalledWith("prompt", {
       model: "test",
     });
   });
 
-  test("uses Hermes when AI_PROVIDER is hermes", async () => {
-    process.env.AI_PROVIDER = "hermes";
-    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+  test("uses Codex when AI_PROVIDER is codex", async () => {
+    process.env.AI_PROVIDER = "codex";
+    mockCodexGenerateText.mockResolvedValueOnce("codex response");
     const AIService = loadAiService();
     const service = new AIService();
 
     const result = await service.generateText("prompt");
 
-    expect(result).toBe("hermes response");
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(result).toBe("codex response");
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
     expect(mockGeminiProvider).not.toHaveBeenCalled();
-    expect(mockHermesGenerateText).toHaveBeenCalledWith("prompt", {});
+    expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {});
   });
 
-  test("reports Hermes as the responding provider", async () => {
-    process.env.AI_PROVIDER = "hermes";
-    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+  test("reports Codex as the responding provider", async () => {
+    process.env.AI_PROVIDER = "codex";
+    mockCodexGenerateText.mockResolvedValueOnce("codex response");
     const AIService = loadAiService();
     const service = new AIService();
 
     const result = await service.generateTextWithProvider("prompt");
 
     expect(result).toEqual({
-      providerName: "hermes",
-      text: "hermes response",
+      providerName: "codex",
+      text: "codex response",
       usedFallback: false,
     });
   });
 
   test("normalizes AI_PROVIDER casing and whitespace", async () => {
-    process.env.AI_PROVIDER = " Hermes ";
-    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+    process.env.AI_PROVIDER = " Codex ";
+    mockCodexGenerateText.mockResolvedValueOnce("codex response");
     const AIService = loadAiService();
     const service = new AIService();
 
     const result = await service.generateText("prompt");
 
-    expect(result).toBe("hermes response");
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(result).toBe("codex response");
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
     expect(mockGeminiProvider).not.toHaveBeenCalled();
   });
 
   test("falls back when primary throws and AI_FALLBACK_PROVIDER is different", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
     jest.spyOn(console, "error").mockImplementation(() => {});
     const error = new Error("primary failed");
-    mockHermesGenerateText.mockRejectedValueOnce(error);
+    mockCodexGenerateText.mockRejectedValueOnce(error);
     mockGeminiGenerateText.mockResolvedValueOnce("fallback response");
     const AIService = loadAiService();
     const service = new AIService();
@@ -112,9 +112,9 @@ describe("AIService provider selection", () => {
     });
 
     expect(result).toBe("fallback response");
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
     expect(mockGeminiProvider).toHaveBeenCalledTimes(1);
-    expect(mockHermesGenerateText).toHaveBeenCalledWith("prompt", {
+    expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {
       responseMimeType: "application/json",
     });
     expect(mockGeminiGenerateText).toHaveBeenCalledWith("prompt", {
@@ -123,10 +123,10 @@ describe("AIService provider selection", () => {
   });
 
   test("reports fallback provider when fallback generates the response", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
     jest.spyOn(console, "error").mockImplementation(() => {});
-    mockHermesGenerateText.mockRejectedValueOnce(new Error("primary failed"));
+    mockCodexGenerateText.mockRejectedValueOnce(new Error("primary failed"));
     mockGeminiGenerateText.mockResolvedValueOnce("fallback response");
     const AIService = loadAiService();
     const service = new AIService();
@@ -141,10 +141,10 @@ describe("AIService provider selection", () => {
   });
 
   test("does not use configured fallback when fallback is disabled", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
     const error = new Error("primary failed");
-    mockHermesGenerateText.mockRejectedValueOnce(error);
+    mockCodexGenerateText.mockRejectedValueOnce(error);
     const AIService = loadAiService();
     const service = new AIService();
 
@@ -157,43 +157,43 @@ describe("AIService provider selection", () => {
     expect(mockGeminiGenerateText).not.toHaveBeenCalled();
   });
 
-  test("falls back from Hermes session to Hermes oneshot before configured fallback", async () => {
-    process.env.AI_PROVIDER = "hermes";
+  test("falls back directly to configured provider when Codex fails", async () => {
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
     jest.spyOn(console, "error").mockImplementation(() => {});
-    mockHermesGenerateText
-      .mockRejectedValueOnce(new Error("session failed"))
-      .mockResolvedValueOnce("oneshot response");
+    mockCodexGenerateText.mockRejectedValueOnce(new Error("primary failed"));
+    mockGeminiGenerateText.mockResolvedValueOnce("fallback response");
     const AIService = loadAiService();
     const service = new AIService();
 
     const result = await service.generateTextWithProvider("prompt", {
-      hermesSessionName: "session-name",
+      codexSearch: true,
       model: "test",
     });
 
     expect(result).toEqual({
-      providerName: "hermes",
-      text: "oneshot response",
+      providerName: "gemini",
+      text: "fallback response",
       usedFallback: true,
     });
-    expect(mockHermesGenerateText).toHaveBeenNthCalledWith(1, "prompt", {
-      hermesSessionName: "session-name",
+    expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {
+      codexSearch: true,
       model: "test",
     });
-    expect(mockHermesGenerateText).toHaveBeenNthCalledWith(2, "prompt", {
+    expect(mockCodexGenerateText).toHaveBeenCalledTimes(1);
+    expect(mockGeminiGenerateText).toHaveBeenCalledWith("prompt", {
+      codexSearch: true,
       model: "test",
     });
-    expect(mockGeminiGenerateText).not.toHaveBeenCalled();
   });
 
   test("normalizes AI_FALLBACK_PROVIDER casing and whitespace", async () => {
     process.env.AI_PROVIDER = "gemini";
-    process.env.AI_FALLBACK_PROVIDER = " HERMES ";
+    process.env.AI_FALLBACK_PROVIDER = " CODEX ";
     jest.spyOn(console, "error").mockImplementation(() => {});
     const error = new Error("primary failed");
     mockGeminiGenerateText.mockRejectedValueOnce(error);
-    mockHermesGenerateText.mockResolvedValueOnce("fallback response");
+    mockCodexGenerateText.mockResolvedValueOnce("fallback response");
     const AIService = loadAiService();
     const service = new AIService();
 
@@ -201,7 +201,7 @@ describe("AIService provider selection", () => {
 
     expect(result).toBe("fallback response");
     expect(mockGeminiProvider).toHaveBeenCalledTimes(1);
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
   });
 
   test("does not instantiate fallback when fallback provider matches primary", async () => {
@@ -215,7 +215,7 @@ describe("AIService provider selection", () => {
     await expect(service.generateText("prompt")).rejects.toThrow(error);
 
     expect(mockGeminiProvider).toHaveBeenCalledTimes(1);
-    expect(mockHermesProvider).not.toHaveBeenCalled();
+    expect(mockCodexProvider).not.toHaveBeenCalled();
   });
 
   test("uses Gemini for unsupported provider names", async () => {
@@ -228,31 +228,31 @@ describe("AIService provider selection", () => {
 
     expect(result).toBe("gemini response");
     expect(mockGeminiProvider).toHaveBeenCalledTimes(1);
-    expect(mockHermesProvider).not.toHaveBeenCalled();
+    expect(mockCodexProvider).not.toHaveBeenCalled();
   });
 
   test("does not instantiate fallback for unsupported fallback provider names", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "none";
     const error = new Error("primary failed");
-    mockHermesGenerateText.mockRejectedValueOnce(error);
+    mockCodexGenerateText.mockRejectedValueOnce(error);
     const AIService = loadAiService();
     const service = new AIService();
 
     await expect(service.generateText("prompt")).rejects.toThrow(error);
 
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
     expect(mockGeminiProvider).not.toHaveBeenCalled();
   });
 
   test("logs primary failure message before fallback generation", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
     const consoleErrorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => {});
     const error = new Error("primary unavailable");
-    mockHermesGenerateText.mockRejectedValueOnce(error);
+    mockCodexGenerateText.mockRejectedValueOnce(error);
     mockGeminiGenerateText.mockResolvedValueOnce("fallback response");
     const AIService = loadAiService();
     const service = new AIService();
@@ -267,20 +267,20 @@ describe("AIService provider selection", () => {
   });
 
   test("switches the primary provider at runtime", async () => {
-    process.env.AI_PROVIDER = "hermes";
+    process.env.AI_PROVIDER = "codex";
     process.env.AI_FALLBACK_PROVIDER = "gemini";
-    mockHermesGenerateText.mockResolvedValueOnce("hermes response");
+    mockCodexGenerateText.mockResolvedValueOnce("codex response");
     mockGeminiGenerateText.mockResolvedValueOnce("gemini response");
     const AIService = loadAiService();
     const service = new AIService();
 
     expect(service.getProviderStatus()).toEqual({
-      providerName: "hermes",
+      providerName: "codex",
       fallbackProviderName: "gemini",
     });
 
     await expect(service.generateText("before")).resolves.toBe(
-      "hermes response",
+      "codex response",
     );
 
     service.setPrimaryProvider("gemini");
@@ -293,28 +293,28 @@ describe("AIService provider selection", () => {
       "gemini response",
     );
     expect(mockGeminiProvider).toHaveBeenCalledTimes(2);
-    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
   });
 
   test("generates with one requested provider without fallback", async () => {
     process.env.AI_PROVIDER = "gemini";
-    process.env.AI_FALLBACK_PROVIDER = "hermes";
-    mockHermesGenerateText.mockResolvedValueOnce("hermes-only response");
+    process.env.AI_FALLBACK_PROVIDER = "codex";
+    mockCodexGenerateText.mockResolvedValueOnce("codex-only response");
     const AIService = loadAiService();
     const service = new AIService();
 
     const result = await service.generateTextWithProviderOnly(
-      "hermes",
+      "codex",
       "prompt",
       { model: "test" },
     );
 
     expect(result).toEqual({
-      providerName: "hermes",
-      text: "hermes-only response",
+      providerName: "codex",
+      text: "codex-only response",
       usedFallback: false,
     });
-    expect(mockHermesGenerateText).toHaveBeenCalledWith("prompt", {
+    expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {
       model: "test",
     });
     expect(mockGeminiGenerateText).not.toHaveBeenCalled();

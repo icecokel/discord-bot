@@ -63,29 +63,32 @@ const createMessage = ({
   };
 };
 
-describe("natural language router admin Hermes answer", () => {
+describe("natural language router admin Codex answer", () => {
   const originalAdminId = process.env.ADMIN_ID;
-  const originalHermesAdminToolsets = process.env.HERMES_ADMIN_TOOLSETS;
+  const originalCodexAdminSearch = process.env.CODEX_ADMIN_SEARCH;
+  const originalCodexAdminSandbox = process.env.CODEX_ADMIN_SANDBOX;
 
   beforeEach(() => {
     jest.clearAllMocks();
     clearAllAdminConversationContexts();
     process.env.ADMIN_ID = "owner-id";
-    delete process.env.HERMES_ADMIN_TOOLSETS;
+    delete process.env.CODEX_ADMIN_SEARCH;
+    delete process.env.CODEX_ADMIN_SANDBOX;
     aiService.getProviderStatus.mockReturnValue({
-      providerName: "hermes",
+      providerName: "codex",
       fallbackProviderName: "gemini",
     });
   });
 
   afterAll(() => {
     process.env.ADMIN_ID = originalAdminId;
-    process.env.HERMES_ADMIN_TOOLSETS = originalHermesAdminToolsets;
+    process.env.CODEX_ADMIN_SEARCH = originalCodexAdminSearch;
+    process.env.CODEX_ADMIN_SANDBOX = originalCodexAdminSandbox;
   });
 
-  test("prefixes admin Hermes AI answers", async () => {
+  test("prefixes admin Codex AI answers", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "hermes",
+      providerName: "codex",
       text: "답변입니다.",
       usedFallback: false,
     });
@@ -101,7 +104,7 @@ describe("natural language router admin Hermes answer", () => {
       "필요한 정보를 찾고 있습니다...",
     );
     expect(waitMessage.edit).toHaveBeenCalledWith("답변을 정리하고 있습니다...");
-    expect(waitMessage.edit).toHaveBeenCalledWith("[Hermes] 답변입니다.");
+    expect(waitMessage.edit).toHaveBeenCalledWith("[Codex] 답변입니다.");
   });
 
   test("ignores non-admin natural language messages", async () => {
@@ -117,9 +120,9 @@ describe("natural language router admin Hermes answer", () => {
     expect(aiService.generateTextWithProvider).not.toHaveBeenCalled();
   });
 
-  test("uses Hermes session and admin toolsets", async () => {
+  test("uses Codex admin execution options", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "hermes",
+      providerName: "codex",
       text: "세션 답변입니다.",
       usedFallback: false,
     });
@@ -130,27 +133,23 @@ describe("natural language router admin Hermes answer", () => {
 
     const [, options] = aiService.generateTextWithProvider.mock.calls[0];
 
-    expect(options.hermesSessionName).toEqual(
-      expect.stringContaining("discord-admin-owner-id-channel-id"),
-    );
-    expect(options.hermesToolsets).toBe(
-      "web,browser,terminal,file,code_execution,discord-bot-fs",
-    );
+    expect(options.codexSearch).toBe(true);
+    expect(options.codexSandbox).toBe("workspace-write");
     expect(options.disableProviderFallback).toBe(true);
     expect(options.systemInstruction).toContain("관리자 DM");
     expect(options.systemInstruction).toContain("위험 작업");
     expect(options.systemInstruction).toContain("사용자에게 질문");
   });
 
-  test("passes recent admin conversation context to Hermes", async () => {
+  test("passes recent admin conversation context to Codex", async () => {
     aiService.generateTextWithProvider
       .mockResolvedValueOnce({
-        providerName: "hermes",
+        providerName: "codex",
         text: "첫 답변입니다.",
         usedFallback: false,
       })
       .mockResolvedValueOnce({
-        providerName: "hermes",
+        providerName: "codex",
         text: "이전 내용을 기억한 답변입니다.",
         usedFallback: false,
       });
@@ -165,15 +164,16 @@ describe("natural language router admin Hermes answer", () => {
     const secondPrompt = aiService.generateTextWithProvider.mock.calls[1][0];
     expect(secondPrompt).toContain("관리자 최근 대화");
     expect(secondPrompt).toContain("관리자: 첫 번째 관리자 질문");
-    expect(secondPrompt).toContain("Hermes: 첫 답변입니다.");
+    expect(secondPrompt).toContain("Codex: 첫 답변입니다.");
     expect(secondPrompt).toContain("현재 관리자 메시지");
     expect(secondPrompt).toContain("방금 질문 뭐였지?");
   });
 
-  test("uses configured admin toolsets when provided", async () => {
-    process.env.HERMES_ADMIN_TOOLSETS = "web,browser";
+  test("uses configured Codex admin options when provided", async () => {
+    process.env.CODEX_ADMIN_SEARCH = "false";
+    process.env.CODEX_ADMIN_SANDBOX = "read-only";
     aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "hermes",
+      providerName: "codex",
       text: "설정된 도구 답변입니다.",
       usedFallback: false,
     });
@@ -183,10 +183,11 @@ describe("natural language router admin Hermes answer", () => {
     );
 
     const [, options] = aiService.generateTextWithProvider.mock.calls[0];
-    expect(options.hermesToolsets).toBe("web,browser");
+    expect(options.codexSearch).toBe(false);
+    expect(options.codexSandbox).toBe("read-only");
   });
 
-  test("passes current Discord image attachment context to Hermes", async () => {
+  test("passes current Discord image attachment context to Codex", async () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       headers: {
@@ -195,7 +196,7 @@ describe("natural language router admin Hermes answer", () => {
       arrayBuffer: jest.fn().mockResolvedValue(Buffer.from("png-bytes")),
     });
     aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "hermes",
+      providerName: "codex",
       text: "이미지를 확인했습니다.",
       usedFallback: false,
     });
@@ -224,7 +225,7 @@ describe("natural language router admin Hermes answer", () => {
     expect(prompt).toContain("fallback_image_reference: local_file");
   });
 
-  test("sends a follow-up message when admin Hermes answer takes longer", async () => {
+  test("sends a follow-up message when admin Codex answer takes longer", async () => {
     jest.useFakeTimers();
 
     let resolveAnswer;
@@ -251,7 +252,7 @@ describe("natural language router admin Hermes answer", () => {
     expect(message.channel.send).not.toHaveBeenCalled();
 
     resolveAnswer({
-      providerName: "hermes",
+      providerName: "codex",
       text: "늦은 답변입니다.",
       usedFallback: false,
     });
@@ -259,7 +260,7 @@ describe("natural language router admin Hermes answer", () => {
       await Promise.resolve();
     }
 
-    expect(message.channel.send).toHaveBeenCalledWith("[Hermes] 늦은 답변입니다.");
+    expect(message.channel.send).toHaveBeenCalledWith("[Codex] 늦은 답변입니다.");
     jest.useRealTimers();
   });
 });
