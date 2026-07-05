@@ -354,11 +354,16 @@ class CodexAppServerClient {
       return;
     }
 
-    if (
-      message.method === "item/agentMessage/delta" ||
-      message.method === "item/completed"
-    ) {
+    if (message.method === "item/agentMessage/delta") {
       const text = this.extractAgentText(message.params);
+      if (text) {
+        this.activeTurn.textParts.push(text);
+      }
+      return;
+    }
+
+    if (message.method === "item/completed") {
+      const text = this.extractCompletedAgentMessageText(message.params);
       if (text) {
         this.activeTurn.textParts.push(text);
       }
@@ -455,6 +460,16 @@ class CodexAppServerClient {
     }
 
     return "";
+  }
+
+  private extractCompletedAgentMessageText(params: any): string {
+    const item = params?.item;
+
+    if (item?.type !== "agentMessage") {
+      return "";
+    }
+
+    return typeof item.text === "string" ? item.text : "";
   }
 
   private handleProcessFailure(error: Error): void {

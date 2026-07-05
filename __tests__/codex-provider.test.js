@@ -203,6 +203,52 @@ describe("CodexProvider", () => {
     expect(inputText).toContain("JSON");
   });
 
+  test("does not include completed user prompt items in the final response", async () => {
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("반갑다", {
+      systemInstruction: "내부 지침은 사용자에게 출력하지 않는다.",
+    });
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    const turnStart = server
+      .messages()
+      .find((message) => message.method === "turn/start");
+    server.send({
+      method: "item/completed",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-1",
+        completedAtMs: Date.now(),
+        item: {
+          type: "userMessage",
+          id: "user-item-1",
+          content: turnStart.params.input,
+        },
+      },
+    });
+    server.send({
+      method: "item/agentMessage/delta",
+      params: {
+        delta: "반갑습니다. 무엇을 도와드릴까요?",
+      },
+    });
+    server.send({
+      method: "turn/completed",
+      params: {
+        turn: {
+          id: "turn-1",
+        },
+      },
+    });
+
+    await expect(answerPromise).resolves.toBe(
+      "반갑습니다. 무엇을 도와드릴까요?",
+    );
+  });
+
   test("reuses the mapped Codex thread for the same admin channel", async () => {
     const server = createAppServerProcess();
     const provider = new CodexProvider();
