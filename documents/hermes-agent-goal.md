@@ -1,4 +1,8 @@
-# Hermes 에이전트 목표 문서
+# 기존 Hermes 에이전트 목표 문서
+
+## 상태
+
+이 문서는 기존 Hermes provider 운영 기준을 보존한 문서다. 선택한 다음 방향은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조이며, 전환 기준은 `documents/codex-app-server-provider.md`에 둔다.
 
 ## 한 줄 목표
 
@@ -43,7 +47,7 @@ Hermes를 단순 자연어 봇으로 쓰면 서버 작업 에이전트로서의 
 
 ### Hermes
 
-Hermes는 관리자 작업을 보조하는 세션형 에이전트다. 운영 기본값은 Hermes이지만, `!헤르메스 끄기`로 primary AI 공급자를 Gemini로 바꾸면 prefix 없는 관리자 DM도 Hermes session/toolset을 쓰지 않는 현재 primary AI 답변 경로가 된다.
+Hermes는 현재 구현에서 관리자 작업을 보조하는 세션형 에이전트다. 현재 운영 기본값은 Hermes이지만, Codex app-server 전환 후에는 이 역할을 Codex provider가 가져간다. `!헤르메스 끄기`로 primary AI 공급자를 Gemini로 바꾸면 prefix 없는 관리자 DM도 Hermes session/toolset을 쓰지 않는 현재 primary AI 답변 경로가 된다.
 
 담당 범위:
 
@@ -71,9 +75,9 @@ Hermes는 일반 사용자 기능을 대체하지 않는다.
 - prefix 명령어 레지스트리에는 관리자용 `헤르메스`만 남긴다.
 - 스케줄러 의존 서비스는 유지한다.
 
-### 2. Hermes는 관리자 DM에서 강하게 쓴다
+### 2. 현재 Hermes는 관리자 DM에서 강하게 쓴다
 
-관리자 DM에서는 운영 기본값으로 Hermes session을 사용한다. 이 영역은 단순 질의응답보다 실제 작업 조사가 중요하다.
+현재 관리자 DM에서는 운영 기본값으로 Hermes session을 사용한다. 이 영역은 단순 질의응답보다 실제 작업 조사가 중요하다. 전환 후에는 같은 사용자 경험을 Codex app-server thread/turn 기반으로 제공한다.
 
 허용 방향:
 
@@ -126,7 +130,7 @@ Hermes의 기억 가치는 일반 질문보다 관리자 작업에서 크다.
 
 목표:
 
-- 관리자 DM은 운영 기본값에서 Hermes session으로 연속 작업 맥락을 유지한다.
+- 현재 관리자 DM은 운영 기본값에서 Hermes session으로 연속 작업 맥락을 유지한다.
 - 봇은 관리자 최근 대화 10턴을 prompt에 함께 포함해 session 기억을 보강한다.
 - `!헤르메스 초기화`는 현재 관리자 세션을 폐기한다.
 - session 호출 실패 시 oneshot으로 한 번 fallback한다.
@@ -151,7 +155,7 @@ Hermes의 기억 가치는 일반 질문보다 관리자 작업에서 크다.
 
 - 일반 사용자 기능 요청은 처리하지 않는다.
 - prefix 명령어 레지스트리에는 관리자용 `헤르메스`만 남아 있다.
-- 관리자 DM은 운영 기본값에서 Hermes session을 사용해 이전 맥락을 이어간다.
+- 현재 관리자 DM은 운영 기본값에서 Hermes session을 사용해 이전 맥락을 이어간다.
 - 관리자 DM에서 웹, 브라우저, 서버 조회, 파일 read-only 조회가 가능하다.
 - 위험 작업 요청에는 바로 실행하지 않고 확인을 요청한다.
 - Hermes는 Discord 쓰기/삭제/관리 권한을 직접 갖지 않는다.
