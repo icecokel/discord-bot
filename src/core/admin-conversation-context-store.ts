@@ -37,12 +37,13 @@ export const buildAdminConversationPrompt = (
   userId: string,
   channelId: string,
   currentMessage: string,
+  assistantLabel = "Hermes",
 ): string => {
   const turns = getAdminConversationTurns(userId, channelId);
   if (turns.length === 0) return currentMessage;
 
   const recentConversation = turns
-    .map((turn) => `관리자: ${turn.user}\nHermes: ${turn.assistant}`)
+    .map((turn) => `관리자: ${turn.user}\n${assistantLabel}: ${turn.assistant}`)
     .join("\n\n");
 
   return [

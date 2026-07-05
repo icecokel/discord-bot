@@ -1,8 +1,9 @@
 import { GeminiProvider } from "./providers/gemini-provider";
 import { HermesProvider } from "./providers/hermes-provider";
+import { CodexProvider } from "./providers/codex-provider";
 import { BaseProvider, IGenerationOptions } from "./providers/base-provider";
 
-export type ProviderName = "gemini" | "hermes";
+export type ProviderName = "gemini" | "hermes" | "codex";
 
 const DEFAULT_PROVIDER: ProviderName = "gemini";
 
@@ -19,6 +20,10 @@ function resolvePrimaryProviderName(name: string | undefined): ProviderName {
     return "hermes";
   }
 
+  if (normalizedName === "codex") {
+    return "codex";
+  }
+
   return DEFAULT_PROVIDER;
 }
 
@@ -28,7 +33,11 @@ function resolveFallbackProviderName(
 ): ProviderName | undefined {
   const normalizedName = name?.trim().toLowerCase();
 
-  if (normalizedName !== "gemini" && normalizedName !== "hermes") {
+  if (
+    normalizedName !== "gemini" &&
+    normalizedName !== "hermes" &&
+    normalizedName !== "codex"
+  ) {
     return undefined;
   }
 
@@ -42,6 +51,10 @@ function resolveFallbackProviderName(
 function createProvider(name: ProviderName): BaseProvider {
   if (name === "hermes") {
     return new HermesProvider();
+  }
+
+  if (name === "codex") {
+    return new CodexProvider();
   }
 
   return new GeminiProvider();
@@ -100,6 +113,20 @@ class AIService {
 
   setPrimaryProvider(providerName: ProviderName): void {
     this.configureProviders(providerName, process.env.AI_FALLBACK_PROVIDER);
+  }
+
+  clearCodexThread(userId: string, channelId: string): boolean {
+    const threadKey = `${userId}:${channelId}`;
+    let cleared = false;
+
+    for (const provider of [this.provider, this.fallbackProvider]) {
+      const maybeCodexProvider = provider as Partial<CodexProvider> | undefined;
+      if (typeof maybeCodexProvider?.clearThread === "function") {
+        cleared = maybeCodexProvider.clearThread(threadKey) || cleared;
+      }
+    }
+
+    return cleared;
   }
 
   /**

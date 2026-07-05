@@ -1,32 +1,102 @@
-const fs = require("node:fs");
+const { EventEmitter } = require("node:events");
+const { PassThrough, Writable } = require("node:stream");
 
-const mockExecFile = jest.fn();
+const mockSpawn = jest.fn();
 
 jest.mock("node:child_process", () => ({
-  execFile: mockExecFile,
+  spawn: mockSpawn,
 }));
 
 const { CodexProvider } = require("../src/core/ai/providers/codex-provider");
 
-const getArgValue = (args, name) => {
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] : undefined;
+const waitForTicks = async (count = 3) => {
+  for (let index = 0; index < count; index += 1) {
+    await Promise.resolve();
+  }
 };
 
-const resolveExecFile = (lastMessage, stdout = "") => {
-  mockExecFile.mockImplementationOnce((bin, args, options, callback) => {
-    const outputPath = getArgValue(args, "--output-last-message");
-    if (outputPath && lastMessage !== undefined) {
-      fs.writeFileSync(outputPath, lastMessage);
-    }
-    callback(null, { stdout, stderr: "" });
+const parseWrites = (writes) =>
+  writes
+    .join("")
+    .split(/\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+
+const createAppServerProcess = () => {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const writes = [];
+  const stdin = new Writable({
+    write(chunk, encoding, callback) {
+      writes.push(chunk.toString());
+      callback();
+    },
   });
+  const proc = new EventEmitter();
+  proc.stdin = stdin;
+  proc.stdout = stdout;
+  proc.stderr = stderr;
+  proc.kill = jest.fn();
+
+  mockSpawn.mockReturnValueOnce(proc);
+
+  return {
+    proc,
+    stdout,
+    writes,
+    send(message) {
+      stdout.write(`${JSON.stringify(message)}\n`);
+    },
+    messages() {
+      return parseWrites(writes);
+    },
+  };
 };
 
-const rejectExecFile = (error) => {
-  mockExecFile.mockImplementationOnce((bin, args, options, callback) => {
-    callback(error);
+const completeHandshake = async (server) => {
+  await waitForTicks();
+  const initializeMessage = server.messages()[0];
+  expect(initializeMessage.method).toBe("initialize");
+  server.send({ id: initializeMessage.id, result: { userAgent: "codex-test" } });
+  await waitForTicks();
+};
+
+const completeThreadStart = async (server, threadId = "thread-1") => {
+  const threadStart = server
+    .messages()
+    .find((message) => message.method === "thread/start");
+  expect(threadStart).toBeDefined();
+  server.send({
+    id: threadStart.id,
+    result: {
+      thread: {
+        id: threadId,
+      },
+    },
   });
+  await waitForTicks();
+};
+
+const completeTurn = async (server, text = "Codex answer") => {
+  const turnStart = server
+    .messages()
+    .find((message) => message.method === "turn/start");
+  expect(turnStart).toBeDefined();
+  server.send({
+    method: "item/agentMessage/delta",
+    params: {
+      delta: text,
+    },
+  });
+  server.send({
+    method: "turn/completed",
+    params: {
+      turn: {
+        id: "turn-1",
+      },
+    },
+  });
+  await waitForTicks();
 };
 
 describe("CodexProvider", () => {
@@ -37,13 +107,13 @@ describe("CodexProvider", () => {
     process.env = {
       ...originalEnv,
       HOME: "/Users/tester",
+      PATH: "/usr/bin",
     };
     delete process.env.CODEX_BIN;
     delete process.env.CODEX_TIMEOUT_MS;
     delete process.env.CODEX_SANDBOX;
     delete process.env.CODEX_APPROVAL_POLICY;
     delete process.env.CODEX_MODEL;
-    delete process.env.CODEX_PROFILE;
     delete process.env.CODEX_WORKDIR;
   });
 
@@ -51,163 +121,224 @@ describe("CodexProvider", () => {
     process.env = originalEnv;
   });
 
-  test("runs codex exec with the default binary, args, timeout, maxBuffer, and expanded PATH", async () => {
-    resolveExecFile("hello");
+  test("starts codex app-server over stdio and completes a turn", async () => {
+    const server = createAppServerProcess();
     const provider = new CodexProvider();
 
-    const result = await provider.generateText("Say hello");
-
-    expect(result).toBe("hello");
-    expect(mockExecFile).toHaveBeenCalledWith(
-      "codex",
-      expect.arrayContaining([
-        "exec",
-        "--cd",
-        process.cwd(),
-        "--sandbox",
-        "read-only",
-        "--ask-for-approval",
-        "never",
-        "--output-last-message",
-        expect.any(String),
-        "--color",
-        "never",
-        "--ignore-rules",
-        "Say hello",
-      ]),
-      expect.objectContaining({
-        timeout: 30 * 60 * 1000,
-        maxBuffer: 1024 * 1024,
-        env: expect.objectContaining({
-          PATH: expect.stringContaining("/Users/tester/.local/bin"),
-        }),
-      }),
-      expect.any(Function),
-    );
-    const args = mockExecFile.mock.calls[0][1];
-    expect(args[0]).toBe("exec");
-    expect(args[args.length - 1]).toBe("Say hello");
-    expect(args).not.toContain("--dangerously-bypass-approvals-and-sandbox");
-    const options = mockExecFile.mock.calls[0][2];
-    expect(options.env.PATH).toContain("/Users/tester/.local/npm-global/bin");
-  });
-
-  test("uses CODEX_BIN, CODEX_TIMEOUT_MS, sandbox, and approval overrides", async () => {
-    process.env.CODEX_BIN = "/opt/codex/bin/codex";
-    process.env.CODEX_TIMEOUT_MS = "12345";
-    process.env.CODEX_SANDBOX = "workspace-write";
-    process.env.CODEX_APPROVAL_POLICY = "on-request";
-    resolveExecFile("ok");
-    const provider = new CodexProvider();
-
-    await provider.generateText("prompt");
-
-    expect(mockExecFile.mock.calls[0][0]).toBe("/opt/codex/bin/codex");
-    expect(mockExecFile.mock.calls[0][1]).toEqual(
-      expect.arrayContaining([
-        "--sandbox",
-        "workspace-write",
-        "--ask-for-approval",
-        "on-request",
-      ]),
-    );
-    expect(mockExecFile.mock.calls[0][2].timeout).toBe(12345);
-  });
-
-  test("uses per-request search, model, and profile options without bypassing sandbox", async () => {
-    resolveExecFile("ok");
-    const provider = new CodexProvider();
-
-    await provider.generateText("prompt", {
-      codexSearch: true,
-      model: "gpt-5",
-      codexProfile: "ops",
+    const answerPromise = provider.generateText("서버 상태 확인", {
+      model: "gpt-5.4",
+      codexThreadKey: "owner:channel",
+      codexSandbox: "read-only",
+      codexApprovalPolicy: "never",
     });
 
-    expect(mockExecFile.mock.calls[0][1]).toEqual(
-      expect.arrayContaining([
-        "--search",
-        "--model",
-        "gpt-5",
-        "--profile",
-        "ops",
-      ]),
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    await completeTurn(server, "정상입니다.");
+
+    await expect(answerPromise).resolves.toBe("정상입니다.");
+    expect(mockSpawn).toHaveBeenCalledWith(
+      "codex",
+      ["app-server"],
+      expect.objectContaining({
+        stdio: ["pipe", "pipe", "pipe"],
+        env: expect.objectContaining({
+          PATH: expect.stringContaining("/Users/tester/.local/npm-global/bin"),
+        }),
+      }),
     );
-    expect(mockExecFile.mock.calls[0][1]).not.toContain("--accept-hooks");
-    expect(mockExecFile.mock.calls[0][1]).not.toContain(
-      "--dangerously-bypass-approvals-and-sandbox",
+
+    const messages = server.messages();
+    expect(messages.map((message) => message.method)).toEqual([
+      "initialize",
+      "initialized",
+      "thread/start",
+      "turn/start",
+    ]);
+
+    const turnStart = messages.find(
+      (message) => message.method === "turn/start",
     );
+    expect(turnStart.params).toEqual(
+      expect.objectContaining({
+        threadId: "thread-1",
+        cwd: process.cwd(),
+        model: "gpt-5.4",
+        sandboxPolicy: {
+          type: "readOnly",
+          networkAccess: false,
+        },
+        approvalPolicy: "never",
+      }),
+    );
+    expect(turnStart.params.input).toEqual([
+      {
+        type: "text",
+        text: "서버 상태 확인",
+        text_elements: [],
+      },
+    ]);
   });
 
-  test("uses environment model, profile, and workdir defaults", async () => {
-    process.env.CODEX_MODEL = "gpt-5-mini";
-    process.env.CODEX_PROFILE = "server";
-    process.env.CODEX_WORKDIR = "/srv/discord-bot";
-    resolveExecFile("ok");
+  test("includes system and JSON instructions in the turn input", async () => {
+    const server = createAppServerProcess();
     const provider = new CodexProvider();
 
-    await provider.generateText("prompt");
-
-    expect(mockExecFile.mock.calls[0][1]).toEqual(
-      expect.arrayContaining([
-        "--cd",
-        "/srv/discord-bot",
-        "--model",
-        "gpt-5-mini",
-        "--profile",
-        "server",
-      ]),
-    );
-  });
-
-  test("includes system instruction and json-only instruction in the codex prompt", async () => {
-    resolveExecFile("{}");
-    const provider = new CodexProvider();
-
-    await provider.generateText("Return a payload", {
-      systemInstruction: "You are strict.",
+    const answerPromise = provider.generateText("payload 반환", {
+      systemInstruction: "엄격하게 답해라.",
       responseMimeType: "application/json",
     });
 
-    const args = mockExecFile.mock.calls[0][1];
-    const codexPrompt = args[args.length - 1];
-    expect(codexPrompt).toContain("You are strict.");
-    expect(codexPrompt).toContain("Return a payload");
-    expect(codexPrompt).toContain("JSON");
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    await completeTurn(server, "{}");
+
+    await expect(answerPromise).resolves.toBe("{}");
+    const turnStart = server
+      .messages()
+      .find((message) => message.method === "turn/start");
+    const inputText = turnStart.params.input[0].text;
+    expect(inputText).toContain("엄격하게 답해라.");
+    expect(inputText).toContain("payload 반환");
+    expect(inputText).toContain("JSON");
   });
 
-  test("falls back to stdout when codex does not write the last message file", async () => {
-    resolveExecFile(undefined, "stdout response");
+  test("reuses the mapped Codex thread for the same admin channel", async () => {
+    const server = createAppServerProcess();
     const provider = new CodexProvider();
 
-    const result = await provider.generateText("prompt");
+    const firstAnswer = provider.generateText("첫 질문", {
+      codexThreadKey: "owner:channel",
+    });
+    await completeHandshake(server);
+    await completeThreadStart(server, "thread-reused");
+    await completeTurn(server, "첫 답변");
+    await expect(firstAnswer).resolves.toBe("첫 답변");
 
-    expect(result).toBe("stdout response");
+    const secondAnswer = provider.generateText("두 번째 질문", {
+      codexThreadKey: "owner:channel",
+    });
+    await waitForTicks();
+    const secondTurnStart = server.messages().at(-1);
+    expect(secondTurnStart.method).toBe("turn/start");
+    expect(secondTurnStart.params.threadId).toBe("thread-reused");
+    server.send({
+      method: "item/agentMessage/delta",
+      params: {
+        delta: "두 번째 답변",
+      },
+    });
+    server.send({ method: "turn/completed", params: {} });
+
+    await expect(secondAnswer).resolves.toBe("두 번째 답변");
+    expect(
+      server.messages().filter((message) => message.method === "thread/start"),
+    ).toHaveLength(1);
   });
 
-  test("throws when codex returns an empty response", async () => {
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
-    resolveExecFile("   \n\n");
+  test("uses environment overrides for binary, timeout, model, workdir, sandbox, and approval policy", async () => {
+    process.env.CODEX_BIN = "/opt/codex/bin/codex";
+    process.env.CODEX_TIMEOUT_MS = "12345";
+    process.env.CODEX_MODEL = "gpt-5-mini";
+    process.env.CODEX_WORKDIR = "/srv/discord-bot";
+    process.env.CODEX_SANDBOX = "workspace-write";
+    process.env.CODEX_APPROVAL_POLICY = "on-request";
+    const server = createAppServerProcess();
     const provider = new CodexProvider();
 
-    await expect(provider.generateText("prompt")).rejects.toThrow(
-      "Codex returned an empty response",
+    const answerPromise = provider.generateText("설정 확인");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    await completeTurn(server, "ok");
+    await expect(answerPromise).resolves.toBe("ok");
+
+    expect(mockSpawn.mock.calls[0][0]).toBe("/opt/codex/bin/codex");
+    expect(mockSpawn.mock.calls[0][2].cwd).toBe("/srv/discord-bot");
+    const turnStart = server
+      .messages()
+      .find((message) => message.method === "turn/start");
+    expect(turnStart.params).toEqual(
+      expect.objectContaining({
+        cwd: "/srv/discord-bot",
+        model: "gpt-5-mini",
+        sandboxPolicy: {
+          type: "workspaceWrite",
+          writableRoots: ["/srv/discord-bot"],
+          networkAccess: false,
+          excludeTmpdirEnvVar: false,
+          excludeSlashTmp: false,
+        },
+        approvalPolicy: "on-request",
+      }),
     );
+  });
 
+  test("rejects JSON-RPC errors with the server message", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("실패 요청");
+
+    await completeHandshake(server);
+    const threadStart = server
+      .messages()
+      .find((message) => message.method === "thread/start");
+    server.send({
+      id: threadStart.id,
+      error: {
+        code: -32000,
+        message: "not authenticated",
+      },
+    });
+
+    await expect(answerPromise).rejects.toThrow("not authenticated");
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[CodexProvider] 생성 오류: not authenticated",
+    );
     consoleSpy.mockRestore();
   });
 
-  test("logs and rethrows generation errors", async () => {
+  test("rejects turn/start JSON-RPC errors with the server message", async () => {
+    process.env.CODEX_TIMEOUT_MS = "100";
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
-    const error = new Error("spawn failed");
-    rejectExecFile(error);
+    const server = createAppServerProcess();
     const provider = new CodexProvider();
 
-    await expect(provider.generateText("prompt")).rejects.toThrow(error);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "[CodexProvider] 생성 오류: spawn failed",
-    );
+    const answerPromise = provider.generateText("거부되는 요청");
 
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    const turnStart = server
+      .messages()
+      .find((message) => message.method === "turn/start");
+    server.send({
+      id: turnStart.id,
+      error: {
+        code: -32000,
+        message: "turn denied",
+      },
+    });
+
+    await expect(answerPromise).rejects.toThrow("turn denied");
+    consoleSpy.mockRestore();
+  });
+
+  test("rejects when the completed turn has no agent text", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("빈 답변 요청");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    server.send({ method: "turn/completed", params: {} });
+
+    await expect(answerPromise).rejects.toThrow(
+      "Codex returned an empty response",
+    );
     consoleSpy.mockRestore();
   });
 });
