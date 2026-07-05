@@ -2,7 +2,7 @@
 
 ## 운영 기준
 
-디스코드 봇은 로컬 Mac 스케줄러가 아니라 icenux 서버의 PM2 프로세스로 실행한다. 현재 운영 대상은 `icenux-ms7b23`이며, `main` 브랜치 push 시 GitHub Actions self-hosted runner가 서버의 `~/projects/discord-bot`에서 배포를 수행한다.
+디스코드 봇은 로컬 Mac 스케줄러가 아니라 icenux 서버의 PM2 프로세스로 실행한다. 현재 운영 SSH alias는 `icenux-external`이며, `main` 브랜치 push 시 GitHub Actions self-hosted runner가 서버의 `~/projects/discord-bot`에서 배포를 수행한다.
 
 ## 로컬 빌드
 
@@ -34,13 +34,13 @@ npm run build
 ## 상태 확인
 
 ```bash
-ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 status discord-bot --no-color'
+ssh icenux-external 'cd ~/projects/discord-bot && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 status discord-bot --no-color'
 ```
 
 로그 확인:
 
 ```bash
-ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 logs discord-bot'
+ssh icenux-external 'cd ~/projects/discord-bot && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 logs discord-bot'
 ```
 
 ## 최초 서버 준비
@@ -50,7 +50,7 @@ ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/npm-global/bi
 최초 배포는 GitHub Actions로 수행하거나 동일한 배포 산출물(`package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`)을 수동으로 복사한다. 산출물이 준비된 뒤 아래 명령을 실행한다.
 
 ```bash
-ssh icenux-ms7b23 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scripts && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 start ecosystem.config.cjs --update-env && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 save'
+ssh icenux-external 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scripts && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 start ecosystem.config.cjs --update-env && PATH="$HOME/.local/npm-global/bin:$PATH" pm2 save'
 ```
 
 서버 재부팅 후 자동 복구가 필요하면 PM2 startup 설정을 별도로 적용한다.
@@ -104,7 +104,7 @@ Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 
 서버에서 Hermes 실행 상태를 확인할 때는 아래 smoke command를 사용한다.
 
 ```bash
-ssh icenux-ms7b23 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
+ssh icenux-external 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
 ```
 
 정상 출력은 한 문장 이상의 응답 문장이다. 관리자 DM 일반 Hermes 응답은 공급자 설정을 따르지만, 긱뉴스 AI 요약/번역은 Hermes 전용으로 실행되며 fallback provider로 전환하지 않는다.
