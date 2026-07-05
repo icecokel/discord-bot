@@ -163,14 +163,16 @@ const answerWithAdminAi = async (
               process.env.CODEX_APPROVAL_POLICY ||
               DEFAULT_CODEX_ADMIN_APPROVAL_POLICY,
           }
-        : {
-            hermesSessionName: getHermesSessionName(
-              message.author.id,
-              message.channel.id,
-            ),
-            hermesToolsets:
-              process.env.HERMES_ADMIN_TOOLSETS || DEFAULT_HERMES_ADMIN_TOOLSETS,
-          };
+        : providerStatus.providerName === "hermes"
+          ? {
+              hermesSessionName: getHermesSessionName(
+                message.author.id,
+                message.channel.id,
+              ),
+              hermesToolsets:
+                process.env.HERMES_ADMIN_TOOLSETS || DEFAULT_HERMES_ADMIN_TOOLSETS,
+            }
+          : {};
 
     const result = await aiService.generateTextWithProvider(prompt, {
       systemInstruction: ADMIN_AI_ANSWER_SYSTEM_PROMPT,

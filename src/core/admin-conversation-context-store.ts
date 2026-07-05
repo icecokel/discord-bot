@@ -37,7 +37,7 @@ export const buildAdminConversationPrompt = (
   userId: string,
   channelId: string,
   currentMessage: string,
-  assistantLabel = "Hermes",
+  assistantLabel = "AI",
 ): string => {
   const turns = getAdminConversationTurns(userId, channelId);
   if (turns.length === 0) return currentMessage;

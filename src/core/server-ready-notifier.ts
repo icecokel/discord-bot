@@ -1,7 +1,7 @@
 import { Client } from "discord.js";
 
 const READY_MESSAGE =
-  "Hermes 출근했습니다. 질문 받을 준비도 끝났습니다.";
+  "Codex 출근했습니다. 질문 받을 준비도 끝났습니다.";
 
 export const notifyServerReady = async (
   client: Pick<Client, "user" | "users">,

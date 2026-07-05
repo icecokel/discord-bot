@@ -83,7 +83,7 @@ const GEEK_NEWS_PARSE_FAILED_MESSAGE =
 const GEEK_NEWS_ALREADY_SENT_MESSAGE =
   "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
 const GEEK_NEWS_AI_FAILED_MESSAGE =
-  "긱뉴스 Hermes 번역에 실패했습니다. Hermes 상태를 확인한 뒤 다시 시도해주세요.";
+  "긱뉴스 Codex 번역에 실패했습니다. Codex 상태를 확인한 뒤 다시 시도해주세요.";
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -135,7 +135,7 @@ const formatGeekNewsAiFailureReason = (
   };
 
   if (candidate?.killed && candidate?.signal === "SIGTERM") {
-    return `긱뉴스 Hermes ${stage}에 실패했습니다. Hermes 실행 시간이 초과되었습니다.`;
+    return `긱뉴스 Codex ${stage}에 실패했습니다. Codex 실행 시간이 초과되었습니다.`;
   }
 
   const rawMessage =
@@ -150,10 +150,10 @@ const formatGeekNewsAiFailureReason = (
     .find(Boolean);
 
   if (!firstLine) {
-    return `긱뉴스 Hermes ${stage}에 실패했습니다. Hermes가 오류를 반환했습니다.`;
+    return `긱뉴스 Codex ${stage}에 실패했습니다. Codex가 오류를 반환했습니다.`;
   }
 
-  return `긱뉴스 Hermes ${stage}에 실패했습니다: ${truncateText(firstLine, 500)}`;
+  return `긱뉴스 Codex ${stage}에 실패했습니다: ${truncateText(firstLine, 500)}`;
 };
 
 const normalizeLink = (href: string): string => {
@@ -715,7 +715,7 @@ class GeekNewsService {
 
     try {
       const result = await aiService.generateTextWithProviderOnly(
-        "hermes",
+        "codex",
         this.buildSummaryPrompt(items),
         {
           systemInstruction:
@@ -737,7 +737,7 @@ class GeekNewsService {
       );
 
       if (summaryMap.size === 0) {
-        throw new Error("Hermes 요약 응답을 JSON으로 파싱하지 못했습니다.");
+        throw new Error("Codex 요약 응답을 JSON으로 파싱하지 못했습니다.");
       }
 
       return items.map((item) => ({
@@ -749,7 +749,7 @@ class GeekNewsService {
         ),
       }));
     } catch (error) {
-      console.error("[GeekNewsService] Hermes 요약 실패:", error);
+      console.error("[GeekNewsService] Codex 요약 실패:", error);
       throw new Error(formatGeekNewsAiFailureReason("요약", error));
     }
   }
@@ -832,7 +832,7 @@ class GeekNewsService {
 
     try {
       const result = await aiService.generateTextWithProviderOnly(
-        "hermes",
+        "codex",
         this.buildTranslationPrompt(item, sourceContent),
         {
           systemInstruction:
@@ -848,7 +848,7 @@ class GeekNewsService {
 
       const translation = parseGeekNewsTranslationResponse(rawResponse);
       if (!translation) {
-        throw new Error("Hermes 번역 응답을 JSON으로 파싱하지 못했습니다.");
+        throw new Error("Codex 번역 응답을 JSON으로 파싱하지 못했습니다.");
       }
 
       const translatedTitle = cleanText(translation.title);
@@ -856,15 +856,15 @@ class GeekNewsService {
       const selectionReason = cleanReasonText(translation.reason);
 
       if (!isKoreanSummary(translatedTitle)) {
-        throw new Error("Hermes 번역 제목이 한국어가 아닙니다.");
+        throw new Error("Codex 번역 제목이 한국어가 아닙니다.");
       }
 
       if (!isKoreanSummary(translatedBody)) {
-        throw new Error("Hermes 번역 본문이 한국어가 아닙니다.");
+        throw new Error("Codex 번역 본문이 한국어가 아닙니다.");
       }
 
       if (!isKoreanSummary(selectionReason)) {
-        throw new Error("Hermes 선정 이유가 한국어가 아닙니다.");
+        throw new Error("Codex 선정 이유가 한국어가 아닙니다.");
       }
 
       return {
@@ -876,7 +876,7 @@ class GeekNewsService {
         selectionReason,
       };
     } catch (error) {
-      console.error("[GeekNewsService] Hermes 본문 번역 실패:", error);
+      console.error("[GeekNewsService] Codex 본문 번역 실패:", error);
       throw new Error(formatGeekNewsAiFailureReason("번역", error));
     }
   }

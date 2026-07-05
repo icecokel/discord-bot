@@ -58,7 +58,7 @@ client.on("messageCreate", async (message: Message) => {
   // Prefix 명령어 매칭 및 실행
   if (await handleCommand(message, client.commands)) return;
 
-  // 관리자 DM의 prefix 없는 요청은 Hermes 세션으로 처리
+  // 관리자 DM의 prefix 없는 요청은 현재 AI 공급자로 처리
   if (shouldProcessNaturalLanguageMessage(message, process.env.ADMIN_ID)) {
     await handleNaturalLanguageMessage(message);
   }

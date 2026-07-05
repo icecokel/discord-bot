@@ -519,7 +519,7 @@ describe("GeekNews channel delivery", () => {
     fetchFeaturedItemResultSpy.mockRestore();
   });
 
-  test("translates featured item with Hermes only without Gemini key", async () => {
+  test("translates featured item with Codex only without Gemini key", async () => {
     const originalGeminiKey = process.env.GEMINI_AI_API_KEY;
     delete process.env.GEMINI_AI_API_KEY;
 
@@ -549,7 +549,7 @@ describe("GeekNews channel delivery", () => {
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
       .mockResolvedValue({
-        providerName: "hermes",
+        providerName: "codex",
         text: JSON.stringify({
           title: "번역된 제목",
           body: "한국어 번역 본문입니다.",
@@ -568,7 +568,7 @@ describe("GeekNews channel delivery", () => {
         selectionReason: "오늘 살펴볼 만한 기술 변화입니다.",
       });
       expect(aiSpy).toHaveBeenCalledWith(
-        "hermes",
+        "codex",
         expect.any(String),
         expect.objectContaining({
           responseMimeType: "application/json",
@@ -586,7 +586,7 @@ describe("GeekNews channel delivery", () => {
     }
   });
 
-  test("returns visible failure reason when Hermes translation fails", async () => {
+  test("returns visible failure reason when Codex translation fails", async () => {
     const fetchListItemsSpy = jest
       .spyOn(geekNewsService, "fetchListItems")
       .mockResolvedValue({
@@ -608,7 +608,7 @@ describe("GeekNews channel delivery", () => {
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
-      .mockRejectedValue(new Error("Hermes unavailable"));
+      .mockRejectedValue(new Error("Codex unavailable"));
 
     try {
       const result = await geekNewsService.fetchFeaturedItemResult();
@@ -617,14 +617,14 @@ describe("GeekNews channel delivery", () => {
         status: "fetch-failed",
         item: null,
         reason:
-          "긱뉴스 Hermes 번역에 실패했습니다: Hermes unavailable",
+          "긱뉴스 Codex 번역에 실패했습니다: Codex unavailable",
       });
 
       const embed = geekNewsService.createEmbed(null, {
         fallbackDescription: result.reason,
       });
       expect(embed.toJSON().description).toBe(
-        "긱뉴스 Hermes 번역에 실패했습니다: Hermes unavailable",
+        "긱뉴스 Codex 번역에 실패했습니다: Codex unavailable",
       );
     } finally {
       fetchListItemsSpy.mockRestore();

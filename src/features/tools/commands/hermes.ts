@@ -38,7 +38,7 @@ const buildStatusMessage = (): string => {
 export default {
   name: "헤르메스",
   keywords: ["헤르메스", "hermes"],
-  description: "관리자 전용 Hermes AI 공급자 상태 확인 및 켜기/끄기",
+  description: "관리자 전용 Codex AI 공급자 호환 명령",
   async execute(message: Message, args: string[]) {
     if (!isAdmin(message)) {
       await message.reply(ADMIN_ONLY_MESSAGE);
@@ -48,14 +48,14 @@ export default {
     const action = getAction(args);
 
     if (action === "on") {
-      aiService.setPrimaryProvider("hermes");
-      await message.reply(`✅ Hermes를 켰습니다.\n${buildStatusMessage()}`);
+      aiService.setPrimaryProvider("codex");
+      await message.reply(`✅ Codex를 켰습니다.\n${buildStatusMessage()}`);
       return;
     }
 
     if (action === "off") {
       aiService.setPrimaryProvider("gemini");
-      await message.reply(`✅ Hermes를 껐습니다.\n${buildStatusMessage()}`);
+      await message.reply(`✅ Codex를 껐습니다.\n${buildStatusMessage()}`);
       return;
     }
 
@@ -66,9 +66,10 @@ export default {
 
     if (action === "clear") {
       clearAdminConversationContext(message.author.id, message.channel.id);
+      aiService.clearCodexThread?.(message.author.id, message.channel.id);
       resetHermesSession(message.author.id, message.channel.id);
       await message.reply(
-        "✅ 현재 채널의 Hermes 세션과 관리자 대화 기억을 초기화했습니다.",
+        "✅ 현재 채널의 Codex 관리자 대화 기억을 초기화했습니다.",
       );
       return;
     }

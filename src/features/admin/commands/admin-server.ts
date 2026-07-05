@@ -92,11 +92,15 @@ export const redactEnvSummary = (): string => {
   return [
     `AI_PROVIDER=${process.env.AI_PROVIDER || "unset"}`,
     `AI_FALLBACK_PROVIDER=${process.env.AI_FALLBACK_PROVIDER || "unset"}`,
-    `HERMES_TOOLSETS=${process.env.HERMES_TOOLSETS || "unset"}`,
-    `HERMES_ADMIN_TOOLSETS=${process.env.HERMES_ADMIN_TOOLSETS || "unset"}`,
+    `CODEX_MODEL=${process.env.CODEX_MODEL || "unset"}`,
+    `CODEX_SANDBOX=${process.env.CODEX_SANDBOX || "unset"}`,
+    `CODEX_APPROVAL_POLICY=${process.env.CODEX_APPROVAL_POLICY || "unset"}`,
+    `CODEX_ADMIN_SANDBOX=${process.env.CODEX_ADMIN_SANDBOX || "unset"}`,
+    `CODEX_ADMIN_SEARCH=${process.env.CODEX_ADMIN_SEARCH || "unset"}`,
+    `CODEX_BIN_SET=${Boolean(process.env.CODEX_BIN)}`,
+    `CODEX_WORKDIR_SET=${Boolean(process.env.CODEX_WORKDIR)}`,
     `ADMIN_ID_SET=${Boolean(process.env.ADMIN_ID)}`,
     `DISCORD_TOKEN_SET=${Boolean(process.env.DISCORD_BOT_TOKEN)}`,
-    `HERMES_BIN_SET=${Boolean(process.env.HERMES_BIN)}`,
   ].join("\n");
 };
 

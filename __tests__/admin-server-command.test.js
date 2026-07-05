@@ -14,16 +14,23 @@ describe("admin server command", () => {
   const originalSecretEnv = {
     ADMIN_ID: process.env.ADMIN_ID,
     DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
-    HERMES_BIN: process.env.HERMES_BIN,
     AI_PROVIDER: process.env.AI_PROVIDER,
+    CODEX_BIN: process.env.CODEX_BIN,
+    CODEX_WORKDIR: process.env.CODEX_WORKDIR,
+    CODEX_MODEL: process.env.CODEX_MODEL,
+    CODEX_SANDBOX: process.env.CODEX_SANDBOX,
+    CODEX_APPROVAL_POLICY: process.env.CODEX_APPROVAL_POLICY,
   };
 
   afterEach(() => {
     process.env.ADMIN_DISK_PATHS = originalDiskPaths;
-    process.env.ADMIN_ID = originalSecretEnv.ADMIN_ID;
-    process.env.DISCORD_BOT_TOKEN = originalSecretEnv.DISCORD_BOT_TOKEN;
-    process.env.HERMES_BIN = originalSecretEnv.HERMES_BIN;
-    process.env.AI_PROVIDER = originalSecretEnv.AI_PROVIDER;
+    for (const [key, value] of Object.entries(originalSecretEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   test("registers safe admin server inspection commands", () => {
@@ -45,18 +52,27 @@ describe("admin server command", () => {
   test("redacts secret environment values from status output", () => {
     process.env.ADMIN_ID = "123456789";
     process.env.DISCORD_BOT_TOKEN = "secret-token";
-    process.env.HERMES_BIN = "/usr/local/bin/hermes";
-    process.env.AI_PROVIDER = "hermes";
+    process.env.CODEX_BIN = "/opt/codex/bin/codex";
+    process.env.CODEX_WORKDIR = "/srv/discord-bot";
+    process.env.CODEX_MODEL = "gpt-5";
+    process.env.CODEX_SANDBOX = "read-only";
+    process.env.CODEX_APPROVAL_POLICY = "never";
+    process.env.AI_PROVIDER = "codex";
 
     const summary = redactEnvSummary();
 
-    expect(summary).toContain("AI_PROVIDER=hermes");
+    expect(summary).toContain("AI_PROVIDER=codex");
+    expect(summary).toContain("CODEX_MODEL=gpt-5");
+    expect(summary).toContain("CODEX_SANDBOX=read-only");
+    expect(summary).toContain("CODEX_APPROVAL_POLICY=never");
+    expect(summary).toContain("CODEX_BIN_SET=true");
+    expect(summary).toContain("CODEX_WORKDIR_SET=true");
     expect(summary).toContain("ADMIN_ID_SET=true");
     expect(summary).toContain("DISCORD_TOKEN_SET=true");
-    expect(summary).toContain("HERMES_BIN_SET=true");
     expect(summary).not.toContain("123456789");
     expect(summary).not.toContain("secret-token");
-    expect(summary).not.toContain("/usr/local/bin/hermes");
+    expect(summary).not.toContain("/opt/codex/bin/codex");
+    expect(summary).not.toContain("/srv/discord-bot");
   });
 
   test("formats only the discord-bot PM2 process", () => {

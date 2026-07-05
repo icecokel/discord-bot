@@ -1,6 +1,7 @@
 import { Message } from "discord.js";
 import { clearAdminConversationContext } from "../../../core/admin-conversation-context-store";
 import { aiService } from "../../../core/ai";
+import { resetHermesSession } from "../../../core/hermes-session-store";
 
 const ADMIN_ONLY_MESSAGE = "⛔ 관리자 권한이 없습니다.";
 
@@ -66,6 +67,7 @@ export default {
     if (action === "clear") {
       clearAdminConversationContext(message.author.id, message.channel.id);
       aiService.clearCodexThread?.(message.author.id, message.channel.id);
+      resetHermesSession(message.author.id, message.channel.id);
       await message.reply(
         "✅ 현재 채널의 Codex 관리자 대화 기억을 초기화했습니다.",
       );

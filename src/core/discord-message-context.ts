@@ -5,7 +5,7 @@ import { Message } from "discord.js";
 
 const MAX_IMAGE_ATTACHMENTS = 4;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const IMAGE_CONTEXT_DIR_PREFIX = "discord-bot-hermes-";
+const IMAGE_CONTEXT_DIR_PREFIX = "discord-bot-codex-";
 
 type AttachmentLike = {
   id?: string;

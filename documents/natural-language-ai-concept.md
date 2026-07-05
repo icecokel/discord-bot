@@ -6,7 +6,7 @@
 
 ## 전환 메모
 
-현재 구현은 Hermes session을 관리자 AI provider로 사용한다. 선택한 다음 방향은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조이며, 전환 기준은 `documents/codex-app-server-provider.md`에 둔다.
+현재 구현은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조이며, 운영 기준은 `documents/codex-app-server-provider.md`에 둔다. Hermes provider는 legacy 호환용으로만 남긴다.
 
 ## 현재 방향
 
@@ -21,9 +21,8 @@
 - 일반 사용자 DM 자연어 답변과 자연어 기능 실행은 제거한다.
 - 스케줄러 내부에서 필요한 날씨/긱뉴스 서비스는 유지한다.
 - 관리자 DM 명령어는 유지한다.
-- 현재 구현에서 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Hermes session으로 처리한다.
-- 전환 후에는 관리자 DM의 prefix 없는 메시지를 Codex app-server thread/turn으로 전달한다.
-- `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌며, 이때 prefix 없는 관리자 DM 답변은 Hermes session/toolset 경로가 아니다.
+- 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Codex app-server thread/turn으로 전달한다.
+- `!코덱스 끄기` 또는 `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌며, 이때 prefix 없는 관리자 DM 답변은 Codex thread 경로가 아니다.
 - 관리자 AI provider는 서버 작업, 리서치, 브라우저 확인, read-only 파일 조회를 담당하는 상주형 작업 에이전트로 사용한다.
 
 ## 제품 역할 분리
@@ -37,14 +36,15 @@
 - 관리자 DM 명령어 처리
 - 관리자 AI session 호출
 - `/질문` 관리자 명령어의 단발 AI 답변
-- 현재 `!헤르메스` 상태/토글/초기화 처리
+- 현재 `!코덱스` 상태/토글/초기화 처리
+- 기존 `!헤르메스` Codex 제어 호환 alias 처리
 - 날씨/긱뉴스 스케줄러 초기화
 - 준비 완료 관리자 DM 전송
 - Discord 메시지와 첨부 메타데이터를 AI provider context로 정리
 
 ### 관리자 AI Provider
 
-현재 구현의 기본 provider는 Hermes session이다. 전환 후 기본 provider는 Codex app-server thread/turn이다. `!헤르메스 끄기`로 primary AI 공급자를 Gemini로 바꾼 동안에는 prefix 없는 관리자 DM도 Hermes session이 아니라 현재 primary AI 공급자를 통해 답변된다.
+현재 구현의 기본 provider는 Codex app-server thread/turn이다. `!코덱스 끄기` 또는 `!헤르메스 끄기`로 primary AI 공급자를 Gemini로 바꾼 동안에는 prefix 없는 관리자 DM도 Codex thread가 아니라 현재 primary AI 공급자를 통해 답변된다.
 
 담당 범위:
 
@@ -78,9 +78,10 @@
 - 데이터 초기화
 - 관리자 AI 답변
 - 서버 런타임/디스크/PM2/배포 상태 조회
-- 현재 Hermes 상태 확인, 토글, 세션 초기화
+- 현재 Codex 상태 확인, 토글, thread 초기화
+- 기존 Hermes prefix 호환 alias
 
-`/질문 <질문>`은 관리자 전용 AI 답변 명령어지만, Hermes session 기억과 관리자 DM 백그라운드 후속 보고 흐름을 사용하지 않는 단발 AI 응답 경로다.
+`/질문 <질문>`은 관리자 전용 AI 답변 명령어지만, 관리자 DM thread 기억과 백그라운드 후속 보고 흐름을 사용하지 않는 단발 AI 응답 경로다.
 
 ## 제거된 기능
 
@@ -100,18 +101,19 @@
 | --- | --- | --- | --- |
 | 서버 채널 | 일반 메시지 | 무시 | 해당 없음 |
 | 서버 채널 | 제거된 일반 `!` 명령어 | 무시 | 해당 없음 |
-| 서버 채널 | `!헤르메스` | 현재 처리 | `ADMIN_ID` |
+| 서버 채널 | `!코덱스` | 현재 처리 | `ADMIN_ID` |
+| 서버 채널 | `!헤르메스` | Codex 제어 호환 alias | `ADMIN_ID` |
 | DM | 일반 사용자 일반 메시지 | 무시 | 해당 없음 |
 | DM | 일반 사용자의 관리자 명령어 시도 | 권한 없음 응답 | 해당 없음 |
 | DM | 관리자 명령어 | 처리 | `ADMIN_ID` |
-| DM | 관리자 prefix 없는 메시지 | 현재 기본 Hermes session, 전환 목표 Codex app-server | `ADMIN_ID` |
+| DM | 관리자 prefix 없는 메시지 | 현재 기본 Codex app-server | `ADMIN_ID` |
 
 메시지 처리 순서:
 
 1. 봇 메시지는 무시한다.
 2. 관리자 DM 명령어를 먼저 처리한다.
 3. 등록된 prefix 명령어를 처리한다.
-4. 관리자 DM이면 현재 AI 공급자 설정에 따라 자연어 답변 경로로 넘긴다. 현재 운영 기본값은 Hermes session이고, 전환 목표는 Codex app-server다.
+4. 관리자 DM이면 현재 AI 공급자 설정에 따라 자연어 답변 경로로 넘긴다. 운영 기본값은 Codex app-server다.
 5. 그 외 메시지는 무시한다.
 
 ## 관리자 AI 안전 원칙
@@ -138,9 +140,9 @@
 
 ## 성공 기준
 
-- 현재 prefix 명령어 레지스트리에는 관리자용 `헤르메스`만 남아 있다.
+- 현재 prefix 명령어 레지스트리에는 관리자용 `코덱스`와 `헤르메스` 호환 alias만 남아 있다.
 - 일반 사용자 DM은 관리자 AI provider로 전달되지 않는다.
-- 현재 관리자 DM은 운영 기본값에서 Hermes session을 사용하고, 전환 후에는 Codex app-server thread/turn을 사용한다.
+- 현재 관리자 DM은 운영 기본값에서 Codex app-server thread/turn을 사용한다.
 - 봇은 관리자 AI provider 호출마다 관리자 최근 대화 10턴을 prompt/context에 함께 포함한다.
 - 스케줄러는 날씨 DM과 긱뉴스 관리자 DM을 계속 초기화한다.
 - `discord-bot-fs` MCP는 read-only 도구만 허용한다.

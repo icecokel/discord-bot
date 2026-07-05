@@ -88,7 +88,7 @@ ssh icenux-external 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scr
 
 ## Codex App Server AI Provider
 
-선택한 전환 방향은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조다. 현재 구현은 아직 Hermes provider를 사용하므로, 아래 설정은 Codex provider 구현 후 운영 전환 시 적용한다.
+현재 운영 방향은 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 구조다. 아래 설정은 운영 기본값이다.
 
 운영 서버에서 Codex app-server를 AI provider로 사용할 때의 환경변수 예시는 아래와 같다.
 
@@ -116,7 +116,7 @@ ssh icenux-external 'codex login --device-auth'
 
 현재 배포 디렉터리 `~/projects/discord-bot`는 전체 소스 checkout이 아니라 실행 산출물 디렉터리다. 1차 전환은 운영 안정성을 우선해 이 경로를 `CODEX_WORKDIR`로 사용하고, Codex가 원본 TypeScript와 테스트까지 조사해야 할 필요가 생기면 read-only 소스 checkout을 별도로 둔다.
 
-구현 후 서버 smoke test는 `initialize -> initialized -> thread/start -> turn/start -> turn/completed`까지 확인하는 스크립트로 추가한다. 구현 전에는 아래 기본 점검만 수행한다.
+서버 smoke test는 `initialize -> initialized -> thread/start -> turn/start -> turn/completed`까지 확인하는 스크립트로 확장할 수 있다. 기본 점검은 아래 명령으로 수행한다.
 
 ```bash
 ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$PATH"; codex --version'
@@ -125,9 +125,9 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 
 세부 설계와 전환 순서는 `documents/codex-app-server-provider.md`를 기준으로 한다.
 
-## 기존 Hermes / Codex OAuth AI Provider
+## Legacy Hermes Provider
 
-현재 구현에서 운영 서버의 Hermes / Codex OAuth를 AI provider로 사용할 때의 환경변수 예시는 아래와 같다.
+Hermes provider는 과거 운영 호환을 위해 남아 있지만 현재 기본 경로가 아니다. 운영 서버에서 legacy provider를 수동으로 되돌릴 때의 환경변수 예시는 아래와 같다.
 
 ```bash
 AI_PROVIDER=hermes
@@ -138,15 +138,15 @@ HERMES_TOOLSETS=web
 HERMES_ADMIN_TOOLSETS=web,browser,terminal,file,code_execution,discord-bot-fs
 ```
 
-Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway이며, Hermes는 현재 관리자 DM의 운영 기본 AI provider로 사용한다. 관리자 DM은 운영 기본값에서 Hermes session을 사용하고, 봇이 관리자 최근 대화 10턴을 prompt에 함께 포함한다. session 호출 실패 시 Hermes oneshot으로 한 번 재시도한다. `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌므로 prefix 없는 관리자 DM도 Hermes session/toolset을 사용하지 않는다. 일반 DM의 AI 답변과 bot-managed 압축 기억은 사용하지 않는다. 봇은 현재 관리자 Discord 메시지와 첨부 메타데이터를 bridge context로 정리해 prompt에 포함하고, 이미지 첨부는 Discord CDN URL을 우선 참조하되 URL 접근 실패에 대비해 타입과 크기를 제한한 임시 파일 fallback 경로를 함께 제공한다. Discord 쓰기/삭제/관리 tool은 Hermes에 열지 않는다. 관리자 DM은 Hermes 경로에서 `HERMES_ADMIN_TOOLSETS`로 브라우저 자동화, 서버 파일, 터미널, 코드 실행, `discord-bot-fs` MCP toolset을 별도로 사용한다. Discord 사용자 입력은 신뢰할 수 없는 입력이므로 hook 자동 승인은 사용하지 않는다.
+Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 유일한 Discord gateway다. `!헤르메스` prefix 명령은 더 이상 Hermes를 켜지 않고 Codex 제어 호환 alias로 동작한다.
 
-관리자 Hermes 요청이 60초 안에 끝나면 상태 메시지를 최종 답변으로 수정한다. 60초를 넘기면 완료 후 별도 보고하겠다는 선응답을 남기고, Hermes 작업은 최대 30분까지 백그라운드로 계속 실행한 뒤 새 메시지로 결과를 보낸다.
+관리자 Codex 요청이 60초 안에 끝나면 상태 메시지를 최종 답변으로 수정한다. 60초를 넘기면 완료 후 별도 보고하겠다는 선응답을 남기고, Codex 작업은 최대 30분까지 백그라운드로 계속 실행한 뒤 새 메시지로 결과를 보낸다.
 
-현재 긱뉴스 스케줄러의 AI 요약/번역은 Gemini fallback을 사용하지 않고 Hermes만 호출한다. Hermes 요약/번역이 실패하면 원문 기반 대체 번역을 보내지 않고, 관리자 DM embed에 실패 사유를 표시한다.
+현재 긱뉴스 스케줄러의 AI 요약/번역은 Gemini fallback을 사용하지 않고 Codex만 호출한다. Codex 요약/번역이 실패하면 원문 기반 대체 번역을 보내지 않고, 관리자 DM embed에 실패 사유를 표시한다.
 
 `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP이다. `~/.hermes/config.yaml`의 `mcp_servers.discord-bot-fs.tools.include`에는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`만 포함한다. `write_file`, `edit_file`, `create_directory`, `move_file`은 포함하지 않는다.
 
-관리자 DM Hermes는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
+관리자 DM Codex는 삭제, 초기화, 덮어쓰기, 강제 재설정, 권한 변경, 대량 발송, 서비스 중단처럼 되돌리기 어렵거나 영향 범위가 큰 작업을 바로 실행하지 않는다. 대상, 영향 범위, 되돌리는 방법을 요약해 확인을 요청하고, 애매하거나 고민되는 경우에는 작업하지 않고 사용자에게 질문한다.
 
 서버에서 Hermes 실행 상태를 확인할 때는 아래 smoke command를 사용한다.
 
@@ -154,7 +154,7 @@ Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 
 ssh icenux-external 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" hermes -z "웹 검색 가능 여부를 한 문장으로 확인해줘." --toolsets web --ignore-rules'
 ```
 
-정상 출력은 한 문장 이상의 응답 문장이다. 관리자 DM 일반 Hermes 응답은 공급자 설정을 따르지만, 긱뉴스 AI 요약/번역은 Hermes 전용으로 실행되며 fallback provider로 전환하지 않는다.
+정상 출력은 한 문장 이상의 응답 문장이다. 이 smoke test는 legacy provider 점검용이며, 현재 기본 운영 점검은 Codex CLI와 PM2 상태 확인을 우선한다.
 
 이 Hermes 통합은 새로운 런타임/데이터 파일명을 추가하지 않는다. 저장소에 새로 추가하는 파일은 kebab-case를 따라야 하며, `README.md`는 기존 conventional 파일명이다.
 

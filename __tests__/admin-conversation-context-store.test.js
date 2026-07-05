@@ -54,7 +54,7 @@ describe("admin conversation context store", () => {
 
     expect(prompt).toContain("관리자 최근 대화");
     expect(prompt).toContain("관리자: 이전 질문");
-    expect(prompt).toContain("Hermes: 이전 답변");
+    expect(prompt).toContain("AI: 이전 답변");
     expect(prompt).toContain("현재 관리자 메시지");
     expect(prompt).toContain("현재 질문");
   });

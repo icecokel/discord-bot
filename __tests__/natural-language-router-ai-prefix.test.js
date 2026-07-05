@@ -187,6 +187,26 @@ describe("natural language router admin Codex answer", () => {
     expect(options.codexSandbox).toBe("read-only");
   });
 
+  test("does not pass legacy Hermes options when Gemini is active", async () => {
+    aiService.getProviderStatus.mockReturnValue({
+      providerName: "gemini",
+    });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "gemini",
+      text: "Gemini 답변입니다.",
+      usedFallback: false,
+    });
+
+    await handleNaturalLanguageMessage(
+      createMessage({ content: "코덱스 꺼진 상태 질문" }),
+    );
+
+    const [, options] = aiService.generateTextWithProvider.mock.calls[0];
+    expect(options.codexThreadKey).toBeUndefined();
+    expect(options.hermesSessionName).toBeUndefined();
+    expect(options.hermesToolsets).toBeUndefined();
+  });
+
   test("passes current Discord image attachment context to Codex", async () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
