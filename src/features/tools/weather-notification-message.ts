@@ -12,10 +12,11 @@ export const buildTodayWeatherNotification = (
 ): string => {
   return [
     `🌤️ 오늘 ${region} 날씨`,
+    today.current?.desc,
     `최저 ${formatTemperature(today.min)}`,
     `최고 ${formatTemperature(today.max)}`,
     `강수확률 ${today.popMax}%`,
-  ].join(" | ");
+  ].filter(Boolean).join(" | ");
 };
 
 export const buildTomorrowWeatherNotification = (

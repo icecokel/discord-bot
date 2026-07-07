@@ -6,15 +6,23 @@ const {
 } = require("../src/features/tools/weather-notification-message");
 
 describe("Weather notification message builder", () => {
-  test("builds today notification with min/max and precipitation", () => {
+  test("builds today notification with current condition, min/max and precipitation", () => {
     expect(
       buildTodayWeatherNotification("서울", {
-        current: null,
+        current: {
+          temp: 12,
+          sky: "흐림 ☁️",
+          pty: "비 🌧️",
+          pop: 60,
+          desc: "흐림 ☁️/비 🌧️",
+        },
         min: 8,
         max: 17,
         popMax: 30,
       }),
-    ).toBe("🌤️ 오늘 서울 날씨 | 최저 8° | 최고 17° | 강수확률 30%");
+    ).toBe(
+      "🌤️ 오늘 서울 날씨 | 흐림 ☁️/비 🌧️ | 최저 8° | 최고 17° | 강수확률 30%",
+    );
   });
 
   test("builds tomorrow notification with sky summary", () => {

@@ -186,11 +186,13 @@ export const getShortTermForecast = async (
     let tomorrowMin = 100,
       tomorrowMax = -100;
     const tomorrowSky: { [key: number]: number } = {};
+    const tomorrowPty: { [key: number]: number } = {};
     const tomorrowPops: number[] = [];
 
     let dayAfterMin = 100,
       dayAfterMax = -100;
     const dayAfterSky: { [key: number]: number } = {};
+    const dayAfterPty: { [key: number]: number } = {};
     const dayAfterPops: number[] = [];
 
     items.forEach((item) => {
@@ -216,6 +218,9 @@ export const getShortTermForecast = async (
         if (item.category === "SKY") {
           tomorrowSky[val] = (tomorrowSky[val] || 0) + 1;
         }
+        if (item.category === "PTY" && val > 0) {
+          tomorrowPty[val] = (tomorrowPty[val] || 0) + 1;
+        }
         if (item.category === "POP") {
           tomorrowPops.push(val);
         }
@@ -229,6 +234,9 @@ export const getShortTermForecast = async (
         }
         if (item.category === "SKY") {
           dayAfterSky[val] = (dayAfterSky[val] || 0) + 1;
+        }
+        if (item.category === "PTY" && val > 0) {
+          dayAfterPty[val] = (dayAfterPty[val] || 0) + 1;
         }
         if (item.category === "POP") {
           dayAfterPops.push(val);
@@ -281,6 +289,15 @@ export const getShortTermForecast = async (
       return maxKey ? Number(maxKey) : 0;
     };
 
+    const getDailyCondition = (
+      skyCounts: { [key: number]: number },
+      ptyCounts: { [key: number]: number },
+    ): string => {
+      const ptyMode = getMode(ptyCounts);
+      if (ptyMode > 0) return getPty(ptyMode);
+      return getSky(getMode(skyCounts));
+    };
+
     const result: ShortTermForecastResult = {
       today: {
         current: current,
@@ -291,13 +308,13 @@ export const getShortTermForecast = async (
       tomorrow: {
         min: tomorrowMin === 100 ? null : tomorrowMin,
         max: tomorrowMax === -100 ? null : tomorrowMax,
-        sky: getSky(getMode(tomorrowSky)),
+        sky: getDailyCondition(tomorrowSky, tomorrowPty),
         popMax: tomorrowPops.length > 0 ? Math.max(...tomorrowPops) : 0,
       },
       dayAfter: {
         min: dayAfterMin === 100 ? null : dayAfterMin,
         max: dayAfterMax === -100 ? null : dayAfterMax,
-        sky: getSky(getMode(dayAfterSky)),
+        sky: getDailyCondition(dayAfterSky, dayAfterPty),
         popMax: dayAfterPops.length > 0 ? Math.max(...dayAfterPops) : 0,
       },
     };
