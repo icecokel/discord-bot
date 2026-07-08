@@ -68,6 +68,8 @@ const ARTICLE_BLOCK_REGEXES = [
 
 const MAX_SUMMARY_LENGTH = 160;
 const MAX_SOURCE_CONTENT_LENGTH = 12000;
+const MAX_TRANSLATION_PROMPT_SOURCE_LENGTH = 6000;
+const MAX_TRANSLATION_RETRY_SOURCE_LENGTH = 2500;
 const MAX_EMBED_DESCRIPTION_LENGTH = 3800;
 const MAX_EMBED_COUNT = 8;
 const FEATURED_CANDIDATE_LIMIT = 20;
@@ -184,6 +186,57 @@ const truncateText = (text: string, maxLength: number): string => {
   }
 
   return `${text.slice(0, maxLength - 3).trimEnd()}...`;
+};
+
+const formatErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const extractFirstJsonObject = (text: string): string | null => {
+  const start = text.indexOf("{");
+  if (start < 0) {
+    return null;
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = inString;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
 };
 
 const cleanSummaryText = (text: string): string =>
@@ -514,7 +567,7 @@ export const parseGeekNewsTranslationResponse = (
     return null;
   }
 
-  const jsonCandidate = trimmed.match(/\{[\s\S]*\}/)?.[0] || trimmed;
+  const jsonCandidate = extractFirstJsonObject(trimmed) || trimmed;
 
   try {
     const parsed = JSON.parse(jsonCandidate) as RawGeekNewsTranslation;
@@ -679,13 +732,14 @@ class GeekNewsService {
   private buildTranslationPrompt(
     item: GeekNewsItem,
     sourceContent: string,
+    sourceLength: number = MAX_TRANSLATION_PROMPT_SOURCE_LENGTH,
   ): string {
     const payload = {
       title: item.title,
       description: item.description,
       body: truncateText(
         sourceContent || item.description || item.title,
-        MAX_SOURCE_CONTENT_LENGTH,
+        sourceLength,
       ),
     };
 
@@ -699,7 +753,7 @@ class GeekNewsService {
       '형식: {"title":"한국어 제목","body":"한국어 번역 본문","reason":"선정 이유"}',
       "규칙:",
       "- title은 기사 제목을 한국어 한 줄로 번역",
-      "- body는 기사 본문을 한국어로 번역",
+      "- body는 기사 본문의 핵심 내용을 한국어로 번역하되 최대 2200자로 작성",
       "- reason은 1~2문장, 왜 읽을 만한 기사인지 한국어로 설명",
       "- 문단 구분은 유지",
       "- 입력에 없는 사실을 추측하거나 추가하지 말 것",
@@ -829,56 +883,82 @@ class GeekNewsService {
     const { content: sourceContent, sourceUrl } = await this.fetchArticleContent(
       item.link,
     );
+    const attempts = [
+      {
+        label: "initial",
+        sourceLength: MAX_TRANSLATION_PROMPT_SOURCE_LENGTH,
+        maxOutputTokens: 2600,
+      },
+      {
+        label: "compact",
+        sourceLength: MAX_TRANSLATION_RETRY_SOURCE_LENGTH,
+        maxOutputTokens: 2200,
+      },
+    ];
+    let lastError: unknown = new Error("Codex 번역을 실행하지 못했습니다.");
 
-    try {
-      const result = await aiService.generateTextWithProviderOnly(
-        "codex",
-        this.buildTranslationPrompt(item, sourceContent),
-        {
-          systemInstruction:
-            "당신은 한국어 기술 기사 번역기입니다. title, body, reason은 반드시 자연스러운 한국어로 작성하고 JSON 외 텍스트는 출력하지 마세요.",
-          responseMimeType: "application/json",
-          config: {
-            temperature: 0.2,
-            maxOutputTokens: 3200,
+    for (const [index, attempt] of attempts.entries()) {
+      try {
+        const result = await aiService.generateTextWithProviderOnly(
+          "codex",
+          this.buildTranslationPrompt(
+            item,
+            sourceContent,
+            attempt.sourceLength,
+          ),
+          {
+            systemInstruction:
+              "당신은 한국어 기술 기사 번역기입니다. title, body, reason은 반드시 자연스러운 한국어로 작성하고 JSON 외 텍스트는 출력하지 마세요.",
+            responseMimeType: "application/json",
+            config: {
+              temperature: 0.2,
+              maxOutputTokens: attempt.maxOutputTokens,
+            },
           },
-        },
-      );
-      const rawResponse = result.text;
+        );
+        const rawResponse = result.text;
 
-      const translation = parseGeekNewsTranslationResponse(rawResponse);
-      if (!translation) {
-        throw new Error("Codex 번역 응답을 JSON으로 파싱하지 못했습니다.");
+        const translation = parseGeekNewsTranslationResponse(rawResponse);
+        if (!translation) {
+          throw new Error("Codex 번역 응답을 JSON으로 파싱하지 못했습니다.");
+        }
+
+        const translatedTitle = cleanText(translation.title);
+        const translatedBody = cleanTranslatedBodyText(translation.body);
+        const selectionReason = cleanReasonText(translation.reason);
+
+        if (!isKoreanSummary(translatedTitle)) {
+          throw new Error("Codex 번역 제목이 한국어가 아닙니다.");
+        }
+
+        if (!isKoreanSummary(translatedBody)) {
+          throw new Error("Codex 번역 본문이 한국어가 아닙니다.");
+        }
+
+        if (!isKoreanSummary(selectionReason)) {
+          throw new Error("Codex 선정 이유가 한국어가 아닙니다.");
+        }
+
+        return {
+          ...item,
+          sourceUrl,
+          sourceContent,
+          translatedTitle,
+          translatedBody,
+          selectionReason,
+        };
+      } catch (error) {
+        lastError = error;
+        if (index < attempts.length - 1) {
+          console.warn(
+            `[GeekNewsService] Codex 본문 번역 재시도 (${attempt.label} 실패): ${formatErrorMessage(error)}`,
+          );
+        }
       }
-
-      const translatedTitle = cleanText(translation.title);
-      const translatedBody = cleanTranslatedBodyText(translation.body);
-      const selectionReason = cleanReasonText(translation.reason);
-
-      if (!isKoreanSummary(translatedTitle)) {
-        throw new Error("Codex 번역 제목이 한국어가 아닙니다.");
-      }
-
-      if (!isKoreanSummary(translatedBody)) {
-        throw new Error("Codex 번역 본문이 한국어가 아닙니다.");
-      }
-
-      if (!isKoreanSummary(selectionReason)) {
-        throw new Error("Codex 선정 이유가 한국어가 아닙니다.");
-      }
-
-      return {
-        ...item,
-        sourceUrl,
-        sourceContent,
-        translatedTitle,
-        translatedBody,
-        selectionReason,
-      };
-    } catch (error) {
-      console.error("[GeekNewsService] Codex 본문 번역 실패:", error);
-      throw new Error(formatGeekNewsAiFailureReason("번역", error));
     }
+
+    console.error("[GeekNewsService] Codex 본문 번역 실패:", lastError);
+    throw new Error(formatGeekNewsAiFailureReason("번역", lastError));
   }
 
   async fetchTopItems(limit: number = 5): Promise<GeekNewsItem[]> {

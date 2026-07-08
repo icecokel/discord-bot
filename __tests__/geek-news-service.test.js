@@ -236,6 +236,21 @@ describe("GeekNews translation helpers", () => {
     });
   });
 
+  test("parses first JSON translation object when Codex adds trailing prose", () => {
+    const item = parseGeekNewsTranslationResponse(`
+      결과입니다.
+      {"title":"번역된 제목","body":"한국어 본문입니다.","reason":"읽어볼 만한 이유입니다."}
+
+      참고: {이 부분은 JSON이 아닙니다}
+    `);
+
+    expect(item).toEqual({
+      title: "번역된 제목",
+      body: "한국어 본문입니다.",
+      reason: "읽어볼 만한 이유입니다.",
+    });
+  });
+
   test("extracts article text from article block", () => {
     const html = `
       <html>
@@ -606,6 +621,9 @@ describe("GeekNews channel delivery", () => {
       text: jest.fn().mockResolvedValue("<article>Original body</article>"),
     });
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
       .mockRejectedValue(new Error("Codex unavailable"));
@@ -630,6 +648,75 @@ describe("GeekNews channel delivery", () => {
       fetchListItemsSpy.mockRestore();
       fetchSpy.mockRestore();
       consoleSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
+      aiSpy.mockRestore();
+    }
+  });
+
+  test("retries translation with a compact prompt when Codex response is not JSON", async () => {
+    const fetchListItemsSpy = jest
+      .spyOn(geekNewsService, "fetchListItems")
+      .mockResolvedValue({
+        items: [
+          {
+            rank: 1,
+            title: "Original title",
+            link: "https://example.com/story",
+            points: 42,
+            description: "Original description",
+          },
+        ],
+      });
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      url: "https://example.com/story",
+      text: jest.fn().mockResolvedValue(`
+        <article>
+          <p>${"Long original article body. ".repeat(260)}</p>
+        </article>
+      `),
+    });
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+    const aiSpy = jest
+      .spyOn(aiService, "generateTextWithProviderOnly")
+      .mockResolvedValueOnce({
+        providerName: "codex",
+        text: "번역 결과를 만들었지만 JSON 객체는 아닙니다.",
+        usedFallback: false,
+      })
+      .mockResolvedValueOnce({
+        providerName: "codex",
+        text: JSON.stringify({
+          title: "재시도 번역 제목",
+          body: "재시도 후 생성된 한국어 본문입니다.",
+          reason: "재시도 후 선정 이유입니다.",
+        }),
+        usedFallback: false,
+      });
+
+    try {
+      const result = await geekNewsService.fetchFeaturedItemResult();
+
+      expect(result.status).toBe("ok");
+      expect(result.item).toMatchObject({
+        translatedTitle: "재시도 번역 제목",
+        translatedBody: "재시도 후 생성된 한국어 본문입니다.",
+        selectionReason: "재시도 후 선정 이유입니다.",
+      });
+      expect(aiSpy).toHaveBeenCalledTimes(2);
+      const firstPrompt = aiSpy.mock.calls[0][1];
+      const retryPrompt = aiSpy.mock.calls[1][1];
+      expect(retryPrompt.length).toBeLessThan(firstPrompt.length);
+    } finally {
+      fetchListItemsSpy.mockRestore();
+      fetchSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleWarnSpy.mockRestore();
       aiSpy.mockRestore();
     }
   });
