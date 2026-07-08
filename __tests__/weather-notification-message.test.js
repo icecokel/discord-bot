@@ -21,7 +21,7 @@ describe("Weather notification message builder", () => {
         popMax: 30,
       }),
     ).toBe(
-      "🌤️ 오늘 서울 날씨 | 흐림 ☁️/비 🌧️ | 최저 8° | 최고 17° | 강수확률 30%",
+      "🌤️ 서울 오늘 | 흐림 ☁️/비 🌧️ · 강수 30% | 8~17°",
     );
   });
 
@@ -34,7 +34,7 @@ describe("Weather notification message builder", () => {
         popMax: 20,
       }),
     ).toBe(
-      "🌙 내일 부산 날씨 | 구름많음 🌥️ | 최저 10° | 최고 19° | 강수확률 20%",
+      "🌙 부산 내일 | 구름많음 🌥️ · 강수 20% | 10~19°",
     );
   });
 
@@ -46,6 +46,6 @@ describe("Weather notification message builder", () => {
         sky: "",
         popMax: 0,
       }),
-    ).toBe("🌙 내일 제주 날씨 | - | 최저 - | 최고 - | 강수확률 0%");
+    ).toBe("🌙 제주 내일 | - · 강수 0% | 기온 -");
   });
 });

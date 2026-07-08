@@ -3,20 +3,28 @@ import type { ShortTermForecastResult } from "../../utils/kma-helper";
 type TodaySummary = ShortTermForecastResult["today"];
 type DailySummary = ShortTermForecastResult["tomorrow"];
 
-const formatTemperature = (value: number | null): string =>
-  value !== null ? `${value}°` : "-";
+const formatTemperatureRange = (
+  min: number | null,
+  max: number | null,
+): string => {
+  if (min === null && max === null) return "기온 -";
+  if (min === null) return `최저 - / 최고 ${max}°`;
+  if (max === null) return `최저 ${min}° / 최고 -`;
+  return `${min}~${max}°`;
+};
+
+const formatCondition = (condition: string | undefined, popMax: number): string =>
+  `${condition || "-"} · 강수 ${popMax}%`;
 
 export const buildTodayWeatherNotification = (
   region: string,
   today: TodaySummary,
 ): string => {
   return [
-    `🌤️ 오늘 ${region} 날씨`,
-    today.current?.desc,
-    `최저 ${formatTemperature(today.min)}`,
-    `최고 ${formatTemperature(today.max)}`,
-    `강수확률 ${today.popMax}%`,
-  ].filter(Boolean).join(" | ");
+    `🌤️ ${region} 오늘`,
+    formatCondition(today.current?.desc, today.popMax),
+    formatTemperatureRange(today.min, today.max),
+  ].join(" | ");
 };
 
 export const buildTomorrowWeatherNotification = (
@@ -24,10 +32,8 @@ export const buildTomorrowWeatherNotification = (
   tomorrow: DailySummary,
 ): string => {
   return [
-    `🌙 내일 ${region} 날씨`,
-    tomorrow.sky || "-",
-    `최저 ${formatTemperature(tomorrow.min)}`,
-    `최고 ${formatTemperature(tomorrow.max)}`,
-    `강수확률 ${tomorrow.popMax}%`,
+    `🌙 ${region} 내일`,
+    formatCondition(tomorrow.sky, tomorrow.popMax),
+    formatTemperatureRange(tomorrow.min, tomorrow.max),
   ].join(" | ");
 };
