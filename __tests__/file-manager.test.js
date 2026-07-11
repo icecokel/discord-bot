@@ -142,6 +142,29 @@ describe("file manager", () => {
     );
   });
 
+  test("cleans up a temporary file when writing it fails", () => {
+    const originalData = '{"enabled":false}';
+    const writeError = new Error("EIO: write failure");
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockFiles.set(statePath, originalData);
+    mockFs.writeFileSync.mockImplementationOnce((temporaryPath, contents) => {
+      mockFiles.set(temporaryPath, contents);
+      throw writeError;
+    });
+
+    expect(writeJson("state.json", { enabled: true })).toBe(false);
+    expect(mockFs.renameSync).not.toHaveBeenCalled();
+    expect(mockFs.unlinkSync).toHaveBeenCalledWith(expect.stringMatching(/\.tmp$/));
+    expect(mockFiles.get(statePath)).toBe(originalData);
+    expect(Array.from(mockFiles.keys())).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/\.tmp$/)]),
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[FileManager] Error writing state.json:",
+      writeError.message,
+    );
+  });
+
   test("returns the default for missing JSON without creating a corrupt file", () => {
     const defaultValue = { enabled: false };
 
