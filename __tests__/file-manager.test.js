@@ -70,6 +70,41 @@ describe("file manager", () => {
     expect(mockFiles.has(statePath)).toBe(false);
   });
 
+  test("returns the default without preserving when JSON reading fails", () => {
+    const defaultValue = { enabled: false };
+    const readError = new Error("EIO: read failure");
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockFiles.set(statePath, '{"enabled":true}');
+    mockFs.readFileSync.mockImplementationOnce(() => {
+      throw readError;
+    });
+
+    expect(readJson("state.json", defaultValue)).toBe(defaultValue);
+    expect(mockFs.renameSync).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[FileManager] Error reading state.json:",
+      readError.message,
+    );
+  });
+
+  test("returns the default when preserving malformed JSON fails", () => {
+    const defaultValue = { enabled: false };
+    const malformedData = "{ malformed";
+    const preservationError = new Error("EPERM: rename denied");
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockFiles.set(statePath, malformedData);
+    mockFs.renameSync.mockImplementationOnce(() => {
+      throw preservationError;
+    });
+
+    expect(readJson("state.json", defaultValue)).toBe(defaultValue);
+    expect(mockFiles.get(statePath)).toBe(malformedData);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[FileManager] Error preserving corrupt state.json:",
+      preservationError.message,
+    );
+  });
+
   test("writes JSON atomically through a temporary file", () => {
     expect(writeJson("state.json", { enabled: true })).toBe(true);
     expect(mockFs.renameSync).toHaveBeenCalledWith(
@@ -79,6 +114,31 @@ describe("file manager", () => {
     expect(JSON.parse(mockFiles.get(statePath))).toEqual({ enabled: true });
     expect(Array.from(mockFiles.keys())).not.toEqual(
       expect.arrayContaining([expect.stringMatching(/\.tmp$/)]),
+    );
+  });
+
+  test("cleans up a temporary file when the final write rename fails", () => {
+    const originalData = '{"enabled":false}';
+    const renameError = new Error("EPERM: rename denied");
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockFiles.set(statePath, originalData);
+    mockFs.renameSync.mockImplementationOnce(() => {
+      throw renameError;
+    });
+
+    expect(writeJson("state.json", { enabled: true })).toBe(false);
+    expect(mockFs.renameSync).toHaveBeenCalledWith(
+      expect.stringMatching(/\.tmp$/),
+      statePath,
+    );
+    expect(mockFs.unlinkSync).toHaveBeenCalledWith(expect.stringMatching(/\.tmp$/));
+    expect(mockFiles.get(statePath)).toBe(originalData);
+    expect(Array.from(mockFiles.keys())).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/\.tmp$/)]),
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[FileManager] Error writing state.json:",
+      renameError.message,
     );
   });
 
