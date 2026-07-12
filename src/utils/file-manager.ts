@@ -3,8 +3,8 @@ import path from "path";
 
 // __dirname:
 //   - dev: src/utils/
-//   - prod: projects/discord-bot/ (dist 내용물이 루트로 배포됨)
-// target: data/
+//   - prod: dist/ (bundle entrypoint is dist/index.js)
+// target: dist/data/
 export const DATA_DIR =
   process.env.NODE_ENV === "production"
     ? path.join(__dirname, "data")

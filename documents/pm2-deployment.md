@@ -17,10 +17,17 @@ npm run build
 현재 사용하는 배포 흐름:
 
 1. `main` 브랜치에 변경 사항을 push한다.
-2. GitHub Actions self-hosted runner가 배포 산출물(`package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`)을 icenux 서버의 `~/projects/discord-bot`로 복사한다.
-3. runner가 빌드 후 PM2 프로세스를 `--update-env`로 재시작한다.
+2. runner가 `npm ci`, 명령어 레지스트리 생성, 테스트, 타입 검사, 빌드를 수행한다.
+3. GitHub Actions self-hosted runner가 배포 산출물(`package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`)을 icenux 서버의 `~/projects/discord-bot`로 복사한다.
+4. runner가 PM2 프로세스를 `--update-env`로 재시작한다.
 
 서버의 `~/projects/discord-bot`는 운영 실행 디렉터리이며, 전체 소스 체크아웃을 유지하는 위치가 아니다.
+
+### 상태 데이터 보존
+
+배포 상태 JSON은 `~/projects/discord-bot/dist/data/`에 남는다. 현재 `user-preferences.json`과 `geek-news-history.json`이 이 경로를 사용한다. 배포는 `dist/index.js`만 교체하므로 `dist/data/`를 삭제하지 않는다.
+
+파일 저장은 같은 디렉터리 임시 파일을 작성한 뒤 rename으로 교체한다. JSON 파싱이 실패하면 봇은 기본값으로 계속 동작하고, 원본 파일은 `*.corrupt-<timestamp>-<pid>`로 보존한다. 운영 중 이 경로를 수동 정리할 때는 정상 JSON과 복구용 파일을 구분한다.
 
 이전 배포는 로컬 빌드 결과물을 Termux 서버로 SCP 전송하고 Cloudflare/Termux 경로로 PM2를 재시작하는 방식이었다. 해당 흐름은 현재 운영 기준이 아니다.
 
@@ -54,6 +61,18 @@ ssh icenux-external 'cd ~/projects/discord-bot && npm ci --omit=dev --ignore-scr
 ```
 
 서버 재부팅 후 자동 복구가 필요하면 PM2 startup 설정을 별도로 적용한다.
+
+## 의존성 유지보수
+
+루트 `.github/dependabot.yml`은 매주 npm 의존성을 확인하고 업데이트 PR을 만든다. 배포는 `main` 반영 후에만 시작하므로 Dependabot PR은 테스트·호환성 확인 뒤 병합한다.
+
+운영 의존성 감사는 아래 명령으로 확인한다.
+
+```bash
+npm audit --omit=dev
+```
+
+`npm audit fix --force`가 major 변경만 제안하면 즉시 적용하지 않는다. 먼저 해당 공급자 라이브러리가 호환되는 보안 업데이트를 제공하는지 확인한다.
 
 ## 환경변수
 
@@ -172,3 +191,7 @@ PM2 로그 파일은 아래 경로에 쌓인다.
 - `logs/discord-bot-error.log`
 
 `logs/`는 `.gitignore`에 포함되어 커밋하지 않는다.
+
+## 참고 자료
+
+- `documents/discord-bot-infra-diagram-vertical.svg`: GitHub Actions 배포, PM2 런타임, Codex app-server 연결 구조

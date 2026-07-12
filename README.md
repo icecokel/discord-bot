@@ -23,6 +23,10 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 
 스케줄러 내부 구현과 데이터는 유지합니다. 날씨 스케줄러는 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용합니다. 긱뉴스 스케줄러는 긱뉴스 이력 저장소를 사용합니다.
 
+### 상태 데이터
+
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`과 `geek-news-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 손상된 JSON은 기본값으로 읽되, 원본은 `*.corrupt-<timestamp>-<pid>` 이름으로 보존합니다.
+
 ### 관리자 명령어
 
 | 명령어 | 설명 |
@@ -239,9 +243,17 @@ npm run build
 npm run gen:registry
 ```
 
+운영 의존성 감사:
+
+```bash
+npm audit --omit=dev
+```
+
+Dependabot이 매주 루트 npm 의존성을 확인해 업데이트 PR을 만듭니다. 감사 결과에 강제 major 변경만 제안되는 경우에는 `npm audit fix --force`를 바로 적용하지 말고, 공급자 라이브러리의 호환 릴리스를 먼저 확인합니다.
+
 ## 배포
 
-현재 운영 대상 SSH alias는 `icenux-external`입니다. `main` 브랜치 push 시 GitHub Actions self-hosted runner가 서버의 `~/projects/discord-bot`에서 배포를 수행합니다.
+현재 운영 대상 SSH alias는 `icenux-external`입니다. `main` 브랜치 push 시 GitHub Actions self-hosted runner가 `npm ci`, 명령어 레지스트리 생성, 테스트, 타입 검사, 빌드를 수행한 뒤 서버의 `~/projects/discord-bot`에 배포하고 PM2를 재시작합니다.
 
 서버 상태 확인:
 
@@ -264,4 +276,5 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 - `documents/natural-language-ai-plan.md`: 관리자 AI 운영 플랜
 - `documents/ai-guidelines.md`: AI 사용 지침
 - `documents/pm2-deployment.md`: PM2와 icenux 운영 가이드
+- `documents/discord-bot-infra-diagram-vertical.svg`: 배포·런타임·Codex 연결 구조 다이어그램
 - `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: 완료된 legacy Hermes 통합 계획과 현재 Codex 대체 상태
