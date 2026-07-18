@@ -25,7 +25,7 @@ npm run build
 
 ### 상태 데이터 보존
 
-배포 상태 JSON은 `~/projects/discord-bot/dist/data/`에 남는다. 현재 `user-preferences.json`과 `geek-news-history.json`이 이 경로를 사용한다. 배포는 `dist/index.js`만 교체하므로 `dist/data/`를 삭제하지 않는다.
+배포 상태 JSON은 `~/projects/discord-bot/dist/data/`에 남는다. 현재 `user-preferences.json`, `geek-news-history.json`, `schedule-run-history.json`이 이 경로를 사용한다. 배포는 `dist/index.js`만 교체하므로 `dist/data/`를 삭제하지 않는다.
 
 파일 저장은 같은 디렉터리 임시 파일을 작성한 뒤 rename으로 교체한다. JSON 파싱이 실패하면 봇은 기본값으로 계속 동작하고, 원본 파일은 `*.corrupt-<timestamp>-<pid>`로 보존한다. 운영 중 이 경로를 수동 정리할 때는 정상 JSON과 복구용 파일을 구분한다.
 
@@ -35,8 +35,9 @@ npm run build
 
 스케줄러는 별도 cron이나 별도 PM2 프로세스가 아니라 `discord-bot` PM2 프로세스 안에서 초기화된다.
 
-- 날씨 DM: `ADMIN_ID` 운영자에게 매일 06:30 오늘 날씨, 22:30 내일 날씨를 보낸다. 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용한다.
-- 긱뉴스 DM: 매일 08:00 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보낸다.
+- 아침 브리핑 DM: 매일 06:30 KST에 `ADMIN_ID` 관리자 DM으로 오늘 날씨, 긱뉴스 상단 기사 번역, 서버 디스크·메모리 상태를 함께 보낸다. 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용한다.
+- 내일 날씨 DM: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 보낸다.
+- 실행 원장: 각 스케줄의 최근 시도·성공·실패·다음 실행 시각을 `schedule-run-history.json`에 저장한다. 실행 도중 프로세스가 재시작되면 해당 회차를 실패로 기록한다.
 
 ## 상태 확인
 

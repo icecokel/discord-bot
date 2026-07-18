@@ -20,6 +20,7 @@ import "./features/admin/commands/admin-ai";
 import "./features/admin/commands/admin-news";
 import "./features/admin/commands/admin-help";
 import "./features/admin/commands/admin-server";
+import "./features/admin/commands/admin-schedule";
 
 // Discord Client에 prefix 명령어 레지스트리를 연결한다.
 declare module "discord.js" {
@@ -44,7 +45,7 @@ client.commands = loadCommands();
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 
-  // 스케줄러 초기화 (날씨, 긱뉴스)
+  // 스케줄러 초기화 (아침 브리핑, 내일 날씨)
   initializeSchedulers(client);
   await notifyServerReady(client);
 });
