@@ -35,7 +35,8 @@ npm run build
 
 스케줄러는 별도 cron이나 별도 PM2 프로세스가 아니라 `discord-bot` PM2 프로세스 안에서 초기화된다.
 
-- 아침 브리핑 DM: 매일 06:30 KST에 `ADMIN_ID` 관리자 DM으로 오늘 날씨, 긱뉴스 상단 기사 번역, 서버 디스크·메모리 상태를 함께 보낸다. 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용한다.
+- 아침 브리핑 DM: 매일 06:30 KST에 `ADMIN_ID` 관리자 DM으로 오늘 날씨를 보내고, 서버 디스크·메모리 상태는 문제가 있을 때만 함께 보낸다. 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용한다.
+- 긱뉴스 DM: 매일 07:50 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보낸다.
 - 내일 날씨 DM: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 보낸다.
 - 실행 원장: 각 스케줄의 최근 시도·성공·실패·다음 실행 시각을 `schedule-run-history.json`에 저장한다. 실행 도중 프로세스가 재시작되면 해당 회차를 실패로 기록한다.
 

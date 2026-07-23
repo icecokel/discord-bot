@@ -52,6 +52,7 @@ describe("admin schedule status command", () => {
     const embed = reply.mock.calls[0][0].embeds[0].toJSON();
     expect(embed.fields.map((field) => field.name)).toEqual([
       "아침 브리핑",
+      "긱뉴스",
       "내일 날씨",
     ]);
   });

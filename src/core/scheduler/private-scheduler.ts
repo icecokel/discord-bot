@@ -20,6 +20,7 @@ import {
   registerScheduleDefinitions,
 } from "../../utils/schedule-run-store";
 import {
+  GEEK_NEWS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
   TOMORROW_WEATHER_SCHEDULE,
@@ -91,10 +92,24 @@ export class PrivateScheduler {
   public start(): void {
     registerScheduleDefinitions(SCHEDULE_DEFINITIONS);
     this.scheduleMorningBriefing();
+    this.scheduleGeekNews();
     this.scheduleTomorrowWeather();
     console.log(
       "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
     );
+  }
+
+  private scheduleGeekNews(): void {
+    cron.schedule(
+      GEEK_NEWS_SCHEDULE.cron,
+      async () => {
+        await this.runTrackedJob(GEEK_NEWS_SCHEDULE, () =>
+          this.sendGeekNewsDM(),
+        );
+      },
+      { timezone: GEEK_NEWS_SCHEDULE.timezone },
+    );
+    console.log("[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 07:50 KST)");
   }
 
   private scheduleMorningBriefing(): void {
@@ -210,14 +225,7 @@ export class PrivateScheduler {
 
     const unavailableSections: string[] = [];
     const partialDetails: string[] = [];
-    const [weather, geekNewsResult] = await Promise.all([
-      this.buildWeatherLine(weatherTarget.region, "today"),
-      geekNewsService.fetchFeaturedItemResult().catch((error) => ({
-        status: "fetch-failed" as const,
-        item: null,
-        reason: getErrorMessage(error),
-      })),
-    ]);
+    const weather = await this.buildWeatherLine(weatherTarget.region, "today");
 
     if (weather.error) {
       unavailableSections.push("날씨");
@@ -230,29 +238,17 @@ export class PrivateScheduler {
       partialDetails.push("서버 디스크 상태 확인 실패");
     }
 
-    if (geekNewsResult.status === "fetch-failed") {
-      unavailableSections.push("긱뉴스");
-      partialDetails.push(geekNewsResult.reason || GEEK_NEWS_FALLBACK_MESSAGE);
-    }
-
-    const embeds = geekNewsResult.item
-      ? geekNewsService.createEmbeds(geekNewsResult.item)
-      : geekNewsService.createEmbeds(null, {
-          fallbackDescription:
-            geekNewsResult.reason || GEEK_NEWS_FALLBACK_MESSAGE,
-        });
     const content = buildMorningBriefingContent(
       weather.line,
-      buildServerHealthBriefingLine(serverHealth),
+      serverHealth.warnings.length > 0
+        ? buildServerHealthBriefingLine(serverHealth)
+        : undefined,
       unavailableSections,
     );
 
     try {
       const user = await this.client.users.fetch(ownerId);
-      await user.send({ content, embeds });
-      if (geekNewsResult.item) {
-        geekNewsService.markItemAsSent(geekNewsResult.item);
-      }
+      await user.send({ content });
 
       const serverWarnings = serverHealth.warnings.length;
       const details = [...partialDetails];
@@ -265,7 +261,51 @@ export class PrivateScheduler {
         detail:
           details.length > 0
             ? details.join(" · ")
-            : "날씨·긱뉴스·서버 상태 전송 완료",
+            : "오늘 날씨 전송 완료",
+      };
+    } catch (error) {
+      return {
+        status: "failure",
+        detail: `DM 전송 실패: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  public async sendGeekNewsDM(
+    ownerId: string | undefined = process.env.ADMIN_ID,
+  ): Promise<ScheduleTaskResult> {
+    if (!ownerId) {
+      return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
+    }
+
+    const geekNewsResult = await geekNewsService
+      .fetchFeaturedItemResult()
+      .catch((error) => ({
+        status: "fetch-failed" as const,
+        item: null,
+        reason: getErrorMessage(error),
+      }));
+    const embeds = geekNewsResult.item
+      ? geekNewsService.createEmbeds(geekNewsResult.item)
+      : geekNewsService.createEmbeds(null, {
+          fallbackDescription:
+            geekNewsResult.reason || GEEK_NEWS_FALLBACK_MESSAGE,
+        });
+
+    try {
+      const user = await this.client.users.fetch(ownerId);
+      await user.send({ embeds });
+      if (geekNewsResult.item) {
+        geekNewsService.markItemAsSent(geekNewsResult.item);
+      }
+
+      return {
+        status:
+          geekNewsResult.status === "fetch-failed" ? "partial" : "success",
+        detail:
+          geekNewsResult.status === "ok"
+            ? "긱뉴스 DM 전송 완료"
+            : geekNewsResult.reason || GEEK_NEWS_FALLBACK_MESSAGE,
       };
     } catch (error) {
       return {

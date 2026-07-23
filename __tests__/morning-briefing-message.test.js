@@ -16,14 +16,21 @@ describe("morning briefing message", () => {
     );
   });
 
+  test("omits server health when there is no warning", () => {
+    expect(buildMorningBriefingContent("🌤️ 서울 오늘 | 맑음")).toBe(
+      "☀️ 좋은 아침입니다. 오늘의 브리핑입니다.\n" +
+        "🌤️ 서울 오늘 | 맑음",
+    );
+  });
+
   test("lists unavailable sections without hiding the remaining briefing", () => {
     const content = buildMorningBriefingContent(
       "🌤️ 서울 날씨 | 예보를 불러오지 못했습니다.",
-      "🖥️ 서버 | 정상",
-      ["날씨", "긱뉴스"],
+      undefined,
+      ["날씨"],
     );
 
-    expect(content).toContain("일부 정보 확인 실패: 날씨, 긱뉴스");
-    expect(content).toContain("서버 | 정상");
+    expect(content).toContain("일부 정보 확인 실패: 날씨");
+    expect(content).not.toContain("서버 |");
   });
 });

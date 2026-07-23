@@ -45,7 +45,7 @@ client.commands = loadCommands();
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 
-  // 스케줄러 초기화 (아침 브리핑, 내일 날씨)
+  // 스케줄러 초기화 (아침 브리핑, 긱뉴스, 내일 날씨)
   initializeSchedulers(client);
   await notifyServerReady(client);
 });

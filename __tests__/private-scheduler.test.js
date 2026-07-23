@@ -4,6 +4,9 @@ const mockCreateEmbeds = jest.fn();
 const mockMarkItemAsSent = jest.fn();
 const mockGetShortTermForecast = jest.fn();
 const mockCollectServerHealth = jest.fn();
+const mockBuildServerHealthBriefingLine = jest.fn(
+  () => "🖥️ 서버 | 주의: 메모리 95% · 디스크 40% · 메모리 95%",
+);
 const mockRegisterScheduleDefinitions = jest.fn();
 const mockRecordScheduleRunStart = jest.fn();
 const mockRecordScheduleRunCompletion = jest.fn();
@@ -28,9 +31,7 @@ jest.mock("../src/utils/kma-helper", () => ({
 
 jest.mock("../src/utils/server-health", () => ({
   collectServerHealth: mockCollectServerHealth,
-  buildServerHealthBriefingLine: jest.fn(
-    () => "🖥️ 서버 | 정상 · 디스크 40% · 메모리 30%",
-  ),
+  buildServerHealthBriefingLine: mockBuildServerHealthBriefingLine,
 }));
 
 jest.mock("../src/utils/schedule-run-store", () => ({
@@ -41,6 +42,7 @@ jest.mock("../src/utils/schedule-run-store", () => ({
 }));
 
 const {
+  GEEK_NEWS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
   TOMORROW_WEATHER_SCHEDULE,
@@ -138,7 +140,7 @@ describe("private scheduler morning briefing", () => {
     }
   });
 
-  test("registers one 06:30 briefing and keeps the 22:30 tomorrow forecast", () => {
+  test("registers the 06:30 briefing, 07:50 geek news and 22:30 forecast", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
 
     scheduler.start();
@@ -152,13 +154,18 @@ describe("private scheduler morning briefing", () => {
       { timezone: "Asia/Seoul" },
     );
     expect(mockCronSchedule).toHaveBeenCalledWith(
+      "50 7 * * *",
+      expect.any(Function),
+      { timezone: "Asia/Seoul" },
+    );
+    expect(mockCronSchedule).toHaveBeenCalledWith(
       "30 22 * * *",
       expect.any(Function),
       { timezone: "Asia/Seoul" },
     );
   });
 
-  test("sends weather, server health and geek news in one admin DM", async () => {
+  test("sends weather without healthy server status or geek news", async () => {
     const send = jest.fn().mockResolvedValue(undefined);
     const scheduler = new PrivateScheduler({
       users: {
@@ -172,15 +179,49 @@ describe("private scheduler morning briefing", () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
       content: expect.stringContaining("서울 오늘"),
-      embeds: [{ title: "embed" }],
     });
-    expect(send.mock.calls[0][0].content).toContain("서버 | 정상");
+    expect(send.mock.calls[0][0].content).not.toContain("서버 |");
+    expect(mockFetchFeaturedItemResult).not.toHaveBeenCalled();
+    expect(mockCreateEmbeds).not.toHaveBeenCalled();
+    expect(mockMarkItemAsSent).not.toHaveBeenCalled();
+  });
+
+  test("includes server status only when the server has a warning", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    mockCollectServerHealth.mockReturnValue({
+      diskUsagePercent: 40,
+      memoryUsagePercent: 95,
+      warnings: ["메모리 95%"],
+    });
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendMorningBriefing();
+
+    expect(result).toMatchObject({ status: "success" });
+    expect(send.mock.calls[0][0].content).toContain("서버 | 주의");
+    expect(mockBuildServerHealthBriefingLine).toHaveBeenCalledWith(
+      expect.objectContaining({ warnings: ["메모리 95%"] }),
+    );
+  });
+
+  test("sends geek news separately and marks the item as sent", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendGeekNewsDM();
+
+    expect(result).toMatchObject({ status: "success" });
+    expect(send).toHaveBeenCalledWith({ embeds: [{ title: "embed" }] });
     expect(mockMarkItemAsSent).toHaveBeenCalledWith(
       expect.objectContaining({ title: "새 긱뉴스" }),
     );
   });
 
-  test("sends the remaining briefing and reports partial success when news fails", async () => {
+  test("reports partial success when the separate geek news lookup fails", async () => {
     const send = jest.fn().mockResolvedValue(undefined);
     mockFetchFeaturedItemResult.mockResolvedValue({
       status: "fetch-failed",
@@ -191,14 +232,35 @@ describe("private scheduler morning briefing", () => {
       users: { fetch: jest.fn().mockResolvedValue({ send }) },
     });
 
-    const result = await scheduler.sendMorningBriefing();
+    const result = await scheduler.sendGeekNewsDM();
 
     expect(result).toMatchObject({ status: "partial" });
-    expect(send.mock.calls[0][0].content).toContain("일부 정보 확인 실패: 긱뉴스");
     expect(mockCreateEmbeds).toHaveBeenCalledWith(null, {
       fallbackDescription: "뉴스 조회 실패",
     });
     expect(mockMarkItemAsSent).not.toHaveBeenCalled();
+  });
+
+  test("records the scheduled geek news result in the execution ledger", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+    scheduler.start();
+    const geekNewsCallback = mockCronSchedule.mock.calls.find(
+      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+    )[1];
+
+    await geekNewsCallback();
+
+    expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(
+      GEEK_NEWS_SCHEDULE,
+    );
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalledWith(
+      GEEK_NEWS_SCHEDULE,
+      "success",
+      expect.any(String),
+    );
   });
 
   test("records the scheduled briefing result in the execution ledger", async () => {
@@ -239,6 +301,7 @@ describe("private scheduler morning briefing", () => {
   });
 
   test("uses the expected schedule definitions", () => {
+    expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
   });
 });
