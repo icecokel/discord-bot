@@ -54,6 +54,7 @@ describe("admin schedule status command", () => {
       "아침 브리핑",
       "긱뉴스",
       "내일 날씨",
+      "채용공고",
     ]);
   });
 });

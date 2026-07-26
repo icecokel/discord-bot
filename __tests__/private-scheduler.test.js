@@ -11,6 +11,9 @@ const mockRegisterScheduleDefinitions = jest.fn();
 const mockRecordScheduleRunStart = jest.fn();
 const mockRecordScheduleRunCompletion = jest.fn();
 const mockRecordScheduleRunFailure = jest.fn();
+const mockCheckForNewJobPostings = jest.fn();
+const mockMarkJobPostingsAsNotified = jest.fn();
+const mockBuildJobPostingNotificationMessages = jest.fn();
 
 jest.mock("node-cron", () => ({
   schedule: mockCronSchedule,
@@ -41,8 +44,19 @@ jest.mock("../src/utils/schedule-run-store", () => ({
   recordScheduleRunFailure: mockRecordScheduleRunFailure,
 }));
 
+jest.mock("../src/features/job-monitor/job-monitor-service", () => ({
+  checkForNewJobPostings: mockCheckForNewJobPostings,
+  markJobPostingsAsNotified: mockMarkJobPostingsAsNotified,
+}));
+
+jest.mock("../src/features/job-monitor/job-notification-message", () => ({
+  buildJobPostingNotificationMessages:
+    mockBuildJobPostingNotificationMessages,
+}));
+
 const {
   GEEK_NEWS_SCHEDULE,
+  JOB_POSTINGS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
   TOMORROW_WEATHER_SCHEDULE,
@@ -130,6 +144,16 @@ describe("private scheduler morning briefing", () => {
       },
     });
     mockCreateEmbeds.mockReturnValue([{ title: "embed" }]);
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [],
+      initializedCompanies: [],
+      successfulCompanyCount: 5,
+      totalPostingCount: 100,
+      failures: [],
+    });
+    mockBuildJobPostingNotificationMessages.mockReturnValue([
+      "💼 새 채용공고",
+    ]);
   });
 
   afterAll(() => {
@@ -140,7 +164,7 @@ describe("private scheduler morning briefing", () => {
     }
   });
 
-  test("registers the 06:30 briefing, 07:50 geek news and 22:30 forecast", () => {
+  test("registers daily notifications and the six-hour job monitor", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
 
     scheduler.start();
@@ -160,6 +184,11 @@ describe("private scheduler morning briefing", () => {
     );
     expect(mockCronSchedule).toHaveBeenCalledWith(
       "30 22 * * *",
+      expect.any(Function),
+      { timezone: "Asia/Seoul" },
+    );
+    expect(mockCronSchedule).toHaveBeenCalledWith(
+      "0 */6 * * *",
       expect.any(Function),
       { timezone: "Asia/Seoul" },
     );
@@ -300,8 +329,110 @@ describe("private scheduler morning briefing", () => {
     );
   });
 
+  test("keeps the first job crawl as a baseline without sending a DM", async () => {
+    const fetch = jest.fn();
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [],
+      initializedCompanies: ["네이버", "카카오", "토스", "당근", "우아한형제들"],
+      successfulCompanyCount: 5,
+      totalPostingCount: 120,
+      failures: [],
+    });
+    const scheduler = new PrivateScheduler({ users: { fetch } });
+
+    const result = await scheduler.sendJobPostingNotifications();
+
+    expect(result).toMatchObject({
+      status: "success",
+      detail: expect.stringContaining("기준선 생성"),
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mockMarkJobPostingsAsNotified).not.toHaveBeenCalled();
+  });
+
+  test("sends new job postings to the admin and marks them as notified", async () => {
+    const posting = {
+      id: "P-1",
+      companyId: "kakao",
+      companyName: "카카오",
+      title: "Backend Engineer",
+      url: "https://careers.kakao.com/jobs/P-1",
+    };
+    const send = jest.fn().mockResolvedValue(undefined);
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [posting],
+      initializedCompanies: [],
+      successfulCompanyCount: 5,
+      totalPostingCount: 121,
+      failures: [],
+    });
+    mockBuildJobPostingNotificationMessages.mockReturnValue([
+      "💼 새 채용공고 1건",
+    ]);
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendJobPostingNotifications();
+
+    expect(result).toMatchObject({ status: "success" });
+    expect(send).toHaveBeenCalledWith({ content: "💼 새 채용공고 1건" });
+    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
+  });
+
+  test("does not mark a job as notified when the DM fails", async () => {
+    const posting = {
+      id: "P-2",
+      companyId: "kakao",
+      companyName: "카카오",
+      title: "Frontend Engineer",
+      url: "https://careers.kakao.com/jobs/P-2",
+    };
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [posting],
+      initializedCompanies: [],
+      successfulCompanyCount: 5,
+      totalPostingCount: 121,
+      failures: [],
+    });
+    const scheduler = new PrivateScheduler({
+      users: {
+        fetch: jest.fn().mockResolvedValue({
+          send: jest.fn().mockRejectedValue(new Error("DM blocked")),
+        }),
+      },
+    });
+
+    const result = await scheduler.sendJobPostingNotifications();
+
+    expect(result).toMatchObject({ status: "failure" });
+    expect(mockMarkJobPostingsAsNotified).not.toHaveBeenCalled();
+  });
+
+  test("records the scheduled job monitor result in the execution ledger", async () => {
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn() },
+    });
+    scheduler.start();
+    const jobCallback = mockCronSchedule.mock.calls.find(
+      ([expression]) => expression === JOB_POSTINGS_SCHEDULE.cron,
+    )[1];
+
+    await jobCallback();
+
+    expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(
+      JOB_POSTINGS_SCHEDULE,
+    );
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalledWith(
+      JOB_POSTINGS_SCHEDULE,
+      "success",
+      expect.any(String),
+    );
+  });
+
   test("uses the expected schedule definitions", () => {
     expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
+    expect(JOB_POSTINGS_SCHEDULE.cron).toBe("0 */6 * * *");
   });
 });

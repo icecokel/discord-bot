@@ -10,6 +10,12 @@ import {
 import { buildMorningBriefingContent } from "../../features/tools/morning-briefing-message";
 import geekNewsService from "../../features/daily_news/geek-news-service";
 import {
+  checkForNewJobPostings,
+  markJobPostingsAsNotified,
+} from "../../features/job-monitor/job-monitor-service";
+import type { JobMonitorCheckResult } from "../../features/job-monitor/job-monitor-service";
+import { buildJobPostingNotificationMessages } from "../../features/job-monitor/job-notification-message";
+import {
   buildServerHealthBriefingLine,
   collectServerHealth,
 } from "../../utils/server-health";
@@ -21,6 +27,7 @@ import {
 } from "../../utils/schedule-run-store";
 import {
   GEEK_NEWS_SCHEDULE,
+  JOB_POSTINGS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
   TOMORROW_WEATHER_SCHEDULE,
@@ -94,6 +101,7 @@ export class PrivateScheduler {
     this.scheduleMorningBriefing();
     this.scheduleGeekNews();
     this.scheduleTomorrowWeather();
+    this.scheduleJobPostings();
     console.log(
       "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
     );
@@ -136,6 +144,21 @@ export class PrivateScheduler {
       { timezone: TOMORROW_WEATHER_SCHEDULE.timezone },
     );
     console.log("[PrivateScheduler] 내일 날씨 알림 등록 완료 (매일 22:30 KST)");
+  }
+
+  private scheduleJobPostings(): void {
+    cron.schedule(
+      JOB_POSTINGS_SCHEDULE.cron,
+      async () => {
+        await this.runTrackedJob(JOB_POSTINGS_SCHEDULE, () =>
+          this.sendJobPostingNotifications(),
+        );
+      },
+      { timezone: JOB_POSTINGS_SCHEDULE.timezone },
+    );
+    console.log(
+      "[PrivateScheduler] 채용공고 확인 등록 완료 (매일 00:00, 06:00, 12:00, 18:00 KST)",
+    );
   }
 
   private async runTrackedJob(
@@ -311,6 +334,74 @@ export class PrivateScheduler {
       return {
         status: "failure",
         detail: `DM 전송 실패: ${getErrorMessage(error)}`,
+      };
+    }
+  }
+
+  public async sendJobPostingNotifications(
+    ownerId: string | undefined = process.env.ADMIN_ID,
+  ): Promise<ScheduleTaskResult> {
+    if (!ownerId) {
+      return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
+    }
+
+    let result: JobMonitorCheckResult;
+    try {
+      result = await checkForNewJobPostings();
+    } catch (error) {
+      return {
+        status: "failure",
+        detail: `채용공고 확인 실패: ${getErrorMessage(error)}`,
+      };
+    }
+
+    const failedCompanies = result.failures.map(
+      (failure) => failure.companyName,
+    );
+    const failureDetail =
+      failedCompanies.length > 0
+        ? ` · 조회 실패: ${failedCompanies.join(", ")}`
+        : "";
+
+    if (result.successfulCompanyCount === 0) {
+      return {
+        status: "failure",
+        detail: `모든 채용 사이트 조회에 실패했습니다.${failureDetail}`,
+      };
+    }
+
+    if (result.newPostings.length === 0) {
+      const initializedDetail =
+        result.initializedCompanies.length > 0
+          ? ` · 기준선 생성: ${result.initializedCompanies.join(", ")}`
+          : "";
+      return {
+        status: result.failures.length > 0 ? "partial" : "success",
+        detail:
+          `${result.successfulCompanyCount}개 회사 ${result.totalPostingCount}개 공고 확인 · 신규 없음` +
+          initializedDetail +
+          failureDetail,
+      };
+    }
+
+    try {
+      const user = await this.client.users.fetch(ownerId);
+      const messages = buildJobPostingNotificationMessages(result.newPostings);
+      for (const content of messages) {
+        await user.send({ content });
+      }
+      markJobPostingsAsNotified(result.newPostings);
+
+      return {
+        status: result.failures.length > 0 ? "partial" : "success",
+        detail:
+          `신규 채용공고 ${result.newPostings.length}건 DM 전송 완료` +
+          failureDetail,
+      };
+    } catch (error) {
+      return {
+        status: "failure",
+        detail: `채용공고 DM 전송 또는 이력 저장 실패: ${getErrorMessage(error)}`,
       };
     }
   }

@@ -5,7 +5,7 @@ icenux 서버에서 PM2로 실행되는 관리자 중심 디스코드 봇입니�
 ## 현재 컨셉
 
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
-- 스케줄러는 PM2 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨 DM을 발송합니다.
+- 스케줄러는 PM2 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고 DM을 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Codex app-server thread로 처리합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Codex는 봇 프로세스 내부 provider로만 호출합니다.
@@ -21,12 +21,35 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 - 아침 브리핑: 매일 06:30 KST에 `ADMIN_ID` 관리자 DM으로 오늘 날씨를 보내고, 서버 디스크·메모리 상태는 문제가 있을 때만 함께 보냅니다.
 - 긱뉴스: 매일 07:50 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보냅니다.
 - 내일 날씨: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 내일 날씨를 보냅니다.
+- 채용공고: 매일 00:00, 06:00, 12:00, 18:00 KST에 공식 채용 사이트를 확인하고 새 공고만 `ADMIN_ID` 관리자 DM으로 보냅니다.
 
-날씨 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용합니다. 긱뉴스는 이력 저장소를 사용합니다. 스케줄 실행 결과는 `schedule-run-history.json`에 성공, 일부 성공, 실패 상태와 최근 시각, 다음 실행 시각을 기록합니다.
+날씨 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용합니다. 긱뉴스는 이력 저장소를 사용합니다. 채용공고 감시는 처음 성공한 수집 결과를 기준선으로 저장하므로 배포 직후 기존 공고가 한꺼번에 발송되지 않습니다. 이후 처음 확인한 공고 ID만 알림을 보내며, 일부 회사 조회가 실패해도 다른 회사 수집은 계속합니다. 스케줄 실행 결과는 `schedule-run-history.json`에 성공, 일부 성공, 실패 상태와 최근 시각, 다음 실행 시각을 기록합니다.
+
+#### 채용공고 감시 대상
+
+| 회사 | 공식 채용 사이트 |
+| --- | --- |
+| 네이버 | [NAVER Careers](https://recruit.navercorp.com/rcrt/list.do?sysCompanyCdArr=KR&sysCompanyCdData=KR) |
+| 카카오 | [카카오 영입](https://careers.kakao.com/jobs) |
+| 토스 | [토스 채용](https://toss.im/career/jobs) |
+| 당근 | [당근 채용](https://careers.daangn.com/jobs/) |
+| 우아한형제들 | [우아한형제들 인재영입](https://career.woowahan.com/recruitment/) |
+| LINE | [LINE Careers](https://careers.linecorp.com/ko/jobs?ca=All&ci=Gwacheon%2CBundang&co=East%20Asia) |
+| 쿠팡 | [Coupang Careers](https://www.coupang.jobs/kr/jobs/) |
+| 무신사 | [MUSINSA Careers](https://www.musinsacareers.com/ko/home) |
+| 오늘의집 | [Bucketplace Careers](https://www.bucketplace.com/careers/?region=&team=dev) |
+| 컬리 | [Kurly Careers](https://kurly.career.greetinghr.com/ko/recruiting) |
+| 카카오뱅크 | [KakaoBank Careers](https://recruit.kakaobank.com/jobs) |
+| 두나무 | [Dunamu Careers](https://www.dunamu.com/careers/jobs) |
+| 하이퍼커넥트 | [Hyperconnect Careers](https://career.hyperconnect.com/jobs/) |
+| 센드버드 | [Sendbird Careers](https://sendbird.com/careers) |
+| 몰로코 | [Moloco Careers](https://www.moloco.com/ko/open-positions) |
+| 카카오스타일 | [KakaoStyle Careers](https://career.kakaostyle.com/jobs) |
+| 에이블리 | [ABLY Careers](https://ably.team/recruit) |
 
 ### 상태 데이터
 
-운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `schedule-run-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 손상된 JSON은 기본값으로 읽되, 원본은 `*.corrupt-<timestamp>-<pid>` 이름으로 보존합니다.
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 손상된 JSON은 기본값으로 읽되, 원본은 `*.corrupt-<timestamp>-<pid>` 이름으로 보존합니다.
 
 ### 관리자 명령어
 
@@ -158,10 +181,13 @@ Hermes provider 구현은 과거 운영 호환을 위해 남아 있지만 현재
 | `src/core/ai/ai-service.ts` | Gemini/Codex 공급자 선택과 fallback |
 | `src/core/ai/providers/codex-provider.ts` | Codex app-server 공급자 |
 | `src/core/ai/providers/hermes-provider.ts` | Legacy Hermes CLI 공급자 |
-| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨 DM 스케줄러 |
+| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고 DM 스케줄러 |
 | `src/utils/schedule-run-store.ts` | 스케줄 실행 결과 영속 저장소 |
 | `src/utils/server-health.ts` | 브리핑용 서버 디스크·메모리 상태 수집 |
 | `src/features/daily_news/geek-news-service.ts` | 긱뉴스 조회, 번역, 이력 처리 |
+| `src/features/job-monitor/company-job-sources.ts` | 공식 채용 사이트 목록과 회사별 공고 수집기 |
+| `src/features/job-monitor/job-monitor-service.ts` | 신규 공고 비교와 기준선/알림 이력 처리 |
+| `src/utils/job-monitor-store.ts` | 회사별 확인 완료 공고 ID 영속 저장소 |
 | `src/features/tools/weather-notification-message.ts` | 날씨 스케줄러 DM 메시지 생성 |
 | `scripts/generate-registry.ts` | prefix 명령어 레지스트리 자동 생성 |
 

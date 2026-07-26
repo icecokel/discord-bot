@@ -45,31 +45,37 @@ const saveData = (data: ScheduleRunData): boolean => {
 };
 
 export const getNextScheduleRunAt = (
-  definition: Pick<ScheduleDefinition, "hour" | "minute">,
+  definition: Pick<ScheduleDefinition, "hour" | "hours" | "minute">,
   from: Date = new Date(),
 ): string => {
   const kst = new Date(from.getTime() + KST_OFFSET_MS);
-  let candidateTime =
-    Date.UTC(
-      kst.getUTCFullYear(),
-      kst.getUTCMonth(),
-      kst.getUTCDate(),
-      definition.hour,
-      definition.minute,
-    ) - KST_OFFSET_MS;
+  const hours = [...new Set(definition.hours || [definition.hour])].sort(
+    (a, b) => a - b,
+  );
 
-  if (candidateTime <= from.getTime()) {
-    candidateTime =
+  for (const hour of hours) {
+    const candidateTime =
       Date.UTC(
         kst.getUTCFullYear(),
         kst.getUTCMonth(),
-        kst.getUTCDate() + 1,
-        definition.hour,
+        kst.getUTCDate(),
+        hour,
         definition.minute,
       ) - KST_OFFSET_MS;
+    if (candidateTime > from.getTime()) {
+      return new Date(candidateTime).toISOString();
+    }
   }
 
-  return new Date(candidateTime).toISOString();
+  const nextDayTime =
+    Date.UTC(
+      kst.getUTCFullYear(),
+      kst.getUTCMonth(),
+      kst.getUTCDate() + 1,
+      hours[0] ?? definition.hour,
+      definition.minute,
+    ) - KST_OFFSET_MS;
+  return new Date(nextDayTime).toISOString();
 };
 
 const createRecord = (

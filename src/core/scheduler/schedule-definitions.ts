@@ -1,8 +1,13 @@
 export interface ScheduleDefinition {
-  id: "morning-briefing" | "geek-news" | "tomorrow-weather";
+  id:
+    | "morning-briefing"
+    | "geek-news"
+    | "tomorrow-weather"
+    | "job-postings";
   label: string;
   cron: string;
   hour: number;
+  hours?: readonly number[];
   minute: number;
   timezone: "Asia/Seoul";
 }
@@ -34,8 +39,19 @@ export const TOMORROW_WEATHER_SCHEDULE: ScheduleDefinition = {
   timezone: "Asia/Seoul",
 };
 
+export const JOB_POSTINGS_SCHEDULE: ScheduleDefinition = {
+  id: "job-postings",
+  label: "채용공고",
+  cron: "0 */6 * * *",
+  hour: 0,
+  hours: [0, 6, 12, 18],
+  minute: 0,
+  timezone: "Asia/Seoul",
+};
+
 export const SCHEDULE_DEFINITIONS: ScheduleDefinition[] = [
   MORNING_BRIEFING_SCHEDULE,
   GEEK_NEWS_SCHEDULE,
   TOMORROW_WEATHER_SCHEDULE,
+  JOB_POSTINGS_SCHEDULE,
 ];

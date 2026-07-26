@@ -37,6 +37,24 @@ describe("schedule run store", () => {
     ).toBe("2026-07-18T21:30:00.000Z");
   });
 
+  test("calculates the next six-hour job crawl in Asia/Seoul", () => {
+    const { JOB_POSTINGS_SCHEDULE } = require("../src/core/scheduler/schedule-definitions");
+    const { getNextScheduleRunAt } = require("../src/utils/schedule-run-store");
+
+    expect(
+      getNextScheduleRunAt(
+        JOB_POSTINGS_SCHEDULE,
+        new Date("2026-07-18T01:00:00.000Z"),
+      ),
+    ).toBe("2026-07-18T03:00:00.000Z");
+    expect(
+      getNextScheduleRunAt(
+        JOB_POSTINGS_SCHEDULE,
+        new Date("2026-07-18T09:00:00.000Z"),
+      ),
+    ).toBe("2026-07-18T15:00:00.000Z");
+  });
+
   test("persists attempts, partial completion and the previous timestamps", () => {
     const { MORNING_BRIEFING_SCHEDULE } = require("../src/core/scheduler/schedule-definitions");
     const {

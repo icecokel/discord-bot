@@ -20,9 +20,39 @@ interface Fortunes {
   };
 }
 
+interface JobMonitorHistory {
+  companies?: Record<
+    string,
+    {
+      seenIds?: string[];
+      lastCheckedAt?: string;
+      lastPostingCount?: number;
+    }
+  >;
+}
+
 const USER_PREFS_FILE = "user-preferences.json";
 const LEGACY_USER_PREFS_FILE = "user_preferences.json";
 const EMBED_FIELD_VALUE_LIMIT = 1000;
+const JOB_COMPANY_NAMES: Record<string, string> = {
+  naver: "네이버",
+  kakao: "카카오",
+  toss: "토스",
+  daangn: "당근",
+  woowahan: "우아한형제들",
+  line: "LINE",
+  coupang: "쿠팡",
+  musinsa: "무신사",
+  bucketplace: "오늘의집",
+  kurly: "컬리",
+  kakaobank: "카카오뱅크",
+  dunamu: "두나무",
+  hyperconnect: "하이퍼커넥트",
+  sendbird: "센드버드",
+  moloco: "몰로코",
+  kakaostyle: "카카오스타일",
+  ably: "에이블리",
+};
 
 const truncateForEmbed = (value: string): string => {
   if (value.length <= EMBED_FIELD_VALUE_LIMIT) return value;
@@ -141,7 +171,27 @@ const handleData = async (message: Message) => {
     });
   }
 
-  // 3. PRIVATE_CHANNEL_ID 해석
+  // 3. job-monitor-history.json
+  const jobHistory = readJson<JobMonitorHistory>("job-monitor-history.json", {
+    companies: {},
+  });
+  const jobCompanies = Object.entries(jobHistory.companies || {});
+  embed.addFields({
+    name: "💼 채용공고 감시 (job-monitor-history.json)",
+    value:
+      jobCompanies.length > 0
+        ? jobCompanies
+            .map(([companyId, state]) => {
+              const companyName = JOB_COMPANY_NAMES[companyId] || companyId;
+              const checkedAt = state.lastCheckedAt || "확인 전";
+              return `• **${companyName}**: 현재 ${state.lastPostingCount || 0}건 · 확인 ${checkedAt}`;
+            })
+            .join("\n")
+        : "기준선 생성 전",
+    inline: false,
+  });
+
+  // 4. PRIVATE_CHANNEL_ID 해석
   const privateChannelId = process.env.PRIVATE_CHANNEL_ID;
   if (!privateChannelId) {
     embed.addFields({
@@ -185,7 +235,7 @@ const handleData = async (message: Message) => {
     });
   }
 
-  // 4. 참여 중인 서버 목록
+  // 5. 참여 중인 서버 목록
   const guilds = message.client.guilds.cache;
   if (guilds.size > 0) {
     const totalMembers = guilds.reduce((sum, guild) => sum + guild.memberCount, 0);
