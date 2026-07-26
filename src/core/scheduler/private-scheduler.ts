@@ -157,7 +157,7 @@ export class PrivateScheduler {
       { timezone: JOB_POSTINGS_SCHEDULE.timezone },
     );
     console.log(
-      "[PrivateScheduler] 채용공고 확인 등록 완료 (매일 00:00, 06:00, 12:00, 18:00 KST)",
+      "[PrivateScheduler] 채용공고 확인 등록 완료 (매일 07:00, 13:00, 19:00 KST)",
     );
   }
 

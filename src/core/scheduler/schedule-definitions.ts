@@ -42,9 +42,9 @@ export const TOMORROW_WEATHER_SCHEDULE: ScheduleDefinition = {
 export const JOB_POSTINGS_SCHEDULE: ScheduleDefinition = {
   id: "job-postings",
   label: "채용공고",
-  cron: "0 */6 * * *",
-  hour: 0,
-  hours: [0, 6, 12, 18],
+  cron: "0 7,13,19 * * *",
+  hour: 7,
+  hours: [7, 13, 19],
   minute: 0,
   timezone: "Asia/Seoul",
 };

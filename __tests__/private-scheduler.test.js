@@ -188,7 +188,7 @@ describe("private scheduler morning briefing", () => {
       { timezone: "Asia/Seoul" },
     );
     expect(mockCronSchedule).toHaveBeenCalledWith(
-      "0 */6 * * *",
+      "0 7,13,19 * * *",
       expect.any(Function),
       { timezone: "Asia/Seoul" },
     );
@@ -433,6 +433,6 @@ describe("private scheduler morning briefing", () => {
   test("uses the expected schedule definitions", () => {
     expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
-    expect(JOB_POSTINGS_SCHEDULE.cron).toBe("0 */6 * * *");
+    expect(JOB_POSTINGS_SCHEDULE.cron).toBe("0 7,13,19 * * *");
   });
 });
