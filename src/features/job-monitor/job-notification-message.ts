@@ -12,8 +12,10 @@ const truncateTitle = (title: string): string =>
     ? title
     : `${title.slice(0, MAX_TITLE_LENGTH - 1)}…`;
 
-export const buildJobPostingNotificationMessages = (
+const buildJobPostingMessages = (
   postings: JobPosting[],
+  title: string,
+  continuationTitle: string,
 ): string[] => {
   if (postings.length === 0) return [];
 
@@ -34,7 +36,7 @@ export const buildJobPostingNotificationMessages = (
   }
 
   const messages: string[] = [];
-  let current = `💼 **새 채용공고 ${postings.length}건**`;
+  let current = title;
   for (const line of lines) {
     const candidate = `${current}\n${line}`;
     if (candidate.length <= SAFE_MESSAGE_LIMIT) {
@@ -43,7 +45,7 @@ export const buildJobPostingNotificationMessages = (
     }
 
     messages.push(current);
-    current = `💼 **새 채용공고 (계속)**\n${line}`;
+    current = `${continuationTitle}\n${line}`;
   }
   messages.push(current);
 
@@ -53,3 +55,21 @@ export const buildJobPostingNotificationMessages = (
       : message.slice(0, DISCORD_MESSAGE_LIMIT),
   );
 };
+
+export const buildJobPostingNotificationMessages = (
+  postings: JobPosting[],
+): string[] =>
+  buildJobPostingMessages(
+    postings,
+    `💼 **새 채용공고 ${postings.length}건**`,
+    "💼 **새 채용공고 (계속)**",
+  );
+
+export const buildCurrentJobPostingMessages = (
+  postings: JobPosting[],
+): string[] =>
+  buildJobPostingMessages(
+    postings,
+    `💼 **현재 감시 직군 채용공고 ${postings.length}건**`,
+    "💼 **현재 감시 직군 채용공고 (계속)**",
+  );

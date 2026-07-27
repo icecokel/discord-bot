@@ -1,6 +1,7 @@
 require("ts-node/register/transpile-only");
 
 const {
+  buildCurrentJobPostingMessages,
   buildJobPostingNotificationMessages,
 } = require("../src/features/job-monitor/job-notification-message");
 
@@ -44,5 +45,21 @@ describe("job posting notification message", () => {
 
     expect(messages.length).toBeGreaterThan(1);
     expect(messages.every((message) => message.length <= 2000)).toBe(true);
+  });
+
+  test("formats current job postings with a distinct heading", () => {
+    const messages = buildCurrentJobPostingMessages([
+      {
+        id: "1",
+        companyId: "naver",
+        companyName: "네이버",
+        title: "Frontend Engineer",
+        url: "https://recruit.navercorp.com/rcrt/view.do?annoId=1",
+      },
+    ]);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("현재 감시 직군 채용공고 1건");
+    expect(messages[0]).toContain("**네이버**");
   });
 });
