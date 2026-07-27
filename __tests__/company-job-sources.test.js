@@ -14,6 +14,7 @@ const {
   parseNinehireJobPostings,
   parseTossJobPostings,
   parseWoowahanJobPostings,
+  fetchCompanyJobPostings,
 } = require("../src/features/job-monitor/company-job-sources");
 
 describe("company job source parsers", () => {
@@ -491,5 +492,32 @@ describe("company job source parsers", () => {
         url: "https://recruit.ably.team/job_posting/1L05YART",
       }),
     ]);
+  });
+
+  test("treats a successful crawl with no tracked roles as an empty result", async () => {
+    const source = {
+      id: "naver",
+      name: "네이버",
+      careersUrl: "https://recruit.navercorp.com/rcrt/list.do",
+    };
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: jest.fn().mockResolvedValue(`
+        <li class="card_item">
+          <a onclick="show('30005174')">
+            <h4 class="card_title">Product Manager</h4>
+          </a>
+        </li>
+      `),
+    });
+
+    try {
+      await expect(fetchCompanyJobPostings(source)).resolves.toEqual([]);
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

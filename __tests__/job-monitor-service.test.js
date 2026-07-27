@@ -61,6 +61,35 @@ describe("job monitor service", () => {
     expect(stored.companies.kakao.seenIds).toEqual(["kakao-1"]);
   });
 
+  test("initializes an empty role-filtered baseline and detects the first matching job", async () => {
+    mockFetchCompanyJobPostings.mockResolvedValue([]);
+
+    const baseline = await checkForNewJobPostings(
+      new Date("2026-07-27T00:00:00.000Z"),
+    );
+
+    expect(baseline.newPostings).toEqual([]);
+    expect(baseline.successfulCompanyCount).toBe(2);
+    expect(stored.companies.naver).toMatchObject({
+      seenIds: [],
+      lastPostingCount: 0,
+    });
+
+    mockFetchCompanyJobPostings.mockImplementation(async (source) =>
+      source.id === "naver"
+        ? [posting("naver", "네이버", "naver-frontend-1")]
+        : [],
+    );
+
+    const nextCheck = await checkForNewJobPostings(
+      new Date("2026-07-27T04:00:00.000Z"),
+    );
+
+    expect(nextCheck.newPostings).toEqual([
+      expect.objectContaining({ id: "naver-frontend-1" }),
+    ]);
+  });
+
   test("returns unseen ids and keeps them pending until notification succeeds", async () => {
     stored = {
       companies: {

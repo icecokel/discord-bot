@@ -1,3 +1,5 @@
+import { filterTrackedJobPostings } from "./tracked-job-roles";
+
 export type CompanyId =
   | "naver"
   | "kakao"
@@ -994,5 +996,5 @@ export const fetchCompanyJobPostings = async (
     );
   }
 
-  return postings;
+  return filterTrackedJobPostings(postings);
 };
