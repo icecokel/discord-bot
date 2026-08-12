@@ -13,7 +13,8 @@ const mockRecordScheduleRunCompletion = jest.fn();
 const mockRecordScheduleRunFailure = jest.fn();
 const mockCheckForNewJobPostings = jest.fn();
 const mockMarkJobPostingsAsNotified = jest.fn();
-const mockBuildJobPostingNotificationMessages = jest.fn();
+const mockBuildJobPostingNotificationChunks = jest.fn();
+const mockGetUserRegion = jest.fn();
 
 jest.mock("node-cron", () => ({
   schedule: mockCronSchedule,
@@ -30,6 +31,10 @@ jest.mock("../src/features/daily_news/geek-news-service", () => ({
 
 jest.mock("../src/utils/kma-helper", () => ({
   getShortTermForecast: mockGetShortTermForecast,
+}));
+
+jest.mock("../src/utils/user-store", () => ({
+  getUserRegion: mockGetUserRegion,
 }));
 
 jest.mock("../src/utils/server-health", () => ({
@@ -50,8 +55,7 @@ jest.mock("../src/features/job-monitor/job-monitor-service", () => ({
 }));
 
 jest.mock("../src/features/job-monitor/job-notification-message", () => ({
-  buildJobPostingNotificationMessages:
-    mockBuildJobPostingNotificationMessages,
+  buildJobPostingNotificationChunks: mockBuildJobPostingNotificationChunks,
 }));
 
 const {
@@ -126,10 +130,17 @@ describe("private scheduler owner-only filtering", () => {
 
 describe("private scheduler morning briefing", () => {
   const originalAdminId = process.env.ADMIN_ID;
+  const originalWeatherAdminRegion = process.env.WEATHER_ADMIN_REGION;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.ADMIN_ID = "admin-id";
+    delete process.env.WEATHER_ADMIN_REGION;
+    mockGetUserRegion.mockReturnValue(null);
+    mockRegisterScheduleDefinitions.mockReturnValue(true);
+    mockRecordScheduleRunStart.mockReturnValue(true);
+    mockRecordScheduleRunCompletion.mockReturnValue(true);
+    mockRecordScheduleRunFailure.mockReturnValue(true);
     mockGetShortTermForecast.mockResolvedValue(forecast);
     mockCollectServerHealth.mockReturnValue({
       diskUsagePercent: 40,
@@ -151,9 +162,7 @@ describe("private scheduler morning briefing", () => {
       totalPostingCount: 100,
       failures: [],
     });
-    mockBuildJobPostingNotificationMessages.mockReturnValue([
-      "💼 새 채용공고",
-    ]);
+    mockBuildJobPostingNotificationChunks.mockReturnValue([]);
   });
 
   afterAll(() => {
@@ -161,6 +170,11 @@ describe("private scheduler morning briefing", () => {
       delete process.env.ADMIN_ID;
     } else {
       process.env.ADMIN_ID = originalAdminId;
+    }
+    if (originalWeatherAdminRegion === undefined) {
+      delete process.env.WEATHER_ADMIN_REGION;
+    } else {
+      process.env.WEATHER_ADMIN_REGION = originalWeatherAdminRegion;
     }
   });
 
@@ -192,6 +206,34 @@ describe("private scheduler morning briefing", () => {
       expect.any(Function),
       { timezone: "Asia/Seoul" },
     );
+  });
+
+  test("registers jobs even when the execution ledger cannot initialize", () => {
+    mockRegisterScheduleDefinitions.mockReturnValue(false);
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+
+    expect(() => scheduler.start()).not.toThrow();
+    expect(mockCronSchedule).toHaveBeenCalledTimes(4);
+    expect(consoleError).toHaveBeenCalledWith(
+      "[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.",
+    );
+    consoleError.mockRestore();
+  });
+
+  test("registers jobs when execution ledger initialization throws", () => {
+    mockRegisterScheduleDefinitions.mockImplementation(() => {
+      throw new Error("corrupt ledger");
+    });
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+
+    expect(() => scheduler.start()).not.toThrow();
+    expect(mockCronSchedule).toHaveBeenCalledTimes(4);
+    expect(consoleError).toHaveBeenCalledWith(
+      "[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.",
+    );
+    consoleError.mockRestore();
   });
 
   test("sends weather without healthy server status or geek news", async () => {
@@ -250,6 +292,21 @@ describe("private scheduler morning briefing", () => {
     );
   });
 
+  test("reports failure when sent geek news history cannot be saved", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    mockMarkItemAsSent.mockImplementationOnce(() => {
+      throw new Error("긱뉴스 이력 저장에 실패했습니다.");
+    });
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    await expect(scheduler.sendGeekNewsDM()).resolves.toMatchObject({
+      status: "failure",
+      detail: expect.stringContaining("긱뉴스 이력 저장에 실패했습니다."),
+    });
+  });
+
   test("reports partial success when the separate geek news lookup fails", async () => {
     const send = jest.fn().mockResolvedValue(undefined);
     mockFetchFeaturedItemResult.mockResolvedValue({
@@ -292,6 +349,47 @@ describe("private scheduler morning briefing", () => {
     );
   });
 
+  test("runs a job when its start cannot be recorded", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const scheduler = new PrivateScheduler({
+      users: {
+        fetch: jest.fn().mockResolvedValue({ send: jest.fn() }),
+      },
+    });
+    scheduler.start();
+    mockRecordScheduleRunStart.mockReturnValue(false);
+    const geekNewsCallback = mockCronSchedule.mock.calls.find(
+      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+    )[1];
+
+    await geekNewsCallback();
+
+    expect(mockFetchFeaturedItemResult).toHaveBeenCalled();
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("logs when job completion cannot be recorded", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const send = jest.fn().mockResolvedValue(undefined);
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+    scheduler.start();
+    mockRecordScheduleRunCompletion.mockReturnValue(false);
+    const geekNewsCallback = mockCronSchedule.mock.calls.find(
+      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+    )[1];
+
+    await geekNewsCallback();
+
+    expect(mockRecordScheduleRunFailure).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      "[PrivateScheduler] 긱뉴스 완료 기록 저장 실패",
+    );
+    consoleError.mockRestore();
+  });
+
   test("records the scheduled briefing result in the execution ledger", async () => {
     const send = jest.fn().mockResolvedValue(undefined);
     const scheduler = new PrivateScheduler({
@@ -327,6 +425,35 @@ describe("private scheduler morning briefing", () => {
     expect(send).toHaveBeenCalledWith(
       "🌙 서울 내일 | 구름많음 🌥️ · 강수 30% | 21~29°",
     );
+  });
+
+  test("uses the admin saved region without notification opt-in", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    mockGetUserRegion.mockReturnValue("안양");
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendTomorrowWeatherDM();
+
+    expect(result.status).toBe("success");
+    expect(mockGetShortTermForecast).toHaveBeenCalledWith(60, 123);
+    expect(send).toHaveBeenCalledWith(expect.stringContaining("안양 내일"));
+  });
+
+  test("does not use an unrelated substring match for an unknown region", async () => {
+    const fetch = jest.fn();
+    mockGetUserRegion.mockReturnValue("토당동");
+    const scheduler = new PrivateScheduler({ users: { fetch } });
+
+    const result = await scheduler.sendTomorrowWeatherDM();
+
+    expect(result).toMatchObject({
+      status: "failure",
+      detail: expect.stringContaining("좌표 없음"),
+    });
+    expect(mockGetShortTermForecast).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   test("keeps the first job crawl as a baseline without sending a DM", async () => {
@@ -366,8 +493,11 @@ describe("private scheduler morning briefing", () => {
       totalPostingCount: 121,
       failures: [],
     });
-    mockBuildJobPostingNotificationMessages.mockReturnValue([
-      "💼 새 채용공고 1건",
+    mockBuildJobPostingNotificationChunks.mockReturnValue([
+      {
+        content: `💼 새 채용공고 1건\n• [Backend Engineer](<${posting.url}>)`,
+        postings: [posting],
+      },
     ]);
     const scheduler = new PrivateScheduler({
       users: { fetch: jest.fn().mockResolvedValue({ send }) },
@@ -376,7 +506,9 @@ describe("private scheduler morning briefing", () => {
     const result = await scheduler.sendJobPostingNotifications();
 
     expect(result).toMatchObject({ status: "success" });
-    expect(send).toHaveBeenCalledWith({ content: "💼 새 채용공고 1건" });
+    expect(send).toHaveBeenCalledWith({
+      content: expect.stringContaining(`<${posting.url}>`),
+    });
     expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
   });
 
@@ -395,6 +527,9 @@ describe("private scheduler morning briefing", () => {
       totalPostingCount: 121,
       failures: [],
     });
+    mockBuildJobPostingNotificationChunks.mockReturnValue([
+      { content: `공고 (<${posting.url}>)`, postings: [posting] },
+    ]);
     const scheduler = new PrivateScheduler({
       users: {
         fetch: jest.fn().mockResolvedValue({
@@ -407,6 +542,46 @@ describe("private scheduler morning briefing", () => {
 
     expect(result).toMatchObject({ status: "failure" });
     expect(mockMarkJobPostingsAsNotified).not.toHaveBeenCalled();
+  });
+
+  test("marks only postings from chunks sent before a later DM failure", async () => {
+    const first = {
+      id: "P-3",
+      companyId: "kakao",
+      companyName: "카카오",
+      title: "Backend Engineer",
+      url: "https://careers.kakao.com/jobs/P-3",
+    };
+    const second = {
+      ...first,
+      id: "P-4",
+      title: "Frontend Engineer",
+      url: "https://careers.kakao.com/jobs/P-4",
+    };
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [first, second],
+      initializedCompanies: [],
+      successfulCompanyCount: 5,
+      totalPostingCount: 122,
+      failures: [],
+    });
+    mockBuildJobPostingNotificationChunks.mockReturnValue([
+      { content: `첫 메시지 (<${first.url}>)`, postings: [first] },
+      { content: `두 번째 메시지 (<${second.url}>)`, postings: [second] },
+    ]);
+    const send = jest
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("DM blocked"));
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendJobPostingNotifications();
+
+    expect(result.status).toBe("failure");
+    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledTimes(1);
+    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([first]);
   });
 
   test("records the scheduled job monitor result in the execution ledger", async () => {

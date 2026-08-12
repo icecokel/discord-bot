@@ -140,4 +140,15 @@ describe("schedule run store", () => {
       detail: expect.stringContaining("프로세스 재시작"),
     });
   });
+
+  test("does not treat an invalid ledger as an empty ledger", () => {
+    const { getScheduleRunRecords } = require("../src/utils/schedule-run-store");
+    const { writeJson } = require("../src/utils/file-manager");
+    stored = { jobs: { "morning-briefing": null } };
+
+    expect(() => getScheduleRunRecords()).toThrow(
+      "스케줄 실행 원장 형식이 올바르지 않습니다.",
+    );
+    expect(writeJson).not.toHaveBeenCalled();
+  });
 });

@@ -68,7 +68,9 @@ const handleReset = async (message: Message, args: string[]) => {
   // 3. 파일 초기화 실행
   try {
     // 파일 초기화 (빈 객체 또는 기본값으로 덮어쓰기)
-    writeJson(targetConfig.file, targetConfig.defaultContent);
+    if (!writeJson(targetConfig.file, targetConfig.defaultContent)) {
+      throw new Error("데이터 파일 저장에 실패했습니다.");
+    }
 
     const embed = new EmbedBuilder()
       .setColor(0x57f287) // Green

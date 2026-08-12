@@ -2,6 +2,7 @@ require("ts-node/register/transpile-only");
 
 const {
   buildCurrentJobPostingMessages,
+  buildJobPostingNotificationChunks,
   buildJobPostingNotificationMessages,
 } = require("../src/features/job-monitor/job-notification-message");
 
@@ -45,6 +46,26 @@ describe("job posting notification message", () => {
 
     expect(messages.length).toBeGreaterThan(1);
     expect(messages.every((message) => message.length <= 2000)).toBe(true);
+  });
+
+  test("keeps each sent chunk associated with its postings", () => {
+    const postings = Array.from({ length: 40 }, (_, index) => ({
+      id: String(index),
+      companyId: "naver",
+      companyName: "네이버",
+      title: `매우 긴 채용공고 제목 ${index} ${"가".repeat(100)}`,
+      url: `https://example.com/jobs/${index}`,
+    }));
+
+    const chunks = buildJobPostingNotificationChunks(postings);
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.flatMap((chunk) => chunk.postings)).toEqual(postings);
+    for (const chunk of chunks) {
+      for (const posting of chunk.postings) {
+        expect(chunk.content).toContain(posting.url);
+      }
+    }
   });
 
   test("formats current job postings with a distinct heading", () => {

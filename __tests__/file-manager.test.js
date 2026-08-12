@@ -19,6 +19,12 @@ const mockFs = {
   mkdirSync: jest.fn((directoryPath) => {
     mockDirectories.add(directoryPath);
   }),
+  copyFileSync: jest.fn((sourcePath, targetPath) => {
+    if (!mockFiles.has(sourcePath)) {
+      throw new Error(`ENOENT: no such file or directory, copy '${sourcePath}'`);
+    }
+    mockFiles.set(targetPath, mockFiles.get(sourcePath));
+  }),
   renameSync: jest.fn((sourcePath, targetPath) => {
     if (!mockFiles.has(sourcePath)) {
       throw new Error(`ENOENT: no such file or directory, rename '${sourcePath}'`);
@@ -56,21 +62,21 @@ describe("file manager", () => {
     jest.restoreAllMocks();
   });
 
-  test("returns the default and preserves malformed JSON as a corrupt sibling", () => {
+  test("throws and preserves malformed JSON without removing the active file", () => {
     const defaultValue = { enabled: false };
     jest.spyOn(console, "error").mockImplementation(() => {});
     mockFiles.set(statePath, "{ malformed");
 
-    expect(readJson("state.json", defaultValue)).toBe(defaultValue);
+    expect(() => readJson("state.json", defaultValue)).toThrow(SyntaxError);
     const corruptPaths = Array.from(mockFiles.keys()).filter((filePath) =>
       /^state\.json\.corrupt-/.test(path.basename(filePath)),
     );
     expect(corruptPaths).toHaveLength(1);
     expect(mockFiles.get(corruptPaths[0])).toBe("{ malformed");
-    expect(mockFiles.has(statePath)).toBe(false);
+    expect(mockFiles.get(statePath)).toBe("{ malformed");
   });
 
-  test("returns the default without preserving when JSON reading fails", () => {
+  test("throws without preserving when JSON reading fails", () => {
     const defaultValue = { enabled: false };
     const readError = new Error("EIO: read failure");
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -79,25 +85,25 @@ describe("file manager", () => {
       throw readError;
     });
 
-    expect(readJson("state.json", defaultValue)).toBe(defaultValue);
-    expect(mockFs.renameSync).not.toHaveBeenCalled();
+    expect(() => readJson("state.json", defaultValue)).toThrow(readError);
+    expect(mockFs.copyFileSync).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith(
       "[FileManager] Error reading state.json:",
       readError.message,
     );
   });
 
-  test("returns the default when preserving malformed JSON fails", () => {
+  test("throws the parse error when preserving malformed JSON fails", () => {
     const defaultValue = { enabled: false };
     const malformedData = "{ malformed";
     const preservationError = new Error("EPERM: rename denied");
     const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockFiles.set(statePath, malformedData);
-    mockFs.renameSync.mockImplementationOnce(() => {
+    mockFs.copyFileSync.mockImplementationOnce(() => {
       throw preservationError;
     });
 
-    expect(readJson("state.json", defaultValue)).toBe(defaultValue);
+    expect(() => readJson("state.json", defaultValue)).toThrow(SyntaxError);
     expect(mockFiles.get(statePath)).toBe(malformedData);
     expect(errorSpy).toHaveBeenCalledWith(
       "[FileManager] Error preserving corrupt state.json:",

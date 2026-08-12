@@ -162,15 +162,18 @@ const loadData = (): GeekNewsHistoryData => {
 
   const rawEntries = Array.isArray(raw)
     ? raw
-    : Array.isArray(raw?.entries)
+    : raw && typeof raw === "object" && Array.isArray(raw.entries)
       ? raw.entries
-      : [];
+      : null;
+  if (!rawEntries) {
+    throw new Error("긱뉴스 이력 형식이 올바르지 않습니다.");
+  }
 
   const deduped = new Map<string, GeekNewsHistoryEntry>();
   for (const item of rawEntries) {
     const normalized = normalizeEntry(item as RawGeekNewsHistoryEntry);
     if (!normalized) {
-      continue;
+      throw new Error("긱뉴스 이력 항목 형식이 올바르지 않습니다.");
     }
     deduped.set(normalized.url, normalized);
   }
@@ -183,7 +186,9 @@ const loadData = (): GeekNewsHistoryData => {
 };
 
 const saveData = (data: GeekNewsHistoryData): void => {
-  writeJson(FILE_NAME, data);
+  if (!writeJson(FILE_NAME, data)) {
+    throw new Error("긱뉴스 이력 저장에 실패했습니다.");
+  }
 };
 
 export const getTrackedGeekNewsUrls = (): Set<string> => {

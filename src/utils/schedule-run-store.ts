@@ -31,9 +31,23 @@ interface ScheduleRunData {
 
 const loadData = (): ScheduleRunData => {
   const data = readJson<ScheduleRunData>(FILE_NAME, { jobs: {} });
-  return data && typeof data.jobs === "object" && data.jobs !== null
-    ? data
-    : { jobs: {} };
+  if (
+    !data ||
+    typeof data !== "object" ||
+    typeof data.jobs !== "object" ||
+    data.jobs === null ||
+    Array.isArray(data.jobs) ||
+    Object.values(data.jobs).some(
+      (record) =>
+        !record ||
+        typeof record !== "object" ||
+        typeof record.jobId !== "string" ||
+        typeof record.status !== "string",
+    )
+  ) {
+    throw new Error("스케줄 실행 원장 형식이 올바르지 않습니다.");
+  }
+  return data;
 };
 
 const saveData = (data: ScheduleRunData): boolean => {

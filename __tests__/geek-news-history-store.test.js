@@ -53,4 +53,32 @@ describe("GeekNews history store", () => {
       "번역 본문 전체",
     );
   });
+
+  test("does not replace invalid history when tracking a new URL", () => {
+    const writeJson = jest.fn(() => true);
+    jest.doMock("../src/utils/file-manager", () => ({
+      readJson: jest.fn(() => ({ entries: null })),
+      writeJson,
+    }));
+
+    const { trackGeekNewsUrl } = require("../src/utils/geek-news-history-store");
+
+    expect(() => trackGeekNewsUrl("https://example.com/new")).toThrow(
+      "긱뉴스 이력 형식이 올바르지 않습니다.",
+    );
+    expect(writeJson).not.toHaveBeenCalled();
+  });
+
+  test("throws when saving sent history fails", () => {
+    jest.doMock("../src/utils/file-manager", () => ({
+      readJson: jest.fn(() => ({ entries: [] })),
+      writeJson: jest.fn(() => false),
+    }));
+
+    const { trackGeekNewsUrl } = require("../src/utils/geek-news-history-store");
+
+    expect(() => trackGeekNewsUrl("https://example.com/new")).toThrow(
+      "긱뉴스 이력 저장에 실패했습니다.",
+    );
+  });
 });

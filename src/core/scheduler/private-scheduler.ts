@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { Client } from "discord.js";
-import { getAllUsersWithNotification } from "../../utils/user-store";
+import { getUserRegion } from "../../utils/user-store";
 import { getShortTermForecast } from "../../utils/kma-helper";
 import kmaData from "../../data/kma-data.json";
 import {
@@ -14,7 +14,7 @@ import {
   markJobPostingsAsNotified,
 } from "../../features/job-monitor/job-monitor-service";
 import type { JobMonitorCheckResult } from "../../features/job-monitor/job-monitor-service";
-import { buildJobPostingNotificationMessages } from "../../features/job-monitor/job-notification-message";
+import { buildJobPostingNotificationChunks } from "../../features/job-monitor/job-notification-message";
 import {
   buildServerHealthBriefingLine,
   collectServerHealth,
@@ -80,13 +80,7 @@ const resolveWeatherCoordinates = (
   region: string,
 ): { nx: number; ny: number } | null => {
   const regions = kmaData as Record<string, { nx: number; ny: number }>;
-  const exact = regions[region];
-  if (exact) return exact;
-
-  const foundKey = Object.keys(regions).find(
-    (key) => key.includes(region) || region.includes(key),
-  );
-  return foundKey ? regions[foundKey] : null;
+  return regions[region.trim()] || null;
 };
 
 export class PrivateScheduler {
@@ -97,7 +91,13 @@ export class PrivateScheduler {
   }
 
   public start(): void {
-    registerScheduleDefinitions(SCHEDULE_DEFINITIONS);
+    try {
+      if (!registerScheduleDefinitions(SCHEDULE_DEFINITIONS)) {
+        console.error("[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.");
+    }
     this.scheduleMorningBriefing();
     this.scheduleGeekNews();
     this.scheduleTomorrowWeather();
@@ -165,31 +165,76 @@ export class PrivateScheduler {
     definition: ScheduleDefinition,
     task: () => Promise<ScheduleTaskResult>,
   ): Promise<void> {
-    recordScheduleRunStart(definition);
-    console.log(`[PrivateScheduler] ${definition.label} 시작`);
+    let runRecorded = false;
 
     try {
+      try {
+        runRecorded = recordScheduleRunStart(definition);
+      } catch (error) {
+        console.error(
+          `[PrivateScheduler] ${definition.label} 시작 기록 저장 실패:`,
+          getErrorMessage(error),
+        );
+      }
+      if (!runRecorded) {
+        console.error(
+          `[PrivateScheduler] ${definition.label} 시작 기록 저장 실패`,
+        );
+      }
+      console.log(`[PrivateScheduler] ${definition.label} 시작`);
+
       const result = await task();
       if (result.status === "failure") {
-        recordScheduleRunFailure(
-          definition,
-          result.detail || `${definition.label} 실행 실패`,
-        );
-        console.error(
-          `[PrivateScheduler] ${definition.label} 실패: ${result.detail || "알 수 없는 오류"}`,
-        );
-        return;
+        throw new Error(result.detail || `${definition.label} 실행 실패`);
       }
 
-      recordScheduleRunCompletion(definition, result.status, result.detail);
+      try {
+        if (
+          !recordScheduleRunCompletion(definition, result.status, result.detail)
+        ) {
+          console.error(
+            `[PrivateScheduler] ${definition.label} 완료 기록 저장 실패`,
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[PrivateScheduler] ${definition.label} 완료 기록 저장 실패:`,
+          getErrorMessage(error),
+        );
+      }
       console.log(
         `[PrivateScheduler] ${definition.label} ${result.status === "partial" ? "일부 성공" : "완료"}`,
       );
     } catch (error) {
       const detail = getErrorMessage(error);
-      recordScheduleRunFailure(definition, detail);
+      if (runRecorded) {
+        try {
+          if (!recordScheduleRunFailure(definition, detail)) {
+            console.error(
+              `[PrivateScheduler] ${definition.label} 실패 기록 저장 실패`,
+            );
+          }
+        } catch (recordError) {
+          console.error(
+            `[PrivateScheduler] ${definition.label} 실패 기록 저장 실패:`,
+            getErrorMessage(recordError),
+          );
+        }
+      }
       console.error(`[PrivateScheduler] ${definition.label} 실패:`, detail);
     }
+  }
+
+  private resolveAdminWeatherTarget(ownerId: string):
+    | { userId: string; region: string }
+    | undefined {
+    const configuredRegion = normalizeRegion(process.env.WEATHER_ADMIN_REGION);
+    const storedRegion = configuredRegion ? null : getUserRegion(ownerId);
+    return resolveAdminWeatherNotificationUsers(
+      storedRegion ? [{ userId: ownerId, region: storedRegion }] : [],
+      ownerId,
+      configuredRegion || undefined,
+    )[0];
   }
 
   private async buildWeatherLine(
@@ -238,10 +283,7 @@ export class PrivateScheduler {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
     }
 
-    const [weatherTarget] = resolveAdminWeatherNotificationUsers(
-      getAllUsersWithNotification(),
-      ownerId,
-    );
+    const weatherTarget = this.resolveAdminWeatherTarget(ownerId);
     if (!weatherTarget) {
       return { status: "failure", detail: "날씨 알림 대상을 찾지 못했습니다." };
     }
@@ -386,11 +428,11 @@ export class PrivateScheduler {
 
     try {
       const user = await this.client.users.fetch(ownerId);
-      const messages = buildJobPostingNotificationMessages(result.newPostings);
-      for (const content of messages) {
+      const messages = buildJobPostingNotificationChunks(result.newPostings);
+      for (const { content, postings } of messages) {
         await user.send({ content });
+        markJobPostingsAsNotified(postings);
       }
-      markJobPostingsAsNotified(result.newPostings);
 
       return {
         status: result.failures.length > 0 ? "partial" : "success",
@@ -413,10 +455,7 @@ export class PrivateScheduler {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
     }
 
-    const [target] = resolveAdminWeatherNotificationUsers(
-      getAllUsersWithNotification(),
-      ownerId,
-    );
+    const target = this.resolveAdminWeatherTarget(ownerId);
     if (!target) {
       return { status: "failure", detail: "날씨 알림 대상을 찾지 못했습니다." };
     }

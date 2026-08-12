@@ -27,7 +27,7 @@ npm run build
 
 배포 상태 JSON은 `~/projects/discord-bot/dist/data/`에 남는다. 현재 `user-preferences.json`, `geek-news-history.json`, `schedule-run-history.json`이 이 경로를 사용한다. 배포는 `dist/index.js`만 교체하므로 `dist/data/`를 삭제하지 않는다.
 
-파일 저장은 같은 디렉터리 임시 파일을 작성한 뒤 rename으로 교체한다. JSON 파싱이 실패하면 봇은 기본값으로 계속 동작하고, 원본 파일은 `*.corrupt-<timestamp>-<pid>`로 보존한다. 운영 중 이 경로를 수동 정리할 때는 정상 JSON과 복구용 파일을 구분한다.
+파일 저장은 같은 디렉터리 임시 파일을 작성한 뒤 rename으로 교체한다. 파일이 없을 때만 기본값을 사용한다. JSON 파싱이 실패하면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않는다. 운영 중 이 경로를 수동 정리할 때는 정상 JSON과 복구용 파일을 구분한다.
 
 이전 배포는 로컬 빌드 결과물을 Termux 서버로 SCP 전송하고 Cloudflare/Termux 경로로 PM2를 재시작하는 방식이었다. 해당 흐름은 현재 운영 기준이 아니다.
 

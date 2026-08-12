@@ -31,6 +31,7 @@ const {
   checkForNewJobPostings,
   markJobPostingsAsNotified,
 } = require("../src/features/job-monitor/job-monitor-service");
+const { writeJson: mockWriteJson } = require("../src/utils/file-manager");
 
 const posting = (companyId, companyName, id) => ({
   id,
@@ -155,5 +156,17 @@ describe("job monitor service", () => {
     ]);
     expect(stored.companies.naver).toBeDefined();
     expect(stored.companies.kakao).toBeUndefined();
+  });
+
+  test("does not replace invalid history with a new baseline", async () => {
+    stored = { companies: { naver: null } };
+    mockFetchCompanyJobPostings.mockImplementation(async (source) => [
+      posting(source.id, source.name, `${source.id}-new`),
+    ]);
+
+    await expect(checkForNewJobPostings()).rejects.toThrow(
+      "채용공고 이력 형식이 올바르지 않습니다.",
+    );
+    expect(mockWriteJson).not.toHaveBeenCalled();
   });
 });

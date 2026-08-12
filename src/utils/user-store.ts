@@ -20,15 +20,44 @@ export interface UserWithNotification {
 // 데이터 로드
 const loadData = (): UserPreferences => {
   const data = readJson<UserPreferences>(FILE_NAME, {});
+  if (
+    !data ||
+    typeof data !== "object" ||
+    Array.isArray(data) ||
+    Object.values(data).some(
+      (preference) =>
+        !preference ||
+        typeof preference !== "object" ||
+        Array.isArray(preference),
+    )
+  ) {
+    throw new Error("사용자 설정 형식이 올바르지 않습니다.");
+  }
   if (Object.keys(data).length > 0) {
     return data;
   }
-  return readJson<UserPreferences>(LEGACY_FILE_NAME, {});
+  const legacyData = readJson<UserPreferences>(LEGACY_FILE_NAME, {});
+  if (
+    !legacyData ||
+    typeof legacyData !== "object" ||
+    Array.isArray(legacyData) ||
+    Object.values(legacyData).some(
+      (preference) =>
+        !preference ||
+        typeof preference !== "object" ||
+        Array.isArray(preference),
+    )
+  ) {
+    throw new Error("사용자 설정 형식이 올바르지 않습니다.");
+  }
+  return legacyData;
 };
 
 // 데이터 저장
 const saveData = (data: UserPreferences): void => {
-  writeJson(FILE_NAME, data);
+  if (!writeJson(FILE_NAME, data)) {
+    throw new Error("사용자 설정 저장에 실패했습니다.");
+  }
 };
 
 // 기본 지역 가져오기

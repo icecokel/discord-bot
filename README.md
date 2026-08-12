@@ -51,7 +51,7 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 
 ### 상태 데이터
 
-운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 손상된 JSON은 기본값으로 읽되, 원본은 `*.corrupt-<timestamp>-<pid>` 이름으로 보존합니다.
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
 
 ### 관리자 명령어
 

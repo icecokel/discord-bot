@@ -20,8 +20,24 @@ const createEmptyState = (): JobMonitorState => ({ companies: {} });
 
 export const getJobMonitorState = (): JobMonitorState => {
   const data = readJson<JobMonitorState>(FILE_NAME, createEmptyState());
-  if (!data || typeof data.companies !== "object" || data.companies === null) {
-    return createEmptyState();
+  if (
+    !data ||
+    typeof data !== "object" ||
+    typeof data.companies !== "object" ||
+    data.companies === null ||
+    Array.isArray(data.companies) ||
+    Object.values(data.companies).some(
+      (company) =>
+        !company ||
+        typeof company !== "object" ||
+        !Array.isArray(company.seenIds) ||
+        company.seenIds.some((id) => typeof id !== "string") ||
+        typeof company.initializedAt !== "string" ||
+        typeof company.lastCheckedAt !== "string" ||
+        typeof company.lastPostingCount !== "number",
+    )
+  ) {
+    throw new Error("채용공고 이력 형식이 올바르지 않습니다.");
   }
   return data;
 };

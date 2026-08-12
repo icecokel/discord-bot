@@ -26,7 +26,7 @@ export const readJson = <T = any>(
     data = fs.readFileSync(filePath, "utf8");
   } catch (error: any) {
     console.error(`[FileManager] Error reading ${filename}:`, error.message);
-    return defaultValue;
+    throw error;
   }
 
   try {
@@ -41,7 +41,7 @@ export const readJson = <T = any>(
         timestamp += 1;
         corruptPath = `${filePath}.corrupt-${timestamp}-${process.pid}`;
       }
-      fs.renameSync(filePath, corruptPath);
+      fs.copyFileSync(filePath, corruptPath);
     } catch (preservationError: any) {
       console.error(
         `[FileManager] Error preserving corrupt ${filename}:`,
@@ -49,7 +49,7 @@ export const readJson = <T = any>(
       );
     }
 
-    return defaultValue;
+    throw error;
   }
 };
 
