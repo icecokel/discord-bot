@@ -46,7 +46,7 @@ export const handleCommand = async (
     await command.execute(message, args.slice(1));
   } catch (error) {
     console.error(`[Command] Execution error for ${command.name}:`, error);
-    message.reply("명령어를 실행하는 중에 오류가 발생했습니다.");
+    await message.reply("명령어를 실행하는 중에 오류가 발생했습니다.");
   }
 
   return true;

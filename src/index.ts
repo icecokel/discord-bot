@@ -43,6 +43,10 @@ const client = new Client({
 // 명령어 로드
 client.commands = loadCommands();
 
+client.on("error", (error) => {
+  console.error("[Discord] Client error:", error);
+});
+
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 

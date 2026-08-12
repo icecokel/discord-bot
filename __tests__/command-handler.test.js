@@ -36,6 +36,28 @@ describe("command handler", () => {
     expect(execute).toHaveBeenCalledWith(expect.any(Object), []);
   });
 
+  test("propagates a failed error reply to the client error boundary", async () => {
+    const executionError = new Error("command failed");
+    const replyError = new Error("reply failed");
+    const message = createMessage("!헤르메스");
+    message.reply.mockRejectedValue(replyError);
+    const commands = new Map([
+      [
+        "헤르메스",
+        {
+          name: "헤르메스",
+          keywords: ["헤르메스"],
+          execute: jest.fn().mockRejectedValue(executionError),
+        },
+      ],
+    ]);
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+
+    await expect(handleCommand(message, commands)).rejects.toBe(replyError);
+
+    consoleError.mockRestore();
+  });
+
   test("registers only admin AI prefix commands", () => {
     const { commands } = require("../src/core/registry");
     const names = commands.map((command) => command.name);
