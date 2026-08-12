@@ -1,5 +1,10 @@
 require("ts-node/register/transpile-only");
 
+const dns = require("node:dns");
+const https = require("node:https");
+const { EventEmitter } = require("node:events");
+const { Readable } = require("node:stream");
+
 const {
   parseGeekNewsTopItems,
   buildGeekNewsFallbackSummary,
@@ -548,16 +553,13 @@ describe("GeekNews channel delivery", () => {
           },
         ],
       });
-    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
-      ok: true,
-      url: "https://example.com/story",
-      text: jest.fn().mockResolvedValue(`
-        <article>
-          <p>Original article body with enough content to parse as article text.</p>
-          <p>Second paragraph for the translation payload.</p>
-        </article>
-      `),
-    });
+    const fetchArticleSpy = jest
+      .spyOn(geekNewsService, "fetchArticleContent")
+      .mockResolvedValue({
+        content:
+          "Original article body with enough content to parse as article text. Second paragraph for the translation payload.",
+        sourceUrl: "https://example.com/story",
+      });
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
       .mockResolvedValue({
@@ -588,7 +590,7 @@ describe("GeekNews channel delivery", () => {
       );
     } finally {
       fetchListItemsSpy.mockRestore();
-      fetchSpy.mockRestore();
+      fetchArticleSpy.mockRestore();
       aiSpy.mockRestore();
     }
   });
@@ -607,11 +609,12 @@ describe("GeekNews channel delivery", () => {
           },
         ],
       });
-    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
-      ok: true,
-      url: "https://example.com/story",
-      text: jest.fn().mockResolvedValue("<article>Original body</article>"),
-    });
+    const fetchArticleSpy = jest
+      .spyOn(geekNewsService, "fetchArticleContent")
+      .mockResolvedValue({
+        content: "Original body",
+        sourceUrl: "https://example.com/story",
+      });
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const consoleWarnSpy = jest
       .spyOn(console, "warn")
@@ -638,7 +641,7 @@ describe("GeekNews channel delivery", () => {
       );
     } finally {
       fetchListItemsSpy.mockRestore();
-      fetchSpy.mockRestore();
+      fetchArticleSpy.mockRestore();
       consoleSpy.mockRestore();
       consoleWarnSpy.mockRestore();
       aiSpy.mockRestore();
@@ -659,15 +662,12 @@ describe("GeekNews channel delivery", () => {
           },
         ],
       });
-    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
-      ok: true,
-      url: "https://example.com/story",
-      text: jest.fn().mockResolvedValue(`
-        <article>
-          <p>${"Long original article body. ".repeat(260)}</p>
-        </article>
-      `),
-    });
+    const fetchArticleSpy = jest
+      .spyOn(geekNewsService, "fetchArticleContent")
+      .mockResolvedValue({
+        content: "Long original article body. ".repeat(260),
+        sourceUrl: "https://example.com/story",
+      });
     const consoleErrorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => {});
@@ -706,10 +706,141 @@ describe("GeekNews channel delivery", () => {
       expect(retryPrompt.length).toBeLessThan(firstPrompt.length);
     } finally {
       fetchListItemsSpy.mockRestore();
-      fetchSpy.mockRestore();
+      fetchArticleSpy.mockRestore();
       consoleErrorSpy.mockRestore();
       consoleWarnSpy.mockRestore();
       aiSpy.mockRestore();
     }
+  });
+});
+
+describe("GeekNews network safety", () => {
+  const response = (chunks, statusCode = 200, headers = {}) =>
+    Object.assign(Readable.from(chunks), { statusCode, headers });
+
+  const mockHttpsResponses = (responses, onOptions = () => {}) => {
+    let index = 0;
+    return jest
+      .spyOn(https, "request")
+      .mockImplementation((_url, options, callback) => {
+        const request = new EventEmitter();
+        request.end = jest.fn(() =>
+          queueMicrotask(() => callback(responses[index++])),
+        );
+        onOptions(options);
+        return request;
+      });
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([
+    "data:text/html,<article>private</article>",
+    "file:///etc/passwd",
+    "http://localhost/admin",
+    "http://127.0.0.1/admin",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://[::1]/admin",
+  ])("rejects non-http or non-public article URL: %s", async (url) => {
+    await expect(geekNewsService.fetchArticleContent(url)).rejects.toThrow(
+      /허용하지 않습니다/,
+    );
+  });
+
+  test("rejects a hostname when any resolved address is private", async () => {
+    jest.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+      { address: "10.0.0.8", family: 4 },
+    ]);
+    const requestSpy = jest.spyOn(https, "request");
+
+    await expect(
+      geekNewsService.fetchArticleContent("https://public.example/story"),
+    ).rejects.toThrow(/사설 또는 예약 주소/);
+    expect(requestSpy).not.toHaveBeenCalled();
+  });
+
+  test("pins the validated DNS address for the actual connection", async () => {
+    jest.spyOn(dns.promises, "lookup").mockResolvedValue([
+      { address: "93.184.216.34", family: 4 },
+    ]);
+    let connectedAddress;
+    let requestSignal;
+    mockHttpsResponses(
+      [
+        response([
+          Buffer.from(
+            `<article><p>${"Public article body for a safe request. ".repeat(8)}</p></article>`,
+          ),
+        ]),
+      ],
+      (options) => {
+        requestSignal = options.signal;
+        options.lookup("public.example", { all: true }, (_error, addresses) => {
+          connectedAddress = addresses[0];
+        });
+      },
+    );
+
+    const result = await geekNewsService.fetchArticleContent(
+      "https://public.example/story",
+    );
+
+    expect(connectedAddress).toEqual({ address: "93.184.216.34", family: 4 });
+    expect(requestSignal).toBeInstanceOf(AbortSignal);
+    expect(result.sourceUrl).toBe("https://public.example/story");
+    expect(result.content).toContain("Public article body");
+  });
+
+  test("validates and blocks every redirect destination", async () => {
+    const requestSpy = mockHttpsResponses([
+      response([], 302, {
+        location: "http://169.254.169.254/latest/meta-data/",
+      }),
+    ]);
+
+    await expect(
+      geekNewsService.fetchArticleContent("https://93.184.216.34/story"),
+    ).rejects.toThrow(/사설 또는 예약 주소/);
+    expect(requestSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("stops reading an article when the streamed body exceeds the limit", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockHttpsResponses([
+      response([Buffer.alloc(2_000_001, "a")]),
+    ]);
+
+    const result = await geekNewsService.fetchArticleContent(
+      "https://93.184.216.34/story",
+    );
+
+    expect(result).toEqual({
+      content: "",
+      sourceUrl: "https://93.184.216.34/story",
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[GeekNewsService] 기사 본문 조회 실패:",
+      expect.objectContaining({ message: expect.stringContaining("바이트 제한") }),
+    );
+  });
+
+  test("limits the GeekNews list response and attaches a timeout signal", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(
+      new Response("too large", {
+        status: 200,
+        headers: { "content-length": "1000001" },
+      }),
+    );
+
+    const result = await geekNewsService.fetchListItems(5);
+
+    expect(result.items).toEqual([]);
+    expect(result.failureReason).toContain("바이트 제한");
+    expect(fetchSpy.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    expect(consoleSpy).toHaveBeenCalled();
   });
 });

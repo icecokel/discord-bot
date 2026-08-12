@@ -1,4 +1,8 @@
 import { Client, TextBasedChannel, EmbedBuilder } from "discord.js";
+import * as dns from "node:dns";
+import * as http from "node:http";
+import * as https from "node:https";
+import * as net from "node:net";
 import { aiService } from "../../core/ai";
 import {
   GeekNewsHistoryContent,
@@ -73,6 +77,10 @@ const MAX_TRANSLATION_RETRY_SOURCE_LENGTH = 2500;
 const MAX_EMBED_DESCRIPTION_LENGTH = 3800;
 const MAX_EMBED_COUNT = 8;
 const FEATURED_CANDIDATE_LIMIT = 20;
+const GEEK_NEWS_REQUEST_TIMEOUT_MS = 20_000;
+const MAX_GEEK_NEWS_LIST_BYTES = 1_000_000;
+const MAX_GEEK_NEWS_ARTICLE_BYTES = 2_000_000;
+const MAX_ARTICLE_REDIRECTS = 5;
 const HANGUL_REGEX = /[가-힣]/;
 const NON_KOREAN_FALLBACK_SUMMARY =
   "한국어 요약을 생성하지 못했습니다. 링크에서 원문을 확인해주세요.";
@@ -86,6 +94,273 @@ const GEEK_NEWS_ALREADY_SENT_MESSAGE =
   "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
 const GEEK_NEWS_AI_FAILED_MESSAGE =
   "긱뉴스 Codex 번역에 실패했습니다. Codex 상태를 확인한 뒤 다시 시도해주세요.";
+
+const blockedIpv4 = new net.BlockList();
+for (const [network, prefix] of [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
+] as const) {
+  blockedIpv4.addSubnet(network, prefix, "ipv4");
+}
+
+const blockedIpv6 = new net.BlockList();
+for (const [network, prefix] of [
+  ["::", 96],
+  ["::ffff:0.0.0.0", 96],
+  ["64:ff9b::", 96],
+  ["64:ff9b:1::", 48],
+  ["100::", 64],
+  ["2001::", 23],
+  ["2001:db8::", 32],
+  ["2002::", 16],
+  ["fc00::", 7],
+  ["fe80::", 10],
+  ["fec0::", 10],
+  ["ff00::", 8],
+] as const) {
+  blockedIpv6.addSubnet(network, prefix, "ipv6");
+}
+
+class UnsafeGeekNewsUrlError extends Error {}
+
+const stripIpv6Brackets = (hostname: string): string =>
+  hostname.replace(/^\[|\]$/g, "");
+
+const isPublicIpAddress = (address: string): boolean => {
+  const family = net.isIP(address);
+  if (family === 4) return !blockedIpv4.check(address, "ipv4");
+  if (family === 6) return !blockedIpv6.check(address, "ipv6");
+  return false;
+};
+
+const parsePublicHttpUrl = (rawUrl: string): URL => {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new UnsafeGeekNewsUrlError("유효하지 않은 기사 URL입니다.");
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new UnsafeGeekNewsUrlError("HTTP(S)가 아닌 기사 URL은 허용하지 않습니다.");
+  }
+  if (url.username || url.password) {
+    throw new UnsafeGeekNewsUrlError("인증 정보가 포함된 기사 URL은 허용하지 않습니다.");
+  }
+
+  const hostname = stripIpv6Brackets(url.hostname)
+    .toLowerCase()
+    .replace(/\.$/, "");
+  if (!hostname || hostname === "localhost" || hostname.endsWith(".localhost")) {
+    throw new UnsafeGeekNewsUrlError("로컬 주소는 기사 URL로 허용하지 않습니다.");
+  }
+
+  const family = net.isIP(hostname);
+  if (family && !isPublicIpAddress(hostname)) {
+    throw new UnsafeGeekNewsUrlError("사설 또는 예약 주소는 기사 URL로 허용하지 않습니다.");
+  }
+
+  return url;
+};
+
+const raceWithSignal = async <T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> => {
+  if (signal.aborted) throw signal.reason;
+
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener("abort", abort);
+    });
+  });
+};
+
+const resolvePublicAddress = async (
+  url: URL,
+  signal: AbortSignal,
+): Promise<{ address: string; family: 4 | 6 }> => {
+  const hostname = stripIpv6Brackets(url.hostname);
+  const directFamily = net.isIP(hostname);
+  const addresses = directFamily
+    ? [{ address: hostname, family: directFamily as 4 | 6 }]
+    : await raceWithSignal(
+        dns.promises.lookup(hostname, { all: true, verbatim: true }),
+        signal,
+      );
+
+  if (addresses.length === 0) {
+    throw new Error("기사 호스트의 IP 주소를 찾지 못했습니다.");
+  }
+  if (addresses.some(({ address }) => !isPublicIpAddress(address))) {
+    throw new UnsafeGeekNewsUrlError(
+      "사설 또는 예약 주소로 연결되는 기사 URL은 허용하지 않습니다.",
+    );
+  }
+
+  return addresses[0] as { address: string; family: 4 | 6 };
+};
+
+const assertContentLength = (
+  value: string | string[] | null | undefined,
+  maxBytes: number,
+): void => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return;
+  const length = Number(raw);
+  if (Number.isFinite(length) && length > maxBytes) {
+    throw new Error(`응답 본문이 ${maxBytes}바이트 제한을 초과했습니다.`);
+  }
+};
+
+const readLimitedFetchText = async (
+  response: Response,
+  maxBytes: number,
+): Promise<string> => {
+  assertContentLength(response.headers?.get?.("content-length"), maxBytes);
+
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const text = await response.text();
+    if (Buffer.byteLength(text) > maxBytes) {
+      throw new Error(`응답 본문이 ${maxBytes}바이트 제한을 초과했습니다.`);
+    }
+    return text;
+  }
+
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error(`응답 본문이 ${maxBytes}바이트 제한을 초과했습니다.`);
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks).toString("utf8");
+};
+
+const requestArticlePage = async (
+  url: URL,
+  address: { address: string; family: 4 | 6 },
+  signal: AbortSignal,
+): Promise<
+  | { type: "redirect"; location: string }
+  | { type: "success"; html: string }
+> =>
+  new Promise((resolve, reject) => {
+    const transport = url.protocol === "https:" ? https : http;
+    const request = transport.request(
+      url,
+      {
+        method: "GET",
+        headers: {
+          "User-Agent": "discord-bot/1.0 (+https://news.hada.io/)",
+          Accept: "text/html,application/xhtml+xml",
+        },
+        signal,
+        lookup: (_hostname: string, options: any, callback?: any) => {
+          const done = typeof options === "function" ? options : callback;
+          if (typeof options !== "function" && options.all) {
+            done(null, [address]);
+            return;
+          }
+          done(null, address.address, address.family);
+        },
+      },
+      (response) => {
+        const status = response.statusCode || 0;
+        const location = response.headers.location;
+        if ([301, 302, 303, 307, 308].includes(status) && location) {
+          response.destroy();
+          resolve({ type: "redirect", location });
+          return;
+        }
+        if (status < 200 || status >= 300) {
+          response.destroy();
+          reject(new Error(`Article HTTP ${status}`));
+          return;
+        }
+
+        try {
+          assertContentLength(
+            response.headers["content-length"],
+            MAX_GEEK_NEWS_ARTICLE_BYTES,
+          );
+        } catch (error) {
+          response.destroy();
+          reject(error);
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer | string) => {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          size += buffer.length;
+          if (size > MAX_GEEK_NEWS_ARTICLE_BYTES) {
+            response.destroy(
+              new Error(
+                `응답 본문이 ${MAX_GEEK_NEWS_ARTICLE_BYTES}바이트 제한을 초과했습니다.`,
+              ),
+            );
+            return;
+          }
+          chunks.push(buffer);
+        });
+        response.once("end", () =>
+          resolve({
+            type: "success",
+            html: Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+        response.once("error", reject);
+      },
+    );
+    request.once("error", reject);
+    request.end();
+  });
+
+const fetchArticlePage = async (
+  rawUrl: string,
+): Promise<{ html: string; sourceUrl: string }> => {
+  const signal = AbortSignal.timeout(GEEK_NEWS_REQUEST_TIMEOUT_MS);
+  let currentUrl = parsePublicHttpUrl(rawUrl);
+
+  for (let redirects = 0; redirects <= MAX_ARTICLE_REDIRECTS; redirects += 1) {
+    const address = await resolvePublicAddress(currentUrl, signal);
+    const result = await requestArticlePage(currentUrl, address, signal);
+    if (result.type === "success") {
+      return { html: result.html, sourceUrl: currentUrl.toString() };
+    }
+    if (redirects === MAX_ARTICLE_REDIRECTS) {
+      throw new Error("기사 리디렉션 횟수가 제한을 초과했습니다.");
+    }
+    currentUrl = parsePublicHttpUrl(
+      new URL(result.location, currentUrl).toString(),
+    );
+  }
+
+  throw new Error("기사 페이지를 불러오지 못했습니다.");
+};
 
 const normalizeWhitespace = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -160,9 +435,9 @@ const formatGeekNewsAiFailureReason = (
 
 const normalizeLink = (href: string): string => {
   try {
-    return new URL(href, GEEK_NEWS_URL).toString();
+    return parsePublicHttpUrl(new URL(href, GEEK_NEWS_URL).toString()).toString();
   } catch {
-    return GEEK_NEWS_URL;
+    return "";
   }
 };
 
@@ -669,6 +944,10 @@ export const parseGeekNewsTopItems = (
     const link = normalizeLink(rawHref);
     const description = cleanDescriptionText(rawDescription);
 
+    if (!link) {
+      continue;
+    }
+
     items.push({ rank, title, link, points, description });
   }
 
@@ -814,13 +1093,17 @@ class GeekNewsService {
         headers: {
           "User-Agent": "discord-bot/1.0 (+https://news.hada.io/)",
         },
+        signal: AbortSignal.timeout(GEEK_NEWS_REQUEST_TIMEOUT_MS),
       });
 
       if (!response.ok) {
         throw new Error(`GeekNews HTTP ${response.status}`);
       }
 
-      const html = await response.text();
+      const html = await readLimitedFetchText(
+        response,
+        MAX_GEEK_NEWS_LIST_BYTES,
+      );
       const items = parseGeekNewsTopItems(html, limit);
       if (items.length === 0) {
         console.warn("[GeekNewsService] Top 뉴스 파싱 결과가 비어 있습니다.");
@@ -844,31 +1127,22 @@ class GeekNewsService {
     url: string,
   ): Promise<{ content: string; sourceUrl: string }> {
     try {
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent": "discord-bot/1.0 (+https://news.hada.io/)",
-          Accept: "text/html,application/xhtml+xml",
-        },
-        redirect: "follow",
-      });
-
-      if (!response.ok) {
-        throw new Error(`Article HTTP ${response.status}`);
-      }
-
-      const html = await response.text();
+      const { html, sourceUrl } = await fetchArticlePage(url);
       if (!html || html.startsWith("%PDF")) {
         return {
           content: "",
-          sourceUrl: normalizeGeekNewsHistoryUrl(response.url || url),
+          sourceUrl: normalizeGeekNewsHistoryUrl(sourceUrl),
         };
       }
 
       return {
         content: extractGeekNewsArticleText(html),
-        sourceUrl: normalizeGeekNewsHistoryUrl(response.url || url),
+        sourceUrl: normalizeGeekNewsHistoryUrl(sourceUrl),
       };
     } catch (error) {
+      if (error instanceof UnsafeGeekNewsUrlError) {
+        throw error;
+      }
       console.error("[GeekNewsService] 기사 본문 조회 실패:", error);
       return {
         content: "",
