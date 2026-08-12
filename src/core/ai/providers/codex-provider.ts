@@ -28,6 +28,8 @@ interface PendingRequest {
 }
 
 interface PendingTurn {
+  threadId: string;
+  turnId?: string;
   textParts: string[];
   turnStartRequestId?: number;
   resolve: (text: string) => void;
@@ -83,10 +85,11 @@ class CodexAppServerClient {
     return this.threadIds.delete(threadKey);
   }
 
-  shutdown(): void {
+  shutdown(error = new Error("Codex app-server shut down")): void {
+    const proc = this.proc;
     this.rl?.close();
-    this.proc?.kill();
-    this.resetProcessState();
+    this.handleProcessFailure(error);
+    proc?.kill();
   }
 
   private ensureProcess(): ChildProcessWithoutNullStreams {
@@ -103,8 +106,11 @@ class CodexAppServerClient {
     this.proc = proc;
     this.rl = readline.createInterface({ input: proc.stdout });
     this.rl.on("line", (line) => this.handleLine(line));
-    proc.on("error", (error) => this.handleProcessFailure(error));
+    proc.on("error", (error) => {
+      if (this.proc === proc) this.handleProcessFailure(error);
+    });
     proc.on("exit", (code, signal) => {
+      if (this.proc !== proc) return;
       this.handleProcessFailure(
         new Error(
           `Codex app-server exited${code === null ? "" : ` with code ${code}`}${
@@ -134,6 +140,9 @@ class CodexAppServerClient {
       }).then(() => {
         this.sendNotification("initialized", {});
         this.initialized = true;
+      }).catch((error) => {
+        this.initializePromise = undefined;
+        throw error;
       });
     }
 
@@ -179,11 +188,11 @@ class CodexAppServerClient {
 
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.activeTurn = undefined;
-        reject(new Error("Codex turn timed out"));
+        this.shutdown(new Error("Codex turn timed out"));
       }, this.timeoutMs);
 
-      this.activeTurn = {
+      const turn: PendingTurn = {
+        threadId,
         textParts: [],
         resolve: (text) => {
           clearTimeout(timer);
@@ -195,13 +204,20 @@ class CodexAppServerClient {
         },
         timer,
       };
+      this.activeTurn = turn;
       const turnStartRequestId = this.sendRequestMessage(
         "turn/start",
         turnParams,
       );
-      this.activeTurn.turnStartRequestId = turnStartRequestId;
+      turn.turnStartRequestId = turnStartRequestId;
       this.pendingRequests.set(turnStartRequestId, {
-        resolve: () => undefined,
+        resolve: (result) => {
+          if (this.activeTurn !== turn) return;
+          const turnId = result?.turn?.id;
+          if (typeof turnId === "string" && turnId) {
+            turn.turnId = turnId;
+          }
+        },
         reject: (error) => this.rejectActiveTurn(error),
         timer: setTimeout(() => {
           this.pendingRequests.delete(turnStartRequestId);
@@ -350,7 +366,11 @@ class CodexAppServerClient {
   }
 
   private handleNotification(message: JsonRpcMessage): void {
-    if (!message.method || !this.activeTurn) {
+    if (
+      !message.method ||
+      !this.activeTurn ||
+      !this.matchesActiveTurn(message.params)
+    ) {
       return;
     }
 
@@ -365,12 +385,31 @@ class CodexAppServerClient {
     if (message.method === "item/completed") {
       const text = this.extractCompletedAgentMessageText(message.params);
       if (text) {
-        this.activeTurn.textParts.push(text);
+        this.activeTurn.textParts = [text];
+      }
+      return;
+    }
+
+    if (message.method === "error") {
+      if (message.params?.willRetry === false) {
+        this.shutdown(
+          new Error(message.params?.error?.message || "Codex turn failed"),
+        );
       }
       return;
     }
 
     if (message.method === "turn/completed") {
+      const status = message.params?.turn?.status;
+      if (status === "failed" || status === "interrupted") {
+        this.rejectActiveTurn(
+          new Error(
+            message.params?.turn?.error?.message || `Codex turn ${status}`,
+          ),
+        );
+        return;
+      }
+
       const turn = this.activeTurn;
       this.activeTurn = undefined;
       this.clearPendingRequest(turn.turnStartRequestId);
@@ -387,11 +426,7 @@ class CodexAppServerClient {
     }
 
     if (message.method === "turn/failed" || message.method === "turn/error") {
-      const turn = this.activeTurn;
-      this.activeTurn = undefined;
-      this.clearPendingRequest(turn.turnStartRequestId);
-      clearTimeout(turn.timer);
-      turn.reject(
+      this.rejectActiveTurn(
         new Error(
           message.params?.error?.message ||
             message.params?.message ||
@@ -399,6 +434,25 @@ class CodexAppServerClient {
         ),
       );
     }
+  }
+
+  private matchesActiveTurn(params: any): boolean {
+    if (!this.activeTurn) return false;
+
+    if (
+      typeof params?.threadId === "string" &&
+      params.threadId !== this.activeTurn.threadId
+    ) {
+      return false;
+    }
+
+    const turnId =
+      typeof params?.turnId === "string" ? params.turnId : params?.turn?.id;
+    return !(
+      this.activeTurn.turnId &&
+      typeof turnId === "string" &&
+      turnId !== this.activeTurn.turnId
+    );
   }
 
   private rejectActiveTurn(error: Error): void {
@@ -493,6 +547,7 @@ class CodexAppServerClient {
     this.rl = undefined;
     this.initialized = false;
     this.initializePromise = undefined;
+    this.threadIds.clear();
   }
 
   private resolveModel(options: CodexTurnOptions): string | undefined {

@@ -249,6 +249,77 @@ describe("CodexProvider", () => {
     );
   });
 
+  test("uses the completed agent message without duplicating streamed text", async () => {
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("중복 없이 답해줘");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    server.send({
+      method: "item/agentMessage/delta",
+      params: { delta: "최종 답변" },
+    });
+    server.send({
+      method: "item/completed",
+      params: {
+        item: {
+          type: "agentMessage",
+          id: "agent-item-1",
+          text: "최종 답변",
+        },
+      },
+    });
+    server.send({
+      method: "turn/completed",
+      params: { turn: { id: "turn-1", status: "completed" } },
+    });
+
+    await expect(answerPromise).resolves.toBe("최종 답변");
+  });
+
+  test("ignores notifications for a different turn", async () => {
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+    const answerPromise = provider.generateText("현재 요청");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    const turnStart = server
+      .messages()
+      .find((message) => message.method === "turn/start");
+    server.send({ id: turnStart.id, result: { turn: { id: "turn-current" } } });
+    await waitForTicks();
+
+    server.send({
+      method: "item/agentMessage/delta",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-stale",
+        delta: "이전 답변",
+      },
+    });
+    server.send({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: { id: "turn-stale" } },
+    });
+    server.send({
+      method: "item/agentMessage/delta",
+      params: {
+        threadId: "thread-1",
+        turnId: "turn-current",
+        delta: "현재 답변",
+      },
+    });
+    server.send({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: { id: "turn-current" } },
+    });
+
+    await expect(answerPromise).resolves.toBe("현재 답변");
+  });
+
   test("reuses the mapped Codex thread for the same admin channel", async () => {
     const server = createAppServerProcess();
     const provider = new CodexProvider();
@@ -343,6 +414,38 @@ describe("CodexProvider", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       "[CodexProvider] 생성 오류: not authenticated",
     );
+
+    consoleSpy.mockRestore();
+  });
+
+  test("retries initialization after an initialize error", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+    const firstPromise = provider.generateText("초기화 실패 요청");
+
+    await waitForTicks();
+    const firstInitialize = server.messages()[0];
+    server.send({
+      id: firstInitialize.id,
+      error: { code: -32000, message: "initialize failed" },
+    });
+    await expect(firstPromise).rejects.toThrow("initialize failed");
+
+    const retryPromise = provider.generateText("재시도 요청");
+    await waitForTicks();
+    const initializeMessages = server
+      .messages()
+      .filter((message) => message.method === "initialize");
+    expect(initializeMessages).toHaveLength(2);
+    server.send({
+      id: initializeMessages[1].id,
+      result: { userAgent: "codex-test" },
+    });
+    await waitForTicks();
+    await completeThreadStart(server);
+    await completeTurn(server, "재시도 성공");
+    await expect(retryPromise).resolves.toBe("재시도 성공");
     consoleSpy.mockRestore();
   });
 
@@ -369,6 +472,130 @@ describe("CodexProvider", () => {
 
     await expect(answerPromise).rejects.toThrow("turn denied");
     consoleSpy.mockRestore();
+  });
+
+  test("rejects terminal error notifications", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("실패하는 요청");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    server.send({
+      method: "error",
+      params: {
+        error: { message: "upstream failed" },
+        willRetry: false,
+      },
+    });
+
+    await expect(answerPromise).rejects.toThrow("upstream failed");
+    expect(server.proc.kill).toHaveBeenCalledTimes(1);
+    consoleSpy.mockRestore();
+  });
+
+  test("waits for turn completion when an error notification will retry", async () => {
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("재시도하는 요청");
+
+    await completeHandshake(server);
+    await completeThreadStart(server);
+    server.send({
+      method: "error",
+      params: {
+        error: { message: "temporary failure" },
+        willRetry: true,
+      },
+    });
+    await completeTurn(server, "재시도 후 답변");
+
+    await expect(answerPromise).resolves.toBe("재시도 후 답변");
+  });
+
+  test.each(["failed", "interrupted"])(
+    "rejects a completed turn with %s status",
+    async (status) => {
+      const consoleSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const server = createAppServerProcess();
+      const provider = new CodexProvider();
+
+      const answerPromise = provider.generateText("완료 상태 확인");
+
+      await completeHandshake(server);
+      await completeThreadStart(server);
+      server.send({
+        method: "item/agentMessage/delta",
+        params: { delta: "불완전한 답변" },
+      });
+      server.send({
+        method: "turn/completed",
+        params: {
+          turn: {
+            id: "turn-1",
+            status,
+            error: status === "failed" ? { message: "turn failed" } : null,
+          },
+        },
+      });
+
+      await expect(answerPromise).rejects.toThrow(
+        status === "failed" ? "turn failed" : "Codex turn interrupted",
+      );
+      consoleSpy.mockRestore();
+    },
+  );
+
+  test("restarts after a timeout so stale events cannot finish the next turn", async () => {
+    jest.useFakeTimers();
+    process.env.CODEX_TIMEOUT_MS = "100";
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const firstServer = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    try {
+      const firstAnswer = provider.generateText("첫 요청", {
+        codexThreadKey: "owner:channel",
+      });
+      await completeHandshake(firstServer);
+      await completeThreadStart(firstServer, "old-thread");
+      const firstFailure = expect(firstAnswer).rejects.toThrow(
+        "Codex turn timed out",
+      );
+
+      jest.advanceTimersByTime(100);
+      await firstFailure;
+      expect(firstServer.proc.kill).toHaveBeenCalledTimes(1);
+
+      const secondServer = createAppServerProcess();
+      const secondAnswer = provider.generateText("두 번째 요청", {
+        codexThreadKey: "owner:channel",
+      });
+      await completeHandshake(secondServer);
+      await completeThreadStart(secondServer, "new-thread");
+
+      firstServer.proc.emit("exit", 0, null);
+
+      firstServer.send({
+        method: "item/agentMessage/delta",
+        params: { delta: "이전 요청 답변" },
+      });
+      firstServer.send({ method: "turn/completed", params: {} });
+      await waitForTicks();
+
+      await completeTurn(secondServer, "새 요청 답변");
+      await expect(secondAnswer).resolves.toBe("새 요청 답변");
+      expect(mockSpawn).toHaveBeenCalledTimes(2);
+    } finally {
+      provider.shutdown();
+      consoleSpy.mockRestore();
+      jest.useRealTimers();
+    }
   });
 
   test("rejects when the completed turn has no agent text", async () => {

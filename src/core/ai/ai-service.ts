@@ -47,8 +47,11 @@ class AIService {
   }
 
   private configureProvider(name: string | undefined): void {
-    this.providerName = resolvePrimaryProviderName(name);
-    this.provider = createProvider(this.providerName);
+    const providerName = resolvePrimaryProviderName(name);
+    const provider = createProvider(providerName);
+    (this.provider as Partial<CodexProvider> | undefined)?.shutdown?.();
+    this.providerName = providerName;
+    this.provider = provider;
   }
 
   getProviderStatus(): { providerName: ProviderName } {
@@ -56,6 +59,7 @@ class AIService {
   }
 
   setPrimaryProvider(providerName: ProviderName): void {
+    if (this.providerName === providerName) return;
     this.configureProvider(providerName);
   }
 
@@ -121,11 +125,15 @@ class AIService {
   ): Promise<GeneratedTextResult> {
     const provider = createProvider(providerName);
 
-    return {
-      providerName,
-      text: await provider.generateText(prompt, options),
-      usedFallback: false,
-    };
+    try {
+      return {
+        providerName,
+        text: await provider.generateText(prompt, options),
+        usedFallback: false,
+      };
+    } finally {
+      (provider as Partial<CodexProvider>).shutdown?.();
+    }
   }
 }
 

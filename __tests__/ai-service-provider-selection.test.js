@@ -1,5 +1,6 @@
 const mockCodexGenerateText = jest.fn();
 const mockHermesGenerateText = jest.fn();
+const mockCodexShutdown = jest.fn();
 const mockCodexProvider = jest.fn();
 const mockHermesProvider = jest.fn();
 
@@ -21,6 +22,7 @@ describe("AIService provider selection", () => {
     jest.resetAllMocks();
     mockCodexProvider.mockImplementation(() => ({
       generateText: mockCodexGenerateText,
+      shutdown: mockCodexShutdown,
     }));
     mockHermesProvider.mockImplementation(() => ({
       generateText: mockHermesGenerateText,
@@ -101,5 +103,43 @@ describe("AIService provider selection", () => {
 
     await expect(service.generateText("prompt")).rejects.toThrow(error);
     expect(mockHermesProvider).not.toHaveBeenCalled();
+  });
+
+  test("shuts down the previous Codex provider when reconfigured", () => {
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    service.setPrimaryProvider("hermes");
+
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
+    expect(mockHermesProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexShutdown).toHaveBeenCalledTimes(1);
+  });
+
+  test("shuts down a provider-only Codex client after generation", async () => {
+    mockCodexGenerateText.mockResolvedValueOnce("codex response");
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    await expect(
+      service.generateTextWithProviderOnly("codex", "prompt"),
+    ).resolves.toEqual({
+      providerName: "codex",
+      text: "codex response",
+      usedFallback: false,
+    });
+    expect(mockCodexProvider).toHaveBeenCalledTimes(2);
+    expect(mockCodexShutdown).toHaveBeenCalledTimes(1);
+  });
+
+  test("shuts down a provider-only Codex client after failure", async () => {
+    mockCodexGenerateText.mockRejectedValueOnce(new Error("codex failed"));
+    const AIService = loadAiService();
+    const service = new AIService();
+
+    await expect(
+      service.generateTextWithProviderOnly("codex", "prompt"),
+    ).rejects.toThrow("codex failed");
+    expect(mockCodexShutdown).toHaveBeenCalledTimes(1);
   });
 });
