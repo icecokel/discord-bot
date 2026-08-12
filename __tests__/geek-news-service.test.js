@@ -534,10 +534,7 @@ describe("GeekNews channel delivery", () => {
     fetchFeaturedItemResultSpy.mockRestore();
   });
 
-  test("translates featured item with Codex only without Gemini key", async () => {
-    const originalGeminiKey = process.env.GEMINI_AI_API_KEY;
-    delete process.env.GEMINI_AI_API_KEY;
-
+  test("translates featured item with Codex", async () => {
     const fetchListItemsSpy = jest
       .spyOn(geekNewsService, "fetchListItems")
       .mockResolvedValue({
@@ -590,11 +587,6 @@ describe("GeekNews channel delivery", () => {
         }),
       );
     } finally {
-      if (originalGeminiKey === undefined) {
-        delete process.env.GEMINI_AI_API_KEY;
-      } else {
-        process.env.GEMINI_AI_API_KEY = originalGeminiKey;
-      }
       fetchListItemsSpy.mockRestore();
       fetchSpy.mockRestore();
       aiSpy.mockRestore();

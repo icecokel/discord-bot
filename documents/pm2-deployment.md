@@ -88,9 +88,6 @@ npm audit --omit=dev
 기능별 필요 값:
 
 - `AI_PROVIDER`
-- `AI_FALLBACK_PROVIDER`
-- `GEMINI_AI_API_KEY`
-- `GEMINI_MODEL`
 - `CODEX_BIN`
 - `CODEX_MODEL`
 - `CODEX_WORKDIR`
@@ -118,7 +115,6 @@ npm audit --omit=dev
 
 ```bash
 AI_PROVIDER=codex
-AI_FALLBACK_PROVIDER=gemini
 CODEX_BIN=/home/icenux/.local/bin/codex
 CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
@@ -158,7 +154,6 @@ Hermes provider는 과거 운영 호환을 위해 남아 있지만 현재 기본
 
 ```bash
 AI_PROVIDER=hermes
-AI_FALLBACK_PROVIDER=gemini
 HERMES_BIN=/home/icenux/.local/bin/hermes
 HERMES_TIMEOUT_MS=1800000
 HERMES_TOOLSETS=web
@@ -169,7 +164,7 @@ Hermes의 Discord gateway는 사용하지 않는다. 현재 `discord.js` 봇이 
 
 관리자 Codex 요청이 60초 안에 끝나면 상태 메시지를 최종 답변으로 수정한다. 60초를 넘기면 완료 후 별도 보고하겠다는 선응답을 남기고, Codex 작업은 최대 30분까지 백그라운드로 계속 실행한 뒤 새 메시지로 결과를 보낸다.
 
-현재 긱뉴스 스케줄러의 AI 요약/번역은 Gemini fallback을 사용하지 않고 Codex만 호출한다. Codex 요약/번역이 실패하면 원문 기반 대체 번역을 보내지 않고, 관리자 DM embed에 실패 사유를 표시한다.
+현재 긱뉴스 스케줄러의 AI 요약/번역은 Codex만 호출한다. Codex 요약/번역이 실패하면 원문 기반 대체 번역을 보내지 않고 관리자 DM embed에 실패 사유를 표시한다.
 
 `discord-bot-fs` MCP는 `/home/icenux/projects/discord-bot`만 대상으로 하는 read-only filesystem MCP이다. `~/.hermes/config.yaml`의 `mcp_servers.discord-bot-fs.tools.include`에는 `read_*`, `list_*`, `directory_tree`, `search_files`, `get_file_info`, `list_allowed_directories`만 포함한다. `write_file`, `edit_file`, `create_directory`, `move_file`은 포함하지 않는다.
 

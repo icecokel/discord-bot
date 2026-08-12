@@ -13,14 +13,11 @@ const isAdmin = (message: Message): boolean => {
 
 const getAction = (
   args: string[],
-): "on" | "off" | "status" | "clear" | "help" => {
+): "on" | "status" | "clear" | "help" => {
   const action = args[0]?.trim().toLowerCase();
 
   if (!action || ["상태", "status", "확인"].includes(action)) return "status";
   if (["켜기", "켜", "on", "enable", "활성화"].includes(action)) return "on";
-  if (["끄기", "꺼", "off", "disable", "비활성화"].includes(action)) {
-    return "off";
-  }
   if (["초기화", "리셋", "reset", "clear"].includes(action)) return "clear";
 
   return "help";
@@ -28,11 +25,7 @@ const getAction = (
 
 const buildStatusMessage = (): string => {
   const status = aiService.getProviderStatus();
-  const fallback = status.fallbackProviderName
-    ? `, fallback: ${status.fallbackProviderName}`
-    : "";
-
-  return `현재 AI 공급자: ${status.providerName}${fallback}`;
+  return `현재 AI 공급자: ${status.providerName}`;
 };
 
 export default {
@@ -53,12 +46,6 @@ export default {
       return;
     }
 
-    if (action === "off") {
-      aiService.setPrimaryProvider("gemini");
-      await message.reply(`✅ Codex를 껐습니다.\n${buildStatusMessage()}`);
-      return;
-    }
-
     if (action === "status") {
       await message.reply(buildStatusMessage());
       return;
@@ -75,7 +62,7 @@ export default {
     }
 
     await message.reply(
-      "사용법: `!헤르메스 상태`, `!헤르메스 켜기`, `!헤르메스 끄기`, `!헤르메스 초기화`",
+      "사용법: `!헤르메스 상태`, `!헤르메스 켜기`, `!헤르메스 초기화`",
     );
   },
 };

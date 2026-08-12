@@ -1,6 +1,6 @@
 import { Message } from "discord.js";
 import { registerAdminCommand } from "../../../core/admin-middleware";
-import { aiService, searchService } from "../../../core/ai"; // aiService, searchService 둘 다 필요
+import { aiService } from "../../../core/ai";
 
 /**
  * 관리자 전용 AI 채팅 명령어
@@ -17,10 +17,7 @@ const aiHandler = async (message: Message, args: string[]) => {
   const waitMsg = await message.reply("💬 답변을 생성하고 있습니다...");
 
   try {
-    // AI 응답 생성 (기본 AI 서비스 + 검색 도구 장착)
-    const response = await aiService.generateText(question, {
-      tools: searchService.getTools(),
-    });
+    const response = await aiService.generateText(question);
 
     // 디스코드 메시지 길이 제한(2000자) 처리
     if (response.length > 1900) {

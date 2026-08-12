@@ -22,7 +22,6 @@
 - 스케줄러 내부에서 필요한 날씨/긱뉴스 서비스는 유지한다.
 - 관리자 DM 명령어는 유지한다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Codex app-server thread/turn으로 전달한다.
-- `!코덱스 끄기` 또는 `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌며, 이때 prefix 없는 관리자 DM 답변은 Codex thread 경로가 아니다.
 - 관리자 AI provider는 서버 작업, 리서치, 브라우저 확인, read-only 파일 조회를 담당하는 상주형 작업 에이전트로 사용한다.
 
 ## 제품 역할 분리
@@ -44,7 +43,7 @@
 
 ### 관리자 AI Provider
 
-현재 구현의 기본 provider는 Codex app-server thread/turn이다. `!코덱스 끄기` 또는 `!헤르메스 끄기`로 primary AI 공급자를 Gemini로 바꾼 동안에는 prefix 없는 관리자 DM도 Codex thread가 아니라 현재 primary AI 공급자를 통해 답변된다.
+현재 구현의 기본 provider는 Codex app-server thread/turn이다.
 
 담당 범위:
 

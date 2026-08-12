@@ -6,7 +6,7 @@
 - Do not use `camelCase`, `PascalCase`, or `snake_case` file names.
 - Apply the same rule to tests, scripts, and data files.
 - When renaming files, update all related import/require paths in the same change.
-- Exception: keep tool-reserved file names as-is (for example `AGENTS.md`, `.agent/GEMINI.md`).
+- Exception: keep tool-reserved file names as-is (for example `AGENTS.md`).
 
 Examples:
 

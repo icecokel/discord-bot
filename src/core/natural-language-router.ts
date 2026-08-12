@@ -1,5 +1,5 @@
 import { ChannelType, Message } from "discord.js";
-import { aiService, searchService } from "./ai";
+import { aiService } from "./ai";
 import {
   appendAdminConversationTurn,
   buildAdminConversationPrompt,
@@ -88,14 +88,8 @@ const getAiAnswerPrefix = (result: {
   providerName: string;
   usedFallback: boolean;
 }): string => {
-  if (result.usedFallback) {
-    return result.providerName === "gemini"
-      ? "[Gemini fallback] "
-      : `[${result.providerName} fallback] `;
-  }
-
   if (result.providerName === "hermes") {
-    return "[Hermes] ";
+    return result.usedFallback ? "[Hermes one-shot] " : "[Hermes] ";
   }
 
   if (result.providerName === "codex") {
@@ -108,7 +102,6 @@ const getAiAnswerPrefix = (result: {
 const getAssistantLabel = (providerName: string): string => {
   if (providerName === "codex") return "Codex";
   if (providerName === "hermes") return "Hermes";
-  if (providerName === "gemini") return "Gemini";
   return "AI";
 };
 
@@ -176,8 +169,6 @@ const answerWithAdminAi = async (
 
     const result = await aiService.generateTextWithProvider(prompt, {
       systemInstruction: ADMIN_AI_ANSWER_SYSTEM_PROMPT,
-      tools: searchService.getTools(),
-      disableProviderFallback: true,
       ...providerOptions,
     });
 

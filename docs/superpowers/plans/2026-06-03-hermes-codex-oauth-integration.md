@@ -12,8 +12,7 @@ Current implementation:
 - Admin DM natural-language messages use Codex app-server thread/turn flow.
 - `!코덱스` is the primary admin AI control command.
 - `!헤르메스` remains only as a Codex control compatibility alias.
-- GeekNews AI summary and translation use Codex only and do not fall back to Gemini.
-- Gemini remains available as fallback for generic provider calls and as the primary provider after `!코덱스 끄기`.
+- GeekNews AI summary and translation use Codex only.
 - Hermes gateway is not used. `HermesProvider` remains only as legacy compatibility code.
 
 ## Current Operating Reference
@@ -33,7 +32,6 @@ The current icenux `.env` shape is:
 
 ```text
 AI_PROVIDER=codex
-AI_FALLBACK_PROVIDER=gemini
 CODEX_BIN=/home/icenux/.local/bin/codex
 CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot

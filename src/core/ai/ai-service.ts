@@ -1,11 +1,10 @@
-import { GeminiProvider } from "./providers/gemini-provider";
 import { HermesProvider } from "./providers/hermes-provider";
 import { CodexProvider } from "./providers/codex-provider";
 import { BaseProvider, IGenerationOptions } from "./providers/base-provider";
 
-export type ProviderName = "gemini" | "hermes" | "codex";
+export type ProviderName = "hermes" | "codex";
 
-const DEFAULT_PROVIDER: ProviderName = "gemini";
+const DEFAULT_PROVIDER: ProviderName = "codex";
 
 export interface GeneratedTextResult {
   providerName: ProviderName;
@@ -27,37 +26,12 @@ function resolvePrimaryProviderName(name: string | undefined): ProviderName {
   return DEFAULT_PROVIDER;
 }
 
-function resolveFallbackProviderName(
-  name: string | undefined,
-  primaryProviderName: ProviderName,
-): ProviderName | undefined {
-  const normalizedName = name?.trim().toLowerCase();
-
-  if (
-    normalizedName !== "gemini" &&
-    normalizedName !== "hermes" &&
-    normalizedName !== "codex"
-  ) {
-    return undefined;
-  }
-
-  if (normalizedName === primaryProviderName) {
-    return undefined;
-  }
-
-  return normalizedName;
-}
-
 function createProvider(name: ProviderName): BaseProvider {
   if (name === "hermes") {
     return new HermesProvider();
   }
 
-  if (name === "codex") {
-    return new CodexProvider();
-  }
-
-  return new GeminiProvider();
+  return new CodexProvider();
 }
 
 /**
@@ -67,66 +41,30 @@ function createProvider(name: ProviderName): BaseProvider {
 class AIService {
   private provider!: BaseProvider;
   private providerName!: ProviderName;
-  private fallbackProvider?: BaseProvider;
-  private fallbackProviderName?: ProviderName;
 
   constructor() {
-    this.configureProviders(
-      process.env.AI_PROVIDER,
-      process.env.AI_FALLBACK_PROVIDER,
-    );
+    this.configureProvider(process.env.AI_PROVIDER);
   }
 
-  private configureProviders(
-    primaryProvider: string | undefined,
-    fallbackProvider: string | undefined,
-  ): void {
-    const primaryProviderName = resolvePrimaryProviderName(
-      primaryProvider,
-    );
-    const fallbackProviderName = resolveFallbackProviderName(
-      fallbackProvider,
-      primaryProviderName,
-    );
-
-    this.providerName = primaryProviderName;
-    this.provider = createProvider(primaryProviderName);
-
-    if (fallbackProviderName) {
-      this.fallbackProviderName = fallbackProviderName;
-      this.fallbackProvider = createProvider(fallbackProviderName);
-    } else {
-      this.fallbackProviderName = undefined;
-      this.fallbackProvider = undefined;
-    }
+  private configureProvider(name: string | undefined): void {
+    this.providerName = resolvePrimaryProviderName(name);
+    this.provider = createProvider(this.providerName);
   }
 
-  getProviderStatus(): {
-    providerName: ProviderName;
-    fallbackProviderName?: ProviderName;
-  } {
-    return {
-      providerName: this.providerName,
-      fallbackProviderName: this.fallbackProviderName,
-    };
+  getProviderStatus(): { providerName: ProviderName } {
+    return { providerName: this.providerName };
   }
 
   setPrimaryProvider(providerName: ProviderName): void {
-    this.configureProviders(providerName, process.env.AI_FALLBACK_PROVIDER);
+    this.configureProvider(providerName);
   }
 
   clearCodexThread(userId: string, channelId: string): boolean {
     const threadKey = `${userId}:${channelId}`;
-    let cleared = false;
-
-    for (const provider of [this.provider, this.fallbackProvider]) {
-      const maybeCodexProvider = provider as Partial<CodexProvider> | undefined;
-      if (typeof maybeCodexProvider?.clearThread === "function") {
-        cleared = maybeCodexProvider.clearThread(threadKey) || cleared;
-      }
-    }
-
-    return cleared;
+    const maybeCodexProvider = this.provider as Partial<CodexProvider>;
+    return typeof maybeCodexProvider.clearThread === "function"
+      ? maybeCodexProvider.clearThread(threadKey)
+      : false;
   }
 
   /**
@@ -147,16 +85,15 @@ class AIService {
     prompt: string,
     options: IGenerationOptions = {},
   ): Promise<GeneratedTextResult> {
-    const { disableProviderFallback, ...providerOptions } = options;
     try {
       return {
         providerName: this.providerName,
-        text: await this.provider.generateText(prompt, providerOptions),
+        text: await this.provider.generateText(prompt, options),
         usedFallback: false,
       };
     } catch (error) {
-      if (this.providerName === "hermes" && providerOptions.hermesSessionName) {
-        const { hermesSessionName, ...oneshotOptions } = providerOptions;
+      if (this.providerName === "hermes" && options.hermesSessionName) {
+        const { hermesSessionName, ...oneshotOptions } = options;
         try {
           return {
             providerName: "hermes",
@@ -173,26 +110,7 @@ class AIService {
           );
         }
       }
-
-      if (
-        disableProviderFallback ||
-        !this.fallbackProvider ||
-        !this.fallbackProviderName
-      ) {
-        throw error;
-      }
-
-      const primaryErrorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `[AIService] 기본 AI 공급자 실패, fallback 실행: ${primaryErrorMessage}`,
-      );
-
-      return {
-        providerName: this.fallbackProviderName,
-        text: await this.fallbackProvider.generateText(prompt, providerOptions),
-        usedFallback: true,
-      };
+      throw error;
     }
   }
 

@@ -10,7 +10,6 @@
 - `HermesProvider` 구현은 legacy provider로 남아 있지만 현재 기본 경로가 아니다.
 - `!헤르메스` prefix 명령은 Hermes를 켜지 않고 Codex 제어 호환 alias로 동작한다.
 - `!헤르메스 켜기`는 `AI_PROVIDER`를 런타임에서 `codex`로 바꾼다.
-- `!헤르메스 끄기`는 primary provider를 `gemini`로 바꾼다.
 - `!헤르메스 초기화`는 관리자 대화 기억, Codex thread 매핑, legacy Hermes session 매핑을 함께 지운다.
 
 ## 남겨 둔 이유

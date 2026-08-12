@@ -77,11 +77,10 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 | --- | --- |
 | `!코덱스 상태` | 현재 AI 공급자를 확인합니다. |
 | `!코덱스 켜기` | primary AI 공급자를 Codex로 바꿉니다. |
-| `!코덱스 끄기` | primary AI 공급자를 Gemini로 바꿉니다. |
 | `!코덱스 초기화` | 현재 관리자 DM 채널의 Codex thread와 관리자 대화 기억을 초기화합니다. |
 | `!헤르메스 ...` | 기존 운영 습관을 위한 Codex 제어 호환 alias입니다. |
 
-현재 관리자 DM에서 prefix 없이 보낸 메시지는 운영 기본값에서 Codex app-server thread로 전달됩니다. 이 경로는 관리자 작업, 서버 조사, 웹 검색, 브라우저 확인, 프로젝트 파일 조회를 위한 에이전트 인터페이스입니다. `!코덱스 끄기` 또는 `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌므로 Codex thread 경로를 사용하지 않습니다.
+현재 관리자 DM에서 prefix 없이 보낸 메시지는 운영 기본값에서 Codex app-server thread로 전달됩니다. 이 경로는 관리자 작업, 서버 조사, 웹 검색, 브라우저 확인, 프로젝트 파일 조회를 위한 에이전트 인터페이스입니다.
 
 `/질문 <질문>`은 현재 AI 공급자를 사용하는 단발 관리자 AI 답변입니다. 관리자 DM thread 기억, 관리자 최근 대화 10턴, 백그라운드 후속 보고 흐름을 사용하지 않습니다.
 
@@ -124,7 +123,7 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 
 ## AI 공급자
 
-현재 운영 기본값은 Hermes 없이 Codex app-server를 직접 호출하는 `AI_PROVIDER=codex` 구조입니다. 코드에서 `AI_PROVIDER`가 비어 있으면 Gemini로 시작하지만, icenux 운영 `.env`는 Codex를 명시합니다.
+현재 운영 기본값은 Hermes 없이 Codex app-server를 직접 호출하는 `AI_PROVIDER=codex` 구조입니다. `AI_PROVIDER`가 비어 있거나 지원하지 않는 값이면 Codex로 시작합니다.
 
 ### Codex app-server 직접 연동
 
@@ -134,7 +133,6 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 
 ```text
 AI_PROVIDER=codex
-AI_FALLBACK_PROVIDER=gemini
 CODEX_BIN=/home/icenux/.local/bin/codex
 CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
@@ -150,13 +148,12 @@ CODEX_ADMIN_APPROVAL_POLICY=
 
 세부 설계와 운영 기준은 `documents/codex-app-server-provider.md`를 기준으로 합니다.
 
-긱뉴스 스케줄러의 AI 요약/번역도 Codex만 사용합니다. Codex 요약/번역이 실패하면 Gemini fallback이나 원문 기반 대체 번역을 사용하지 않고, 관리자 DM embed에 실패 사유를 표시합니다.
+긱뉴스 스케줄러의 AI 요약/번역도 Codex만 사용합니다. Codex 요약/번역이 실패하면 원문 기반 대체 번역을 사용하지 않고 관리자 DM embed에 실패 사유를 표시합니다.
 
 ### Legacy: Hermes provider
 
 ```text
 AI_PROVIDER=hermes
-AI_FALLBACK_PROVIDER=gemini
 HERMES_BIN=/home/icenux/.local/bin/hermes
 HERMES_TIMEOUT_MS=1800000
 HERMES_TOOLSETS=web
@@ -181,7 +178,7 @@ Hermes provider 구현은 과거 운영 호환을 위해 남아 있지만 현재
 | `src/core/admin-middleware.ts` | 관리자 DM 명령어 처리 |
 | `src/core/natural-language-router.ts` | 관리자 DM 자연어 답변 경로 |
 | `src/core/admin-conversation-context-store.ts` | 관리자 DM 최근 대화 기억 |
-| `src/core/ai/ai-service.ts` | Gemini/Codex 공급자 선택과 fallback |
+| `src/core/ai/ai-service.ts` | Codex/Hermes 공급자 선택 |
 | `src/core/ai/providers/codex-provider.ts` | Codex app-server 공급자 |
 | `src/core/ai/providers/hermes-provider.ts` | Legacy Hermes CLI 공급자 |
 | `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고 DM 스케줄러 |
@@ -209,9 +206,6 @@ AI:
 
 ```text
 AI_PROVIDER=
-AI_FALLBACK_PROVIDER=
-GEMINI_AI_API_KEY=
-GEMINI_MODEL=
 HERMES_BIN=
 HERMES_TIMEOUT_MS=
 HERMES_TOOLSETS=

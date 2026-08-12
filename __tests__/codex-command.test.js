@@ -47,7 +47,6 @@ describe("codex command", () => {
   test("shows the current AI provider status to the admin", async () => {
     mockGetProviderStatus.mockReturnValue({
       providerName: "codex",
-      fallbackProviderName: "gemini",
     });
     const message = createMessage();
 
@@ -55,9 +54,6 @@ describe("codex command", () => {
 
     expect(message.reply).toHaveBeenCalledWith(
       expect.stringContaining("현재 AI 공급자: codex"),
-    );
-    expect(message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("fallback: gemini"),
     );
   });
 
@@ -69,17 +65,6 @@ describe("codex command", () => {
     expect(mockSetPrimaryProvider).toHaveBeenCalledWith("codex");
     expect(message.reply).toHaveBeenCalledWith(
       expect.stringContaining("Codex를 켰습니다"),
-    );
-  });
-
-  test("turns Codex off for the admin", async () => {
-    const message = createMessage();
-
-    await command.execute(message, ["끄기"]);
-
-    expect(mockSetPrimaryProvider).toHaveBeenCalledWith("gemini");
-    expect(message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Codex를 껐습니다"),
     );
   });
 

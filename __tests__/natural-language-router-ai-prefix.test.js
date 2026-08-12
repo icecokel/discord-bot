@@ -5,9 +5,6 @@ jest.mock("../src/core/ai", () => ({
     generateTextWithProviderOnly: jest.fn(),
     getProviderStatus: jest.fn(),
   },
-  searchService: {
-    getTools: jest.fn(() => []),
-  },
 }));
 
 const {
@@ -76,7 +73,6 @@ describe("natural language router admin Codex answer", () => {
     delete process.env.CODEX_ADMIN_SANDBOX;
     aiService.getProviderStatus.mockReturnValue({
       providerName: "codex",
-      fallbackProviderName: "gemini",
     });
   });
 
@@ -135,7 +131,6 @@ describe("natural language router admin Codex answer", () => {
 
     expect(options.codexSearch).toBe(true);
     expect(options.codexSandbox).toBe("workspace-write");
-    expect(options.disableProviderFallback).toBe(true);
     expect(options.systemInstruction).toContain("관리자 DM");
     expect(options.systemInstruction).toContain("위험 작업");
     expect(options.systemInstruction).toContain("사용자에게 질문");
@@ -185,26 +180,6 @@ describe("natural language router admin Codex answer", () => {
     const [, options] = aiService.generateTextWithProvider.mock.calls[0];
     expect(options.codexSearch).toBe(false);
     expect(options.codexSandbox).toBe("read-only");
-  });
-
-  test("does not pass legacy Hermes options when Gemini is active", async () => {
-    aiService.getProviderStatus.mockReturnValue({
-      providerName: "gemini",
-    });
-    aiService.generateTextWithProvider.mockResolvedValue({
-      providerName: "gemini",
-      text: "Gemini 답변입니다.",
-      usedFallback: false,
-    });
-
-    await handleNaturalLanguageMessage(
-      createMessage({ content: "코덱스 꺼진 상태 질문" }),
-    );
-
-    const [, options] = aiService.generateTextWithProvider.mock.calls[0];
-    expect(options.codexThreadKey).toBeUndefined();
-    expect(options.hermesSessionName).toBeUndefined();
-    expect(options.hermesToolsets).toBeUndefined();
   });
 
   test("passes current Discord image attachment context to Codex", async () => {

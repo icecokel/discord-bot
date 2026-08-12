@@ -13,14 +13,11 @@ const isAdmin = (message: Message): boolean => {
 
 const getAction = (
   args: string[],
-): "on" | "off" | "status" | "clear" | "help" => {
+): "on" | "status" | "clear" | "help" => {
   const action = args[0]?.trim().toLowerCase();
 
   if (!action || ["상태", "status", "확인"].includes(action)) return "status";
   if (["켜기", "켜", "on", "enable", "활성화"].includes(action)) return "on";
-  if (["끄기", "꺼", "off", "disable", "비활성화"].includes(action)) {
-    return "off";
-  }
   if (["초기화", "리셋", "reset", "clear"].includes(action)) return "clear";
 
   return "help";
@@ -28,17 +25,13 @@ const getAction = (
 
 const buildStatusMessage = (): string => {
   const status = aiService.getProviderStatus();
-  const fallback = status.fallbackProviderName
-    ? `, fallback: ${status.fallbackProviderName}`
-    : "";
-
-  return `현재 AI 공급자: ${status.providerName}${fallback}`;
+  return `현재 AI 공급자: ${status.providerName}`;
 };
 
 export default {
   name: "코덱스",
   keywords: ["코덱스", "codex"],
-  description: "관리자 전용 Codex AI 공급자 상태 확인 및 켜기/끄기",
+  description: "관리자 전용 Codex AI 공급자 상태 확인 및 초기화",
   async execute(message: Message, args: string[]) {
     if (!isAdmin(message)) {
       await message.reply(ADMIN_ONLY_MESSAGE);
@@ -50,12 +43,6 @@ export default {
     if (action === "on") {
       aiService.setPrimaryProvider("codex");
       await message.reply(`✅ Codex를 켰습니다.\n${buildStatusMessage()}`);
-      return;
-    }
-
-    if (action === "off") {
-      aiService.setPrimaryProvider("gemini");
-      await message.reply(`✅ Codex를 껐습니다.\n${buildStatusMessage()}`);
       return;
     }
 
@@ -75,7 +62,7 @@ export default {
     }
 
     await message.reply(
-      "사용법: `!코덱스 상태`, `!코덱스 켜기`, `!코덱스 끄기`, `!코덱스 초기화`",
+      "사용법: `!코덱스 상태`, `!코덱스 켜기`, `!코덱스 초기화`",
     );
   },
 };

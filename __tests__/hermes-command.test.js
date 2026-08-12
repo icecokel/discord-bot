@@ -40,7 +40,6 @@ describe("hermes compatibility command", () => {
     process.env.ADMIN_ID = "owner-id";
     mockGetProviderStatus.mockReturnValue({
       providerName: "codex",
-      fallbackProviderName: "gemini",
     });
   });
 

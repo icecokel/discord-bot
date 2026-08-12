@@ -11,7 +11,7 @@
 - 봇 프로세스 안에서 `codex app-server`를 장기 실행 child process로 띄우고 stdio JSON-RPC로 통신한다.
 - Codex에는 Discord 쓰기/삭제/관리 권한을 넘기지 않는다.
 - `codex exec` 단발 호출은 비교 대상일 뿐 목표 구조나 fallback 구조로 두지 않는다.
-- Gemini provider는 fallback 또는 `!코덱스 끄기` 상태의 단발 AI 공급자로 유지한다.
+- 별도 fallback AI provider는 두지 않는다.
 
 ## 목표
 
@@ -23,7 +23,7 @@
 - Discord gateway는 계속 `discord.js` 봇 하나만 사용한다.
 - 최종 Discord 응답 전송은 봇이 담당하고, Codex에는 Discord 쓰기/삭제/관리 권한을 넘기지 않는다.
 - 관리자 DM 채널별 Codex thread를 유지해 이전 작업 맥락을 이어간다.
-- Gemini provider는 fallback 또는 수동 전환용으로 유지한다.
+- 기본 provider 실패 시 다른 AI로 자동 전환하지 않고 오류를 알린다.
 - 긱뉴스 AI 요약/번역처럼 운영상 AI 실패를 명시해야 하는 경로는 별도 정책을 적용한다.
 
 비목표:
@@ -112,7 +112,6 @@ value = codexThreadId
 
 ```env
 AI_PROVIDER=codex
-AI_FALLBACK_PROVIDER=gemini
 CODEX_BIN=/home/icenux/.local/bin/codex
 CODEX_MODEL=
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
@@ -198,9 +197,9 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
 - timeout
 - child process exit
 
-`aiService`는 일반 `generateTextWithProvider()` 호출에서 fallback provider를 사용할 수 있다. 관리자 DM 자연어 경로는 `disableProviderFallback: true`를 지정하므로 Codex 실패 시 Gemini로 자동 전환하지 않고 오류 메시지를 보낸다. `/질문`처럼 단발 AI 명령은 현재 primary/fallback 설정을 따른다.
+`aiService`는 현재 provider 실패 시 다른 AI로 자동 전환하지 않고 오류를 전달한다. `/질문`처럼 단발 AI 명령도 같은 정책을 따른다.
 
-긱뉴스 요약/번역은 Codex 전용으로 운영하고 Gemini fallback을 허용하지 않는다. 실패하면 관리자 DM embed에 실패 사유를 보여준다.
+긱뉴스 요약/번역은 Codex 전용으로 운영한다. 실패하면 관리자 DM embed에 실패 사유를 보여준다.
 
 ## 테스트 범위
 
@@ -213,7 +212,7 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
 - 실패 notification과 child exit를 reject로 변환한다.
 - timeout 시 reject하고 app-server 재시작 대상 상태로 둔다.
 - `CodexProvider`가 `systemInstruction`, JSON-only instruction, `model`, `cwd`, sandbox 설정을 turn에 반영한다.
-- `AI_PROVIDER=codex` 선택과 Gemini fallback이 동작한다.
+- `AI_PROVIDER`가 비어 있거나 지원하지 않는 값이면 Codex를 선택한다.
 
 운영 smoke test:
 
@@ -230,7 +229,7 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 2. 운영 `.env`가 `AI_PROVIDER=codex`와 필요한 `CODEX_*` 값을 갖는지 확인한다.
 3. PM2 프로세스가 `--update-env`로 재시작됐는지 확인한다.
 4. 관리자 DM prefix 없는 메시지가 `[Codex]` 응답으로 돌아오는지 확인한다.
-5. 긱뉴스 요약/번역 실패 시 Gemini fallback 없이 실패 사유가 표시되는지 확인한다.
+5. 긱뉴스 요약/번역 실패 시 실패 사유가 표시되는지 확인한다.
 
 ## 남은 결정 사항
 

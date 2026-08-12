@@ -2,7 +2,7 @@
 
 ## 목표
 
-일반 사용자 기능을 제거하고, 스케줄러와 관리자 기능만 남긴다. 현재 자연어 처리는 운영 기본값에서 관리자 DM Codex app-server thread를 호출하는 용도로 사용한다. 구조는 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 방식이다. `!코덱스 끄기` 또는 `!헤르메스 끄기` 상태에서는 primary AI 공급자가 Gemini로 바뀌므로 Codex thread 경로가 아니다.
+일반 사용자 기능을 제거하고, 스케줄러와 관리자 기능만 남긴다. 현재 자연어 처리는 운영 기본값에서 관리자 DM Codex app-server thread를 호출하는 용도로 사용한다. 구조는 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 방식이다.
 
 Codex app-server 운영 기준은 `documents/codex-app-server-provider.md`에 둔다.
 
@@ -18,16 +18,12 @@ Codex app-server 운영 기준은 `documents/codex-app-server-provider.md`에 �
 
 - `!헤르메스 상태`
 - `!헤르메스 켜기`
-- `!헤르메스 끄기`
 - `!헤르메스 초기화`
 - `!코덱스 상태`
 - `!코덱스 켜기`
-- `!코덱스 끄기`
 - `!코덱스 초기화`
 
 두 명령은 `ADMIN_ID`만 사용할 수 있다. `!헤르메스`는 기존 운영 습관을 위한 Codex 제어 호환 alias다.
-
-`!코덱스 끄기`와 `!헤르메스 끄기`는 primary AI 공급자를 Gemini로 바꾼다. 이 상태에서는 prefix 없는 관리자 DM 답변이 Codex thread를 쓰지 않는다.
 
 ## 남은 관리자 명령어
 
