@@ -6,6 +6,7 @@ const MAX_SEEN_IDS_PER_COMPANY = 5_000;
 
 export interface CompanyJobMonitorState {
   seenIds: string[];
+  roleFilterVersion?: number;
   initializedAt: string;
   lastCheckedAt: string;
   lastNotifiedAt?: string;
@@ -32,6 +33,8 @@ export const getJobMonitorState = (): JobMonitorState => {
         typeof company !== "object" ||
         !Array.isArray(company.seenIds) ||
         company.seenIds.some((id) => typeof id !== "string") ||
+        (company.roleFilterVersion !== undefined &&
+          typeof company.roleFilterVersion !== "number") ||
         typeof company.initializedAt !== "string" ||
         typeof company.lastCheckedAt !== "string" ||
         typeof company.lastPostingCount !== "number",

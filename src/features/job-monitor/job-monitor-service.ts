@@ -11,6 +11,7 @@ import {
   mergeSeenJobIds,
   saveJobMonitorState,
 } from "../../utils/job-monitor-store";
+import { TRACKED_JOB_FILTER_VERSION } from "./tracked-job-roles";
 
 export interface JobSourceFailure {
   companyId: CompanyId;
@@ -77,6 +78,7 @@ export const checkForNewJobPostings = async (
           [],
           result.value.postings.map((posting) => posting.id),
         ),
+        roleFilterVersion: TRACKED_JOB_FILTER_VERSION,
         initializedAt: checkedAt,
         lastCheckedAt: checkedAt,
         lastPostingCount: result.value.postings.length,
@@ -84,12 +86,21 @@ export const checkForNewJobPostings = async (
       return;
     }
 
-    const seenIds = new Set(existing.seenIds);
+    const currentIds = new Set(
+      result.value.postings.map((posting) => posting.id),
+    );
+    const retainedSeenIds =
+      existing.roleFilterVersion === TRACKED_JOB_FILTER_VERSION
+        ? existing.seenIds
+        : existing.seenIds.filter((id) => currentIds.has(id));
+    const seenIds = new Set(retainedSeenIds);
     newPostings.push(
       ...result.value.postings.filter((posting) => !seenIds.has(posting.id)),
     );
     state.companies[source.id] = {
       ...existing,
+      seenIds: retainedSeenIds,
+      roleFilterVersion: TRACKED_JOB_FILTER_VERSION,
       lastCheckedAt: checkedAt,
       lastPostingCount: result.value.postings.length,
     };

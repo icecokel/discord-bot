@@ -139,6 +139,34 @@ describe("job monitor service", () => {
     );
   });
 
+  test("migrates accumulated ids to the current role filter once", async () => {
+    stored = {
+      companies: {
+        naver: {
+          seenIds: ["naver-frontend", "naver-backend"],
+          initializedAt: "2026-07-25T00:00:00.000Z",
+          lastCheckedAt: "2026-07-25T00:00:00.000Z",
+          lastPostingCount: 2,
+        },
+      },
+    };
+    mockFetchCompanyJobPostings.mockImplementation(async (source) =>
+      source.id === "naver"
+        ? [posting("naver", "네이버", "naver-frontend")]
+        : [],
+    );
+
+    await checkForNewJobPostings(new Date("2026-07-26T06:00:00.000Z"));
+
+    expect(stored.companies.naver.seenIds).toEqual(["naver-frontend"]);
+    expect(stored.companies.naver.roleFilterVersion).toBe(1);
+
+    mockFetchCompanyJobPostings.mockResolvedValue([]);
+    await checkForNewJobPostings(new Date("2026-07-26T12:00:00.000Z"));
+
+    expect(stored.companies.naver.seenIds).toEqual(["naver-frontend"]);
+  });
+
   test("isolates a failed company while checking successful sources", async () => {
     mockFetchCompanyJobPostings.mockImplementation(async (source) => {
       if (source.id === "kakao") throw new Error("카카오 응답 오류");
