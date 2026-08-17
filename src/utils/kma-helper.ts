@@ -7,6 +7,7 @@ interface CurrentWeather {
 }
 
 interface DailySummary {
+  date: string;
   min: number | null;
   max: number | null;
   sky: string;
@@ -14,6 +15,7 @@ interface DailySummary {
 }
 
 interface TodaySummary {
+  date: string;
   current: CurrentWeather | null;
   min: number | null;
   max: number | null;
@@ -300,18 +302,21 @@ export const getShortTermForecast = async (
 
     const result: ShortTermForecastResult = {
       today: {
+        date: todayStr,
         current: current,
         min: todayMin === 100 ? null : todayMin,
         max: todayMax === -100 ? null : todayMax,
         popMax: todayPops.length > 0 ? Math.max(...todayPops) : 0,
       },
       tomorrow: {
+        date: tomorrowStr,
         min: tomorrowMin === 100 ? null : tomorrowMin,
         max: tomorrowMax === -100 ? null : tomorrowMax,
         sky: getDailyCondition(tomorrowSky, tomorrowPty),
         popMax: tomorrowPops.length > 0 ? Math.max(...tomorrowPops) : 0,
       },
       dayAfter: {
+        date: dayAfterStr,
         min: dayAfterMin === 100 ? null : dayAfterMin,
         max: dayAfterMax === -100 ? null : dayAfterMax,
         sky: getDailyCondition(dayAfterSky, dayAfterPty),

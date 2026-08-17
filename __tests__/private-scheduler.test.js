@@ -72,6 +72,7 @@ const {
 
 const forecast = {
   today: {
+    date: "20260708",
     current: {
       temp: 24,
       sky: "맑음 ☀️",
@@ -84,12 +85,14 @@ const forecast = {
     popMax: 20,
   },
   tomorrow: {
+    date: "20260709",
     min: 21,
     max: 29,
     sky: "구름많음 🌥️",
     popMax: 30,
   },
   dayAfter: {
+    date: "20260710",
     min: 22,
     max: 30,
     sky: "맑음 ☀️",
@@ -249,7 +252,7 @@ describe("private scheduler morning briefing", () => {
     expect(result.status).toBe("success");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
-      content: expect.stringContaining("서울 오늘"),
+      content: expect.stringContaining("서울 오늘 (7월 8일)"),
     });
     expect(send.mock.calls[0][0].content).not.toContain("서버 |");
     expect(mockFetchFeaturedItemResult).not.toHaveBeenCalled();
@@ -423,7 +426,7 @@ describe("private scheduler morning briefing", () => {
 
     expect(result.status).toBe("success");
     expect(send).toHaveBeenCalledWith(
-      "🌙 서울 내일 | 구름많음 🌥️ · 강수 30% | 21~29°",
+      "🌙 서울 내일 (7월 9일) | 구름많음 🌥️ · 강수 30% | 21~29°",
     );
   });
 
