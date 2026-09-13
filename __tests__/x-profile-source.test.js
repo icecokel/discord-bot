@@ -41,9 +41,9 @@ test("empty or changed DOM fails closed and closes the browser", async () => {
   await expect(fetchXProfile()).rejects.toThrow("DOM");
   expect(close).toHaveBeenCalledTimes(2);
 });
-test("a stalled loader is incomplete and cannot initialize a baseline", async () => {
+test("a loader does not invalidate a successfully read initial window", async () => {
   loading = 1;
-  expect((await fetchXProfile()).complete).toBe(false);
+  expect((await fetchXProfile()).complete).toBe(true);
   expect(close).toHaveBeenCalledTimes(1);
 });
 test("missing checkpoint is reported as a coverage gap", async () => {
@@ -62,4 +62,29 @@ test("successful detail reads preserve expanded text", async () => {
   });
   const result = await fetchXProfile("100");
   expect(result.posts[0]).toMatchObject({ text: "expanded full post", textComplete: true });
+});
+
+test("initial collection also reads the full text of truncated posts", async () => {
+  rows[0].textComplete = false;
+  page.goto.mockImplementation(async (url) => {
+    if (url.endsWith("/status/101")) rows = [{ ...row("101"), text: "expanded initial post" }];
+    return { status: () => 200 };
+  });
+  const result = await fetchXProfile();
+  expect(result.posts[0]).toMatchObject({ text: "expanded initial post", textComplete: true });
+  expect(result.complete).toBe(true);
+});
+test("headed is the default and headless must be explicitly selected", async () => {
+  const previous = process.env.X_MONITOR_HEADLESS;
+  try {
+    delete process.env.X_MONITOR_HEADLESS;
+    await fetchXProfile();
+    expect(mockLaunch).toHaveBeenLastCalledWith({ headless: false, timeout: 30000 });
+    process.env.X_MONITOR_HEADLESS = "true";
+    await fetchXProfile();
+    expect(mockLaunch).toHaveBeenLastCalledWith({ headless: true, timeout: 30000 });
+  } finally {
+    if (previous === undefined) delete process.env.X_MONITOR_HEADLESS;
+    else process.env.X_MONITOR_HEADLESS = previous;
+  }
 });

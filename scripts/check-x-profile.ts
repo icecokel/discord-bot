@@ -9,8 +9,10 @@ async function main(): Promise<void> {
   fs.mkdirSync(process.env.TMPDIR, { recursive: true });
   if (process.argv.includes("--live")) {
     const result = await fetchXProfile();
+    const previewPath = path.resolve(".local/x-profile-preview.json");
+    fs.writeFileSync(previewPath, JSON.stringify({ checkedAt: new Date().toISOString(), ...result }, null, 2) + "\n");
     console.log(JSON.stringify({ count: result.posts.length, complete: result.complete,
-      ids: result.posts.map((post) => post.id) }));
+      fullTextCount: result.posts.filter((post) => post.textComplete).length, previewPath }));
     assert(result.complete, "기준선 수집 범위 미확인");
     return;
   }

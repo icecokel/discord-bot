@@ -29,7 +29,7 @@ Codex app-server 직접 연동 기준은 `documents/codex-app-server-provider.md
 
 #### X 업데이트 감시
 
-`X_MONITOR_ENABLED=true`로 활성화하면 Chromium으로 `https://x.com/thsottiaux`를 매시 00분·30분에 확인합니다. 첫 정상 수집은 기준선만 저장합니다. 이후 신규 글만 관리자 DM으로 공유하며, **KST 20:00~다음 날 07:00에는 수집만 하고 07:00 배치에서 모아서 알립니다.** 긴 모음은 여러 메시지로 나눕니다. 07:00 수집 실패 시에도 저장된 대기 글은 보내고, 발송 실패·재시작 시 미전송분은 다음 주간 배치에서 재시도합니다.
+`X_MONITOR_ENABLED=true`로 활성화하면 창 모드 Chromium으로 `https://x.com/thsottiaux`를 매시 00분·30분에 확인합니다. 첫 정상 수집은 기준선만 저장합니다. 이후 신규 글만 관리자 DM으로 공유하며, **KST 20:00~다음 날 07:00에는 수집만 하고 07:00 배치에서 모아서 알립니다.** 긴 모음은 여러 메시지로 나눕니다. 07:00 수집 실패 시에도 저장된 대기 글은 보내고, 발송 실패·재시작 시 미전송분은 다음 주간 배치에서 재시도합니다.
 
 `/관리자 X확인`으로 즉시 확인하고 `/관리자 스케줄상태`에서 결과·보류 건수를 볼 수 있습니다. 야간 수동 확인도 알림 보류를 따릅니다. 설정이 없으면 비활성입니다.
 
@@ -41,7 +41,7 @@ npm run check:x-profile
 npm run check:x-profile -- --live
 ```
 
-첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집만 하며 이력 저장·Discord 전송은 하지 않습니다. headless 접근 차단과 정상 수집을 구분하므로, 운영 활성화 전 서버에서도 확인해야 합니다. 배포 워크플로는 운영 프로젝트의 `.local/ms-playwright`에 Chromium을 설치합니다. 배포된 서버에서는 `node dist/check-x-profile.js` 및 `node dist/check-x-profile.js --live`로 같은 검사를 실행합니다. Linux 시스템 라이브러리가 부족하면 서버 OS에 맞춰 별도 설치해야 합니다.
+첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집 결과와 전체 본문을 `.local/x-profile-preview.json`에 저장하며 알림 이력 저장·Discord 전송은 하지 않습니다. 최초 수집은 정상적으로 읽힌 최근 목록을 기준선으로 사용하고, 접힌 글은 상세 페이지에서 원문을 읽습니다. 후속 수집은 기존 체크포인트 연결 여부를 계속 검증합니다. 로컬에서 창 모드는 정상 수집되지만 headless는 403을 반환해, 기본값은 창 모드입니다. `X_MONITOR_HEADLESS=true`는 해당 환경에서 실제 수집 성공을 확인한 경우에만 사용합니다. Linux 서버의 창 모드 실행에는 DISPLAY 또는 Xvfb 같은 디스플레이 환경이 필요하므로 운영 활성화 전 서버에서도 확인해야 합니다. 배포 워크플로는 운영 프로젝트의 `.local/ms-playwright`에 Chromium을 설치합니다. 배포된 서버에서는 `node dist/check-x-profile.js` 및 `node dist/check-x-profile.js --live`로 같은 검사를 실행합니다. Linux 시스템 라이브러리가 부족하면 서버 OS에 맞춰 별도 설치해야 합니다.
 
 로그인이 필요한 환경에서는 운영자가 Chromium에서 직접 로그인해 저장한 상태를 프로젝트의 `.local/x-auth-state.json`에 둡니다. 파일은 `chmod 600`으로 보호하고 Git·로그·배포 아티팩트에 포함하지 않습니다. 로그인 만료·CAPTCHA·접근 차단은 실패로 기록하며 우회하지 않습니다. `.local/`과 운영 이력 `dist/data/x-profile-history.json`은 배포·재시작 시 보존합니다. 단일 PM2 인스턴스에서 동작하며, 전송 성공 직후 저장 전에 종료되면 같은 글이 다시 올 수 있습니다.
 

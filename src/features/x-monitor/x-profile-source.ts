@@ -66,7 +66,11 @@ export const fetchXProfile = async (checkpoint?: string): Promise<XProfileResult
   // Resolve before loading Playwright; its browser registry reads this at import time.
   process.env.PLAYWRIGHT_BROWSERS_PATH ||= path.resolve(".local/ms-playwright");
   const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: true, timeout: 30_000 });
+  const browser = await chromium.launch({
+    // Headed Chromium works with this profile; headless is opt-in after local verification.
+    headless: process.env.X_MONITOR_HEADLESS === "true",
+    timeout: 30_000,
+  });
   let timedOut = false;
   const timeout = setTimeout(() => {
     timedOut = true;
@@ -112,19 +116,17 @@ export const fetchXProfile = async (checkpoint?: string): Promise<XProfileResult
       // ponytail: bounded recent-feed crawl; expand the window if coverage gaps persist.
       const crossedCheckpoint = checkpoint && unpinnedIds.has(checkpoint) &&
         batch.some((post) => !post.pinned && BigInt(post.id) < BigInt(checkpoint));
-      if (crossedCheckpoint || (!checkpoint && posts.size >= 100)) {
+      // The initial baseline is the successfully read recent window, not the entire history.
+      // Empty/invalid/blocked responses still fail before reaching this point.
+      if (!checkpoint || crossedCheckpoint) {
         complete = true;
         break;
       }
       stalled = posts.size === previousSize ? stalled + 1 : 0;
-      if (!checkpoint && scroll === 10 && stalled === 0) {
-        complete = true; // Initial baseline covers the sampled recent window, not all historical posts.
-        break;
-      }
       if (stalled >= 2) {
         const loading = await page.locator('[role="progressbar"], [role="status"]').count();
         // A stalled loader is not a verified end of the feed.
-        complete = loading === 0 && (!checkpoint || posts.has(checkpoint));
+        complete = loading === 0 && unpinnedIds.has(checkpoint);
         break;
       }
       await page.evaluate(() => {
@@ -137,10 +139,10 @@ export const fetchXProfile = async (checkpoint?: string): Promise<XProfileResult
       });
       await page.waitForTimeout(1_000);
     }
-    // Only expand unseen candidates in the service's returned window; details are optional.
+    // Read full text for the initial preview as well as newly discovered posts.
     for (const post of posts.values()) {
       if (timedOut) break;
-      if (post.textComplete || !checkpoint || BigInt(post.id) <= BigInt(checkpoint)) continue;
+      if (post.textComplete || (checkpoint && BigInt(post.id) <= BigInt(checkpoint))) continue;
       try {
         await page.goto(post.url, { waitUntil: "domcontentloaded", timeout: 8_000 });
         await page.locator("main article").first().waitFor({ timeout: 5_000 });
