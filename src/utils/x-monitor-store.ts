@@ -11,6 +11,8 @@ export interface XPost {
   textComplete: boolean;
   observedAt: string;
   publishedAt?: string;
+  translatedText?: string;
+  sentParts?: number;
 }
 
 export interface XMonitorState {
@@ -35,7 +37,11 @@ export const isXPost = (value: unknown): value is XPost => {
   return isId(post.id) && post.url === xPostUrl(post.id) &&
     typeof post.text === "string" && post.text.length <= 100_000 &&
     typeof post.textComplete === "boolean" && isDate(post.observedAt) &&
-    (post.publishedAt === undefined || isDate(post.publishedAt));
+    (post.publishedAt === undefined || isDate(post.publishedAt)) &&
+    (post.translatedText === undefined || (typeof post.translatedText === "string" &&
+      post.translatedText.length <= 200_000 && /[가-힣]/.test(post.translatedText))) &&
+    (post.sentParts === undefined || (Number.isInteger(post.sentParts) && post.sentParts >= 0 &&
+      post.sentParts <= 1000 && (post.sentParts === 0 || post.translatedText !== undefined)));
 };
 
 export const loadXMonitorState = (): XMonitorState | null => {

@@ -1,12 +1,25 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { translateXPost } from "../src/features/x-monitor/x-post-translation";
+import { buildXMessages } from "../src/features/x-monitor/x-monitor-service";
+import { isXPost } from "../src/utils/x-monitor-store";
 import { fetchXProfile, readXArticles } from "../src/features/x-monitor/x-profile-source";
 
 async function main(): Promise<void> {
   process.env.PLAYWRIGHT_BROWSERS_PATH ||= path.resolve(".local/ms-playwright");
   process.env.TMPDIR = path.resolve(".local/browser-tmp");
   fs.mkdirSync(process.env.TMPDIR, { recursive: true });
+  if (process.argv.includes("--translate")) {
+    const source = JSON.parse(fs.readFileSync(".local/x-profile-preview.json", "utf8"));
+    assert(Array.isArray(source.posts) && source.posts.length > 0 && source.posts.every(isXPost), "먼저 --live로 원문을 수집하세요.");
+    for (const post of source.posts) post.translatedText = await translateXPost(post.text);
+    const previewPath = path.resolve(".local/x-bilingual-preview.json");
+    const messages = buildXMessages(source.posts, new Date());
+    fs.writeFileSync(previewPath, JSON.stringify({ posts: source.posts, messages }, null, 2) + "\n");
+    console.log(JSON.stringify({ translatedCount: source.posts.length, messageCount: messages.length, previewPath }));
+    return;
+  }
   if (process.argv.includes("--live")) {
     const result = await fetchXProfile();
     const previewPath = path.resolve(".local/x-profile-preview.json");

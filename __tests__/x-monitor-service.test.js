@@ -1,3 +1,5 @@
+const mockTranslate = jest.fn();
+jest.mock("../src/features/x-monitor/x-post-translation", () => ({ translateXPost: (...args) => mockTranslate(...args) }));
 const mockFetch = jest.fn();
 const mockLoad = jest.fn();
 const mockSave = jest.fn();
@@ -25,6 +27,7 @@ const previousEnabled = process.env.X_MONITOR_ENABLED;
 const previousAdmin = process.env.ADMIN_ID;
 beforeEach(() => {
   jest.clearAllMocks();
+  mockTranslate.mockResolvedValue("테스트 한국어 번역입니다.");
   process.env.X_MONITOR_ENABLED = "true";
   process.env.ADMIN_ID = "owner";
   stored = { version: 1, account: "thsottiaux", initializedAt: "2026-09-14T01:00:00Z",
@@ -157,8 +160,43 @@ test("disabled monitoring neither crawls nor writes state", async () => {
 });
 
 test("keeps Unicode, mention-like text and long posts within Discord limits", () => {
-  const messages = buildXMessages([post("101", "😀 @everyone *".repeat(400)), post("102")], new Date("2026-09-14T22:00:00Z"));
+  const messages = buildXMessages([{ ...post("101", "😀 @everyone *".repeat(400)), translatedText: "번역" }, { ...post("102"), translatedText: "번역" }], new Date("2026-09-14T22:00:00Z"));
   expect(messages.flatMap(m => m.ids)).toEqual(["101", "102"]);
   for (const m of messages) expect(m.content.length).toBeLessThanOrEqual(1800);
-  expect(messages[0].content).toContain("원문 일부");
+  expect(messages.map(m => m.content).join("\n")).toContain("한국어 번역");
+});
+
+test("night collection does not translate until delivery time", async () => {
+  mockFetch.mockResolvedValue({ posts: [post("101")], complete: true });
+  await runXMonitor(client, clock("2026-09-14T11:00:00Z"));
+  expect(mockTranslate).not.toHaveBeenCalled();
+  await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+  expect(mockTranslate).toHaveBeenCalledWith("Post 101");
+  expect(send.mock.calls[0][0].content).toContain("**원문**\nPost 101");
+  expect(send.mock.calls[0][0].content).toContain("**한국어 번역**\n테스트 한국어 번역입니다.");
+});
+test("translation failure retains the post while other translations are delivered", async () => {
+  stored.pending = [post("101"), post("102")];
+  mockTranslate.mockRejectedValueOnce(new Error("unavailable"));
+  const result = await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+  expect(result.status).toBe("partial");
+  expect(result.detail).toContain("번역 실패 1건");
+  expect(stored.pending.map(p => p.id)).toEqual(["101"]);
+  expect(stored.notifiedIds).toEqual(["102"]);
+});
+test("translation is cached and partially sent long text resumes without repeating original parts", async () => {
+  stored.pending = [post("101", "A".repeat(2000) + "END-ORIGINAL")];
+  mockTranslate.mockResolvedValue("번역".repeat(1000) + "번역끝");
+  send.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("DM failed"));
+  await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+  expect(stored.pending[0].sentParts).toBe(1);
+  expect(stored.pending[0].translatedText).toContain("번역끝");
+  const first = send.mock.calls[0][0].content;
+  send.mockClear();
+  await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
+  expect(mockTranslate).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls.every(([m]) => m.content !== first)).toBe(true);
+  expect(send.mock.calls.map(([m]) => m.content).join("")).toContain("END-ORIGINAL");
+  expect(send.mock.calls.map(([m]) => m.content).join("")).toContain("번역끝");
+  expect(stored.pending).toEqual([]);
 });

@@ -1,5 +1,6 @@
 import { escapeMarkdown } from "discord.js";
 import type { Client } from "discord.js";
+import { translateXPost } from "./x-post-translation";
 import { fetchXProfile } from "./x-profile-source";
 import {
   isXPost, loadXMonitorState, saveXMonitorState, X_ACCOUNT,
@@ -28,23 +29,32 @@ export const buildXMessages = (posts: XPost[], now: Date) => {
   const title = getKstHour(now) === 7 && new Date(now.getTime() + 9 * 3600_000).getUTCMinutes() < 30
     ? "🌅 X 야간 업데이트" : "🆕 X 미전송 업데이트 모음";
   const header = `${title} · @${X_ACCOUNT} · ${posts.length}건`;
-  const chunks: { content: string; ids: string[] }[] = [];
+  const chunks: { content: string; ids: string[]; progress: { id: string; sentParts: number }[] }[] = [];
   for (const post of [...posts].sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : 1)) {
-    const escaped = escapeMarkdown(post.text);
-    const excerpt = escaped.slice(0, 1_200).replace(/[\uD800-\uDBFF]$/, "");
-    const partial = !post.textComplete || escaped.length > excerpt.length ? " (원문 일부)" : "";
+    if (!post.translatedText) throw new Error("X 감시 번역이 없는 글은 전송할 수 없습니다.");
     const observed = new Intl.DateTimeFormat("ko-KR", {
       timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", hourCycle: "h23",
     }).format(new Date(post.observedAt));
-    const block = `\n\n${excerpt}${partial}\n원문: <${post.url}>\n확인: ${observed} KST`;
-    let chunk = chunks[chunks.length - 1];
-    if (!chunk || chunk.content.length + block.length > 1_760) {
-      chunk = { content: header, ids: [] };
-      chunks.push(chunk);
+    const text = `**원문${post.textComplete ? "" : " (수집된 일부)"}**\n${escapeMarkdown(post.text)}\n\n**한국어 번역**\n${escapeMarkdown(post.translatedText)}`;
+    const parts: string[] = [];
+    for (let offset = 0; offset < text.length;) {
+      const part = text.slice(offset, offset + 1400).replace(/[\uD800-\uDBFF]$/, "");
+      parts.push(part);
+      offset += part.length;
     }
-    chunk.content += block;
-    chunk.ids.push(post.id);
+    if ((post.sentParts || 0) >= parts.length) throw new Error("X 감시 전송 위치가 올바르지 않습니다.");
+    for (let index = post.sentParts || 0; index < parts.length; index += 1) {
+      const block = `\n\n${parts.length > 1 ? `[본문 ${index + 1}/${parts.length}]\n` : ""}${parts[index]}\n원문 링크: <${post.url}>\n확인: ${observed} KST`;
+      let chunk = chunks[chunks.length - 1];
+      if (!chunk || chunk.content.length + block.length > 1760) {
+        chunk = { content: header, ids: [], progress: [] };
+        chunks.push(chunk);
+      }
+      chunk.content += block;
+      chunk.progress.push({ id: post.id, sentParts: index + 1 });
+      if (index === parts.length - 1) chunk.ids.push(post.id);
+    }
   }
   return chunks.map((chunk, index) => ({
     ...chunk,
@@ -123,12 +133,28 @@ export const runXMonitor = async (
         saveXMonitorState(state);
       }
       let sent = 0;
+      let translationFailures = 0;
       if (state.pending.length && !isXQuietTime(now())) {
-        const messages = buildXMessages(state.pending, now());
-        const user = await client.users.fetch(ownerId);
+        for (const post of state.pending) {
+          if (isXQuietTime(now())) break;
+          if (post.translatedText) continue;
+          try {
+            post.translatedText = await translateXPost(post.text);
+          } catch {
+            translationFailures += 1;
+            continue;
+          }
+          saveXMonitorState(state);
+        }
+        const messages = buildXMessages(state.pending.filter((post) => post.translatedText), now());
+        const user = messages.length ? await client.users.fetch(ownerId) : null;
         for (const message of messages) {
           if (isXQuietTime(now())) break;
-          await user.send({ content: message.content, allowedMentions: { parse: [] } });
+          await user!.send({ content: message.content, allowedMentions: { parse: [] } });
+          for (const progress of message.progress) {
+            const post = state.pending.find((post) => post.id === progress.id)!;
+            post.sentParts = progress.sentParts;
+          }
           const sentIds = new Set(message.ids);
           state.notifiedIds.push(...message.ids);
           state.pending = state.pending.filter((post) => !sentIds.has(post.id));
@@ -139,7 +165,9 @@ export const runXMonitor = async (
       const detail = isXQuietTime(now())
         ? `야간 보류 ${state.pending.length}건 · 07:00 발송 예정`
         : `전송 ${sent}건 · 대기 ${state.pending.length}건`;
-      const issue = collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : "");
+      const issue = [collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : ""),
+        translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 다음 주간 배치 재시도` : "",
+      ].filter(Boolean).join(" · ");
       result = {
         status: issue ? (sent > 0 || posts.length > 0 ? "partial" : "failure") : "success",
         detail: issue ? `${detail} · ${issue}` : detail,
