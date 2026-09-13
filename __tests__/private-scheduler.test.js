@@ -1,3 +1,5 @@
+const mockRunXMonitor = jest.fn();
+jest.mock("../src/features/x-monitor/x-monitor-service", () => ({ runXMonitor: (...args) => mockRunXMonitor(...args) }));
 const mockCronSchedule = jest.fn();
 const mockFetchFeaturedItemResult = jest.fn();
 const mockCreateEmbeds = jest.fn();
@@ -613,4 +615,24 @@ describe("private scheduler morning briefing", () => {
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
     expect(JOB_POSTINGS_SCHEDULE.cron).toBe("0 7,13,19 * * *");
   });
+});
+
+ test("registers the enabled X schedule every half hour using the common service", async () => {
+  const previous = process.env.X_MONITOR_ENABLED;
+  process.env.X_MONITOR_ENABLED = "true";
+  try {
+    mockCronSchedule.mockClear();
+    const client = { users: { fetch: jest.fn() } };
+    new PrivateScheduler(client).start();
+    const call = mockCronSchedule.mock.calls.find(([cron]) => cron === "*/30 * * * *");
+    expect(call[2]).toEqual({ timezone: "Asia/Seoul", noOverlap: true });
+    await call[1]();
+    expect(mockRunXMonitor).toHaveBeenCalledWith(client);
+    expect(mockRegisterScheduleDefinitions).toHaveBeenLastCalledWith(expect.arrayContaining([
+      expect.objectContaining({ id: "x-profile", minutes: [0, 30] }),
+    ]));
+  } finally {
+    if (previous === undefined) delete process.env.X_MONITOR_ENABLED;
+    else process.env.X_MONITOR_ENABLED = previous;
+  }
 });

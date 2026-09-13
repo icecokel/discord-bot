@@ -59,7 +59,7 @@ const saveData = (data: ScheduleRunData): boolean => {
 };
 
 export const getNextScheduleRunAt = (
-  definition: Pick<ScheduleDefinition, "hour" | "hours" | "minute">,
+  definition: Pick<ScheduleDefinition, "hour" | "hours" | "minute" | "minutes">,
   from: Date = new Date(),
 ): string => {
   const kst = new Date(from.getTime() + KST_OFFSET_MS);
@@ -67,17 +67,21 @@ export const getNextScheduleRunAt = (
     (a, b) => a - b,
   );
 
+  const minutes = [...new Set(definition.minutes || [definition.minute])].sort((a, b) => a - b);
+
   for (const hour of hours) {
-    const candidateTime =
-      Date.UTC(
-        kst.getUTCFullYear(),
-        kst.getUTCMonth(),
-        kst.getUTCDate(),
-        hour,
-        definition.minute,
-      ) - KST_OFFSET_MS;
-    if (candidateTime > from.getTime()) {
-      return new Date(candidateTime).toISOString();
+    for (const minute of minutes) {
+      const candidateTime =
+        Date.UTC(
+          kst.getUTCFullYear(),
+          kst.getUTCMonth(),
+          kst.getUTCDate(),
+          hour,
+          minute,
+        ) - KST_OFFSET_MS;
+      if (candidateTime > from.getTime()) {
+        return new Date(candidateTime).toISOString();
+      }
     }
   }
 
@@ -87,7 +91,7 @@ export const getNextScheduleRunAt = (
       kst.getUTCMonth(),
       kst.getUTCDate() + 1,
       hours[0] ?? definition.hour,
-      definition.minute,
+      minutes[0] ?? definition.minute,
     ) - KST_OFFSET_MS;
   return new Date(nextDayTime).toISOString();
 };

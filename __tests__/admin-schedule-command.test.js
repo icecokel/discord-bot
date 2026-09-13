@@ -58,3 +58,17 @@ describe("admin schedule status command", () => {
     ]);
   });
 });
+
+ test("shows the X schedule only when monitoring is enabled", async () => {
+  const previous = process.env.X_MONITOR_ENABLED;
+  process.env.X_MONITOR_ENABLED = "true";
+  try {
+    mockGetScheduleRunRecords.mockReturnValue([]);
+    const reply = jest.fn();
+    await handleScheduleStatus({ reply });
+    expect(reply.mock.calls[0][0].embeds[0].toJSON().fields.map(f => f.name)).toContain("X 업데이트");
+  } finally {
+    if (previous === undefined) delete process.env.X_MONITOR_ENABLED;
+    else process.env.X_MONITOR_ENABLED = previous;
+  }
+});

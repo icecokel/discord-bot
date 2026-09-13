@@ -10,7 +10,7 @@
     "prestart": "npm run gen:registry",
     "start": "ts-node src/index.ts",
     "dev": "nodemon",
-    "build": "esbuild src/index.ts --bundle --platform=node --minify --outfile=dist/index.js --packages=external",
+    "build": "esbuild src/index.ts scripts/check-x-profile.ts --bundle --platform=node --minify --outdir=dist --entry-names=[name] --packages=external",
     "start:prod": "node dist/index.js",
     "pm2:start": "npm run build && pm2 start ecosystem.config.cjs --update-env",
     "pm2:restart": "npm run build && pm2 restart ecosystem.config.cjs --update-env",
@@ -18,7 +18,8 @@
     "pm2:logs": "pm2 logs discord-bot",
     "type-check": "tsc --noEmit",
     "test": "jest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:x-profile": "ts-node scripts/check-x-profile.ts"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +28,8 @@
   "dependencies": {
     "discord.js": "^14.27.0",
     "dotenv": "^17.2.3",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "playwright": "1.63.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",

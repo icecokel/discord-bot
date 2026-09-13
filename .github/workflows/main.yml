@@ -38,9 +38,10 @@ jobs:
           DEPLOY_DIR="$HOME/projects/discord-bot"
           mkdir -p "$DEPLOY_DIR/dist" "$DEPLOY_DIR/logs"
           cp package.json package-lock.json ecosystem.config.cjs "$DEPLOY_DIR/"
-          cp dist/index.js "$DEPLOY_DIR/dist/index.js"
+          cp dist/index.js dist/check-x-profile.js "$DEPLOY_DIR/dist/"
           cd "$DEPLOY_DIR"
           npm ci --omit=dev --ignore-scripts
+          PLAYWRIGHT_BROWSERS_PATH="$DEPLOY_DIR/.local/ms-playwright" npm exec -- playwright install chromium
 
       - name: Restart PM2 process if available
         run: |

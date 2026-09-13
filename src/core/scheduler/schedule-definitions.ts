@@ -3,12 +3,14 @@ export interface ScheduleDefinition {
     | "morning-briefing"
     | "geek-news"
     | "tomorrow-weather"
-    | "job-postings";
+    | "job-postings"
+    | "x-profile";
   label: string;
   cron: string;
   hour: number;
   hours?: readonly number[];
   minute: number;
+  minutes?: readonly number[];
   timezone: "Asia/Seoul";
 }
 
@@ -55,3 +57,19 @@ export const SCHEDULE_DEFINITIONS: ScheduleDefinition[] = [
   TOMORROW_WEATHER_SCHEDULE,
   JOB_POSTINGS_SCHEDULE,
 ];
+
+export const X_PROFILE_SCHEDULE: ScheduleDefinition = {
+  id: "x-profile",
+  label: "X 업데이트",
+  cron: "*/30 * * * *",
+  hour: 0,
+  hours: Array.from({ length: 24 }, (_, hour) => hour),
+  minute: 0,
+  minutes: [0, 30],
+  timezone: "Asia/Seoul",
+};
+
+export const isXMonitorEnabled = (): boolean => process.env.X_MONITOR_ENABLED === "true";
+
+export const getEnabledScheduleDefinitions = (): ScheduleDefinition[] =>
+  isXMonitorEnabled() ? [...SCHEDULE_DEFINITIONS, X_PROFILE_SCHEDULE] : SCHEDULE_DEFINITIONS;

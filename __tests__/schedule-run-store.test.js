@@ -152,3 +152,16 @@ describe("schedule run store", () => {
     expect(writeJson).not.toHaveBeenCalled();
   });
 });
+
+describe("half-hour X schedule", () => {
+  test.each([
+    ["2026-09-14T14:29:59Z", "2026-09-14T14:30:00.000Z"],
+    ["2026-09-14T14:30:00Z", "2026-09-14T15:00:00.000Z"],
+    ["2026-09-14T21:30:00Z", "2026-09-14T22:00:00.000Z"],
+    ["2026-09-14T22:00:00Z", "2026-09-14T22:30:00.000Z"],
+  ])("next run from %s", (from, expected) => {
+    const { X_PROFILE_SCHEDULE } = require("../src/core/scheduler/schedule-definitions");
+    const { getNextScheduleRunAt } = require("../src/utils/schedule-run-store");
+    expect(getNextScheduleRunAt(X_PROFILE_SCHEDULE, new Date(from))).toBe(expected);
+  });
+});

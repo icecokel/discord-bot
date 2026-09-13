@@ -1,6 +1,6 @@
 import { EmbedBuilder, Message } from "discord.js";
 import { registerAdminCommand } from "../../../core/admin-middleware";
-import { SCHEDULE_DEFINITIONS } from "../../../core/scheduler/schedule-definitions";
+import { getEnabledScheduleDefinitions } from "../../../core/scheduler/schedule-definitions";
 import {
   getNextScheduleRunAt,
   getScheduleRunRecords,
@@ -56,7 +56,7 @@ const handleScheduleStatus = async (message: Message): Promise<void> => {
     getScheduleRunRecords().map((record) => [record.jobId, record]),
   );
   const now = new Date();
-  const records = SCHEDULE_DEFINITIONS.map(
+  const records = getEnabledScheduleDefinitions().map(
     (definition): ScheduleRunRecord =>
       storedRecords.get(definition.id) || {
         jobId: definition.id,

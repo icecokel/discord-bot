@@ -9,3 +9,9 @@ src/data/user_preferences.json
 src/data/user-preferences.json
 src/data/daily_history.json
 src/data/daily-history.json
+
+.local/
+.playwright-mcp/
+output/playwright/
+src/data/x-profile-history.json
+src/data/x-profile-history.json.corrupt-*

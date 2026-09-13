@@ -1,3 +1,4 @@
+import { runXMonitor } from "../../features/x-monitor/x-monitor-service";
 import cron from "node-cron";
 import { Client } from "discord.js";
 import { getUserRegion } from "../../utils/user-store";
@@ -29,7 +30,9 @@ import {
   GEEK_NEWS_SCHEDULE,
   JOB_POSTINGS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
-  SCHEDULE_DEFINITIONS,
+  getEnabledScheduleDefinitions,
+  X_PROFILE_SCHEDULE,
+  isXMonitorEnabled,
   TOMORROW_WEATHER_SCHEDULE,
 } from "./schedule-definitions";
 import type { ScheduleDefinition } from "./schedule-definitions";
@@ -92,7 +95,7 @@ export class PrivateScheduler {
 
   public start(): void {
     try {
-      if (!registerScheduleDefinitions(SCHEDULE_DEFINITIONS)) {
+      if (!registerScheduleDefinitions(getEnabledScheduleDefinitions())) {
         console.error("[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.");
       }
     } catch (error) {
@@ -102,6 +105,12 @@ export class PrivateScheduler {
     this.scheduleGeekNews();
     this.scheduleTomorrowWeather();
     this.scheduleJobPostings();
+    if (isXMonitorEnabled()) {
+      cron.schedule(X_PROFILE_SCHEDULE.cron, () => runXMonitor(this.client), {
+        timezone: X_PROFILE_SCHEDULE.timezone,
+        noOverlap: true,
+      });
+    }
     console.log(
       "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
     );
