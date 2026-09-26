@@ -19,3 +19,15 @@ test("propagates write failure", () => {
   writeJson.mockReturnValue(false);
   expect(() => saveXMonitorState(valid())).toThrow("저장에 실패");
 });
+
+test("loads legacy history and validates detailed delivery records", () => {
+  const delivery = { sentAt: "2026-09-15T00:00:00Z", recipientId: "123", channelId: "456",
+    messageId: "789", content: "원문과 한국어 번역", postIds: ["101"], completedPostIds: ["101"] };
+  readJson.mockReturnValue({ ...valid(), deliveries: [delivery] });
+  expect(loadXMonitorState().deliveries).toEqual([delivery]);
+  for (const invalid of [null, { ...delivery, sentAt: "bad" }, { ...delivery, messageId: undefined },
+    { ...delivery, completedPostIds: ["102"] }]) {
+    readJson.mockReturnValue({ ...valid(), deliveries: [invalid] });
+    expect(() => loadXMonitorState()).toThrow("이력 형식");
+  }
+});

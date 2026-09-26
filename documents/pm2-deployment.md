@@ -180,6 +180,14 @@ ssh icenux-external 'cd ~/projects/discord-bot && PATH="$HOME/.local/bin:$PATH" 
 
 이 Hermes 통합은 새로운 런타임/데이터 파일명을 추가하지 않는다. 저장소에 새로 추가하는 파일은 kebab-case를 따라야 하며, `README.md`는 기존 conventional 파일명이다.
 
+## X 모니터 운영 설정
+
+운영 `.env`에서 `X_MONITOR_ENABLED=true`를 지정해야 20분 스케줄이 등록된다. 기본 headed Chromium은 WSLg의 `DISPLAY=:0`을 사용한다.
+
+2026-09-14 운영 점검에서 Chromium 공유 라이브러리 누락을 확인했다. `libnspr4`, `libnss3`, `libasound2t64` 패키지를 프로젝트 `.local/chromium-libs/`에 추출하고, `.env`의 `LD_LIBRARY_PATH`에 `/home/icenux/projects/discord-bot/.local/chromium-libs/usr/lib/x86_64-linux-gnu`를 추가했다. 이 디렉터리는 Chromium 브라우저 파일과 함께 배포 시 유지해야 한다.
+
+프로젝트 루트에서 `node -r dotenv/config dist/check-x-profile.js --live`로 운영 설정을 사용한 수집을 점검한다. 결과는 `.local/x-profile-preview.json`에 저장되며 DM 발송이나 수집 기준점 변경은 하지 않는다. 첫 정규 실행부터 발송 완료 이력에 없는 수집 글을 알린다. KST 20:00~07:00에 모은 새 글은 07:00 실행에서 발송한다.
+
 ## 로그
 
 PM2 로그 파일은 아래 경로에 쌓인다.

@@ -617,19 +617,19 @@ describe("private scheduler morning briefing", () => {
   });
 });
 
- test("registers the enabled X schedule every half hour using the common service", async () => {
+ test("registers the enabled X schedule every 20 minutes using the common service", async () => {
   const previous = process.env.X_MONITOR_ENABLED;
   process.env.X_MONITOR_ENABLED = "true";
   try {
     mockCronSchedule.mockClear();
     const client = { users: { fetch: jest.fn() } };
     new PrivateScheduler(client).start();
-    const call = mockCronSchedule.mock.calls.find(([cron]) => cron === "*/30 * * * *");
+    const call = mockCronSchedule.mock.calls.find(([cron]) => cron === "*/20 * * * *");
     expect(call[2]).toEqual({ timezone: "Asia/Seoul", noOverlap: true });
     await call[1]();
     expect(mockRunXMonitor).toHaveBeenCalledWith(client);
     expect(mockRegisterScheduleDefinitions).toHaveBeenLastCalledWith(expect.arrayContaining([
-      expect.objectContaining({ id: "x-profile", minutes: [0, 30] }),
+      expect.objectContaining({ id: "x-profile", minutes: [0, 20, 40] }),
     ]));
   } finally {
     if (previous === undefined) delete process.env.X_MONITOR_ENABLED;

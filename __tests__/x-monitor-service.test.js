@@ -29,13 +29,13 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockTranslate.mockResolvedValue("테스트 한국어 번역입니다.");
   process.env.X_MONITOR_ENABLED = "true";
-  process.env.ADMIN_ID = "owner";
+  process.env.ADMIN_ID = "123";
   stored = { version: 1, account: "thsottiaux", initializedAt: "2026-09-14T01:00:00Z",
-    baselineMaxId: "100", lastCompleteMaxId: "100", notifiedIds: [], pending: [] };
+    baselineMaxId: "100", lastCompleteMaxId: "100", notifiedIds: ["99", "100"], pending: [] };
   mockLoad.mockImplementation(() => structuredClone(stored));
   mockSave.mockImplementation((state) => { stored = structuredClone(state); });
   mockFetch.mockResolvedValue({ posts: [post("100")], complete: true });
-  send = jest.fn().mockResolvedValue({ id: "dm" });
+  send = jest.fn().mockResolvedValue({ id: "456", channelId: "789" });
   client = { users: { fetch: jest.fn().mockResolvedValue({ send }) } };
 });
 afterAll(() => {
@@ -50,12 +50,12 @@ test.each([
   ["2026-09-14T21:59:59Z", true], ["2026-09-14T22:00:00Z", false],
 ])("KST quiet boundary %s", (time, quiet) => expect(isXQuietTime(new Date(time))).toBe(quiet));
 
-test("initializes a baseline without sending historical posts", async () => {
+test("sends the first collected posts and records only delivered IDs", async () => {
   stored = null;
   mockFetch.mockResolvedValue({ posts: [post("99"), post("101")], complete: true });
-  expect((await runXMonitor(client)).status).toBe("success");
-  expect(stored.baselineMaxId).toBe("101");
-  expect(send).not.toHaveBeenCalled();
+  expect((await runXMonitor(client, clock("2026-09-14T01:00:00Z"))).status).toBe("success");
+  expect(stored.notifiedIds).toEqual(["99", "101"]);
+  expect(send).toHaveBeenCalledTimes(1);
 });
 
 test("does not initialize on an incomplete or empty crawl", async () => {
@@ -78,7 +78,7 @@ test("persists night posts, batches at 07:00 and never sends the same IDs again"
   expect(send).toHaveBeenCalledTimes(1);
   expect(send.mock.calls[0][0]).toMatchObject({ allowedMentions: { parse: [] } });
   expect(send.mock.calls[0][0].content).toContain("야간 업데이트");
-  expect(stored.notifiedIds).toEqual(["101", "102", "103"]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "101", "102", "103"]);
   expect(stored.pending).toEqual([]);
   await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
   expect(send).toHaveBeenCalledTimes(1);
@@ -104,12 +104,12 @@ test("night failures retain the outbox and cannot send", async () => {
 
 test("only commits successful chunks, retrying even if posts disappear from X", async () => {
   stored.pending = [post("101", "a".repeat(1300)), post("102", "b".repeat(1300))];
-  send.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("DM failed"));
+  send.mockResolvedValueOnce({ id: "456", channelId: "789" }).mockRejectedValueOnce(new Error("DM failed"));
   expect((await runXMonitor(client, clock("2026-09-14T22:00:00Z"))).status).toBe("failure");
-  expect(stored.notifiedIds).toEqual(["101"]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "101"]);
   expect(stored.pending.map(p => p.id)).toEqual(["102"]);
   await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
-  expect(stored.notifiedIds).toEqual(["101", "102"]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "101", "102"]);
 });
 
 test("does not send new posts if persisting the outbox fails", async () => {
@@ -139,7 +139,7 @@ test("skips concurrent manual/scheduled runs without overwriting the ledger", as
 test("rechecks 20:00 before every chunk", async () => {
   let time = "2026-09-14T10:59:59Z";
   stored.pending = [post("101", "a".repeat(1300)), post("102", "b".repeat(1300))];
-  send.mockImplementation(async () => { time = "2026-09-14T11:00:00Z"; });
+  send.mockImplementation(async () => { time = "2026-09-14T11:00:00Z"; return { id: "456", channelId: "789" }; });
   await runXMonitor(client, () => new Date(time));
   expect(send).toHaveBeenCalledTimes(1);
   expect(stored.pending.map(p => p.id)).toEqual(["102"]);
@@ -149,7 +149,7 @@ test("keeps the checkpoint on incomplete coverage while sending observed new pos
   mockFetch.mockResolvedValue({ posts: [post("105")], complete: false });
   expect((await runXMonitor(client, clock("2026-09-14T01:00:00Z"))).status).toBe("partial");
   expect(stored.lastCompleteMaxId).toBe("100");
-  expect(stored.notifiedIds).toEqual(["105"]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "105"]);
 });
 
 test("disabled monitoring neither crawls nor writes state", async () => {
@@ -182,12 +182,12 @@ test("translation failure retains the post while other translations are delivere
   expect(result.status).toBe("partial");
   expect(result.detail).toContain("번역 실패 1건");
   expect(stored.pending.map(p => p.id)).toEqual(["101"]);
-  expect(stored.notifiedIds).toEqual(["102"]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "102"]);
 });
 test("translation is cached and partially sent long text resumes without repeating original parts", async () => {
   stored.pending = [post("101", "A".repeat(2000) + "END-ORIGINAL")];
   mockTranslate.mockResolvedValue("번역".repeat(1000) + "번역끝");
-  send.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("DM failed"));
+  send.mockResolvedValueOnce({ id: "456", channelId: "789" }).mockRejectedValueOnce(new Error("DM failed"));
   await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
   expect(stored.pending[0].sentParts).toBe(1);
   expect(stored.pending[0].translatedText).toContain("번역끝");
@@ -199,4 +199,36 @@ test("translation is cached and partially sent long text resumes without repeati
   expect(send.mock.calls.map(([m]) => m.content).join("")).toContain("END-ORIGINAL");
   expect(send.mock.calls.map(([m]) => m.content).join("")).toContain("번역끝");
   expect(stored.pending).toEqual([]);
+});
+
+test("recovers old baseline-only state using delivery history, not collected IDs", async () => {
+  stored.notifiedIds = [];
+  mockFetch.mockResolvedValue({ posts: [post("99"), post("100")], complete: true });
+  await runXMonitor(client, clock("2026-09-14T11:00:00Z"));
+  expect(mockFetch).toHaveBeenLastCalledWith(undefined);
+  expect(stored.pending.map(p => p.id)).toEqual(["99", "100"]);
+  expect(stored.notifiedIds).toEqual([]);
+  await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+  expect(stored.notifiedIds).toEqual(["99", "100"]);
+  await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
+  expect(mockFetch).toHaveBeenLastCalledWith("100");
+  expect(send).toHaveBeenCalledTimes(1);
+});
+
+test("records only successful messages with content and completion progress", async () => {
+  stored.pending = [post("101", "a".repeat(2000))];
+  send.mockResolvedValueOnce({ id: "456", channelId: "789" }).mockRejectedValueOnce(new Error("DM failed"));
+  await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+  expect(stored.deliveries).toEqual([{
+    sentAt: "2026-09-14T22:00:00.000Z", recipientId: "123", channelId: "789", messageId: "456",
+    content: send.mock.calls[0][0].content, postIds: ["101"], completedPostIds: [],
+  }]);
+  expect(stored.pending[0].sentParts).toBe(1);
+  await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
+  expect(stored.deliveries).toHaveLength(2);
+  expect(stored.deliveries[1].completedPostIds).toEqual(["101"]);
+  expect(stored.deliveries[1].content).toContain("한국어 번역");
+  expect(stored.pending).toEqual([]);
+  await runXMonitor(client, clock("2026-09-14T23:00:00Z"));
+  expect(stored.deliveries).toHaveLength(2);
 });

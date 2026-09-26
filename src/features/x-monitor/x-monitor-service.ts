@@ -95,7 +95,9 @@ export const runXMonitor = async (
     let complete = false;
     let posts: XPost[] = [];
     try {
-      const fetched = await fetchXProfile(state?.lastCompleteMaxId);
+      const lastNotifiedId = state?.notifiedIds.reduce<string | undefined>((max, id) =>
+        !max || BigInt(id) > BigInt(max) ? id : max, undefined);
+      const fetched = await fetchXProfile(lastNotifiedId);
       if (!fetched.posts.length || !fetched.posts.every(isXPost)) {
         throw new Error("parse-failed: 유효한 게시물 없음");
       }
@@ -114,65 +116,69 @@ export const runXMonitor = async (
         version: 1, account: X_ACCOUNT, initializedAt: now().toISOString(),
         baselineMaxId: maxId, lastCompleteMaxId: maxId, notifiedIds: [], pending: [],
       };
+    }
+    if (posts.length) {
+      const known = new Set([...state.notifiedIds, ...state.pending.map((post) => post.id)]);
+      for (const post of posts) {
+        if (!known.has(post.id)) {
+          state.pending.push(post);
+          known.add(post.id);
+        }
+      }
+      if (complete) {
+        state.lastCompleteMaxId = posts.reduce((max, post) =>
+          BigInt(post.id) > BigInt(max) ? post.id : max, state.lastCompleteMaxId);
+      }
+      // Persist the outbox before any new notification is attempted.
       saveXMonitorState(state);
-      result = { status: "success", detail: `기준선 생성: ${posts.length}건 · 발송 없음` };
-    } else {
-      if (posts.length) {
-        const known = new Set([...state.notifiedIds, ...state.pending.map((post) => post.id)]);
-        for (const post of posts) {
-          if (BigInt(post.id) > BigInt(state.baselineMaxId) && !known.has(post.id)) {
-            state.pending.push(post);
-            known.add(post.id);
-          }
+    }
+    let sent = 0;
+    let translationFailures = 0;
+    if (state.pending.length && !isXQuietTime(now())) {
+      for (const post of state.pending) {
+        if (isXQuietTime(now())) break;
+        if (post.translatedText) continue;
+        try {
+          post.translatedText = await translateXPost(post.text);
+        } catch {
+          translationFailures += 1;
+          continue;
         }
-        if (complete) {
-          state.lastCompleteMaxId = posts.reduce((max, post) =>
-            BigInt(post.id) > BigInt(max) ? post.id : max, state.lastCompleteMaxId);
-        }
-        // Persist the outbox before any new notification is attempted.
         saveXMonitorState(state);
       }
-      let sent = 0;
-      let translationFailures = 0;
-      if (state.pending.length && !isXQuietTime(now())) {
-        for (const post of state.pending) {
-          if (isXQuietTime(now())) break;
-          if (post.translatedText) continue;
-          try {
-            post.translatedText = await translateXPost(post.text);
-          } catch {
-            translationFailures += 1;
-            continue;
-          }
-          saveXMonitorState(state);
+      const messages = buildXMessages(state.pending.filter((post) => post.translatedText), now());
+      const user = messages.length ? await client.users.fetch(ownerId) : null;
+      for (const message of messages) {
+        if (isXQuietTime(now())) break;
+        const delivered = await user!.send({ content: message.content, allowedMentions: { parse: [] } });
+        (state.deliveries ??= []).push({
+          sentAt: now().toISOString(), recipientId: ownerId,
+          channelId: delivered.channelId, messageId: delivered.id,
+          content: message.content,
+          postIds: [...new Set(message.progress.map(part => part.id))],
+          completedPostIds: [...message.ids],
+        });
+        for (const progress of message.progress) {
+          const post = state.pending.find((post) => post.id === progress.id)!;
+          post.sentParts = progress.sentParts;
         }
-        const messages = buildXMessages(state.pending.filter((post) => post.translatedText), now());
-        const user = messages.length ? await client.users.fetch(ownerId) : null;
-        for (const message of messages) {
-          if (isXQuietTime(now())) break;
-          await user!.send({ content: message.content, allowedMentions: { parse: [] } });
-          for (const progress of message.progress) {
-            const post = state.pending.find((post) => post.id === progress.id)!;
-            post.sentParts = progress.sentParts;
-          }
-          const sentIds = new Set(message.ids);
-          state.notifiedIds.push(...message.ids);
-          state.pending = state.pending.filter((post) => !sentIds.has(post.id));
-          saveXMonitorState(state);
-          sent += message.ids.length;
-        }
+        const sentIds = new Set(message.ids);
+        state.notifiedIds.push(...message.ids);
+        state.pending = state.pending.filter((post) => !sentIds.has(post.id));
+        saveXMonitorState(state);
+        sent += message.ids.length;
       }
-      const detail = isXQuietTime(now())
-        ? `야간 보류 ${state.pending.length}건 · 07:00 발송 예정`
-        : `전송 ${sent}건 · 대기 ${state.pending.length}건`;
-      const issue = [collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : ""),
-        translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 다음 주간 배치 재시도` : "",
-      ].filter(Boolean).join(" · ");
-      result = {
-        status: issue ? (sent > 0 || posts.length > 0 ? "partial" : "failure") : "success",
-        detail: issue ? `${detail} · ${issue}` : detail,
-      };
     }
+    const detail = isXQuietTime(now())
+      ? `야간 보류 ${state.pending.length}건 · 07:00 발송 예정`
+      : `전송 ${sent}건 · 대기 ${state.pending.length}건`;
+    const issue = [collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : ""),
+      translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 다음 주간 배치 재시도` : "",
+    ].filter(Boolean).join(" · ");
+    result = {
+      status: issue ? (sent > 0 || posts.length > 0 ? "partial" : "failure") : "success",
+      detail: issue ? `${detail} · ${issue}` : detail,
+    };
   } catch (error) {
     result = { status: "failure", detail: safeError(error) };
   } finally {

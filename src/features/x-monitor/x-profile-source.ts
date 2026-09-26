@@ -142,7 +142,7 @@ export const fetchXProfile = async (checkpoint?: string): Promise<XProfileResult
     // Read full text for the initial preview as well as newly discovered posts.
     for (const post of posts.values()) {
       if (timedOut) break;
-      if (post.textComplete || (checkpoint && BigInt(post.id) <= BigInt(checkpoint))) continue;
+      if (post.textComplete) continue;
       try {
         await page.goto(post.url, { waitUntil: "domcontentloaded", timeout: 8_000 });
         await page.locator("main article").first().waitFor({ timeout: 5_000 });

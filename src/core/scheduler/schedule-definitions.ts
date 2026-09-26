@@ -61,11 +61,11 @@ export const SCHEDULE_DEFINITIONS: ScheduleDefinition[] = [
 export const X_PROFILE_SCHEDULE: ScheduleDefinition = {
   id: "x-profile",
   label: "X 업데이트",
-  cron: "*/30 * * * *",
+  cron: "*/20 * * * *",
   hour: 0,
   hours: Array.from({ length: 24 }, (_, hour) => hour),
   minute: 0,
-  minutes: [0, 30],
+  minutes: [0, 20, 40],
   timezone: "Asia/Seoul",
 };
 

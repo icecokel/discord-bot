@@ -15,6 +15,16 @@ export interface XPost {
   sentParts?: number;
 }
 
+export interface XDeliveryRecord {
+  sentAt: string;
+  recipientId: string;
+  channelId: string;
+  messageId: string;
+  content: string;
+  postIds: string[];
+  completedPostIds: string[];
+}
+
 export interface XMonitorState {
   version: 1;
   account: typeof X_ACCOUNT;
@@ -23,6 +33,7 @@ export interface XMonitorState {
   lastCompleteMaxId: string;
   notifiedIds: string[];
   pending: XPost[];
+  deliveries?: XDeliveryRecord[];
 }
 
 const FILE_NAME = "x-profile-history.json";
@@ -30,6 +41,17 @@ const isId = (value: unknown): value is string =>
   typeof value === "string" && /^[1-9]\d{0,19}$/.test(value);
 const isDate = (value: unknown): value is string =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
+
+const isDelivery = (value: unknown): value is XDeliveryRecord => {
+  if (!value || typeof value !== "object") return false;
+  const record = value as XDeliveryRecord;
+  return isDate(record.sentAt) && isId(record.recipientId) &&
+    isId(record.channelId) && isId(record.messageId) &&
+    typeof record.content === "string" && record.content.length > 0 && record.content.length <= 2000 &&
+    Array.isArray(record.postIds) && record.postIds.length > 0 && record.postIds.every(isId) &&
+    Array.isArray(record.completedPostIds) && record.completedPostIds.every(id =>
+      isId(id) && record.postIds.includes(id));
+};
 
 export const isXPost = (value: unknown): value is XPost => {
   if (!value || typeof value !== "object") return false;
@@ -53,6 +75,7 @@ export const loadXMonitorState = (): XMonitorState | null => {
       !isId(data.lastCompleteMaxId) ||
       !Array.isArray(data.notifiedIds) || !data.notifiedIds.every(isId) ||
       !Array.isArray(data.pending) || !data.pending.every(isXPost) ||
+      (data.deliveries !== undefined && (!Array.isArray(data.deliveries) || !data.deliveries.every(isDelivery))) ||
       new Set(data.notifiedIds).size !== data.notifiedIds.length ||
       new Set(data.pending.map((post) => post.id)).size !== data.pending.length ||
       data.pending.some((post) => data.notifiedIds.includes(post.id))) {
