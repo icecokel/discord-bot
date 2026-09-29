@@ -551,7 +551,7 @@ class CodexAppServerClient {
   }
 
   private resolveModel(options: CodexTurnOptions): string | undefined {
-    return options.model || process.env.CODEX_MODEL || undefined;
+    return options.model || process.env.CODEX_MODEL || "gpt-6-luna";
   }
 
   private resolveWorkdir(options: CodexTurnOptions): string {

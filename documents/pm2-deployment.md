@@ -116,7 +116,7 @@ npm audit --omit=dev
 ```bash
 AI_PROVIDER=codex
 CODEX_BIN=/home/icenux/.local/bin/codex
-CODEX_MODEL=
+CODEX_MODEL=gpt-6-luna
 CODEX_WORKDIR=/home/icenux/projects/discord-bot
 CODEX_TIMEOUT_MS=1800000
 CODEX_SANDBOX=read-only

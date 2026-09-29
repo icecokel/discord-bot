@@ -197,6 +197,7 @@ describe("CodexProvider", () => {
     const turnStart = server
       .messages()
       .find((message) => message.method === "turn/start");
+    expect(turnStart.params.model).toBe("gpt-6-luna");
     const inputText = turnStart.params.input[0].text;
     expect(inputText).toContain("엄격하게 답해라.");
     expect(inputText).toContain("payload 반환");
