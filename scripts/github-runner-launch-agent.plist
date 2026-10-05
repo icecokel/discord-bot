@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>actions.runner.icecokel-discord-bot.discord-bot-mac-mini</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/smlee/discord-bot/.local/actions-runner/runsvc.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/smlee/discord-bot/.local/actions-runner</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ACTIONS_RUNNER_SVC</key>
+    <string>1</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>SessionCreate</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/smlee/discord-bot/.local/actions-runner/_diag/launchd-out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/smlee/discord-bot/.local/actions-runner/_diag/launchd-error.log</string>
+</dict>
+</plist>

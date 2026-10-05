@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.icecokel.discord-bot</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/smlee/discord-bot/.local/deploy/dist/index.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/smlee/discord-bot/.local/deploy</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>PROCESS_MANAGER</key>
+    <string>launchd</string>
+    <key>PLAYWRIGHT_BROWSERS_PATH</key>
+    <string>/Users/smlee/discord-bot/.local/deploy/.local/ms-playwright</string>
+    <key>PATH</key>
+    <string>/Users/smlee/.local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/smlee/discord-bot/.local/deploy/logs/discord-bot-out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/smlee/discord-bot/.local/deploy/logs/discord-bot-error.log</string>
+</dict>
+</plist>

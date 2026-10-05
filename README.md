@@ -1,11 +1,11 @@
 # Discord Bot
 
-icenux 서버에서 PM2로 실행되는 관리자 중심 디스코드 봇입니다. 일반 사용자용 명령어와 일반 DM 자연어 기능은 제거했고, 현재 운영 범위는 스케줄러와 관리자 기능으로 제한합니다.
+맥미니에서 launchd로 실행되는 관리자 중심 디스코드 봇입니다. 일반 사용자용 명령어와 일반 DM 자연어 기능은 제거했고, 현재 운영 범위는 스케줄러와 관리자 기능으로 제한합니다.
 
 ## 현재 컨셉
 
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
-- 스케줄러는 PM2 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고 DM을 발송합니다.
+- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고 DM을 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Codex app-server thread로 처리합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Codex는 봇 프로세스 내부 provider로만 호출합니다.
@@ -46,9 +46,9 @@ npm run check:x-profile -- --translate
 
 `--translate`는 직전에 수집한 원문을 실제 Codex app-server로 번역해 `.local/x-bilingual-preview.json`에 원문·번역·발송 메시지를 저장합니다. Discord로 보내지 않습니다. 배포 서버에서는 `node dist/check-x-profile.js --translate`를 사용합니다.
 
-첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집 결과와 전체 본문을 `.local/x-profile-preview.json`에 저장하며 알림 이력 저장·Discord 전송은 하지 않습니다. 최초 수집은 정상적으로 읽힌 최근 목록을 기준선으로 사용하고, 접힌 글은 상세 페이지에서 원문을 읽습니다. 후속 수집은 기존 체크포인트 연결 여부를 계속 검증합니다. 로컬에서 창 모드는 정상 수집되지만 headless는 403을 반환해, 기본값은 창 모드입니다. `X_MONITOR_HEADLESS=true`는 해당 환경에서 실제 수집 성공을 확인한 경우에만 사용합니다. Linux 서버의 창 모드 실행에는 DISPLAY 또는 Xvfb 같은 디스플레이 환경이 필요하므로 운영 활성화 전 서버에서도 확인해야 합니다. 배포 워크플로는 운영 프로젝트의 `.local/ms-playwright`에 Chromium을 설치합니다. 배포된 서버에서는 `node dist/check-x-profile.js` 및 `node dist/check-x-profile.js --live`로 같은 검사를 실행합니다. Linux 시스템 라이브러리가 부족하면 서버 OS에 맞춰 별도 설치해야 합니다.
+첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집 결과와 전체 본문을 `.local/x-profile-preview.json`에 저장하며 알림 이력 저장·Discord 전송은 하지 않습니다. 최초 수집은 정상적으로 읽힌 최근 목록을 기준선으로 사용하고, 접힌 글은 상세 페이지에서 원문을 읽습니다. 후속 수집은 기존 체크포인트 연결 여부를 계속 검증합니다. 창 모드가 기본값이며, `X_MONITOR_HEADLESS=true`는 해당 환경에서 실제 수집 성공을 확인한 경우에만 사용합니다. 배포 워크플로는 맥미니 실행 디렉터리의 `.local/ms-playwright`에 Chromium을 설치합니다. 배포된 맥미니에서는 `node dist/check-x-profile.js` 및 `node dist/check-x-profile.js --live`로 같은 검사를 실행합니다.
 
-로그인이 필요한 환경에서는 운영자가 Chromium에서 직접 로그인해 저장한 상태를 프로젝트의 `.local/x-auth-state.json`에 둡니다. 파일은 `chmod 600`으로 보호하고 Git·로그·배포 아티팩트에 포함하지 않습니다. 로그인 만료·CAPTCHA·접근 차단은 실패로 기록하며 우회하지 않습니다. `.local/`과 운영 이력 `dist/data/x-profile-history.json`은 배포·재시작 시 보존합니다. 단일 PM2 인스턴스에서 동작하며, 전송 성공 직후 저장 전에 종료되면 같은 글이 다시 올 수 있습니다.
+로그인이 필요한 환경에서는 운영자가 Chromium에서 직접 로그인해 저장한 상태를 실행 디렉터리의 `.local/x-auth-state.json`에 둡니다. 파일은 `chmod 600`으로 보호하고 Git·로그·배포 아티팩트에 포함하지 않습니다. 로그인 만료·CAPTCHA·접근 차단은 실패로 기록하며 우회하지 않습니다. `.local/`과 운영 이력 `dist/data/x-profile-history.json`은 배포·재시작 시 보존합니다. 단일 launchd 프로세스에서 동작하며, 전송 성공 직후 저장 전에 종료되면 같은 글이 다시 올 수 있습니다.
 
 자세한 수집 범위·인수 조건은 [X 감시 설계서](documents/x-profile-monitor-design.md)를 참고하세요.
 
@@ -90,7 +90,7 @@ npm run check:x-profile -- --translate
 | `/관리자 초기화 <대상>` | 지정한 데이터를 초기화합니다. |
 | `/관리자 서버상태` | Node 런타임, 메모리, Codex 환경 상태를 확인합니다. |
 | `/관리자 디스크` | 허용된 서버 디스크 경로의 사용량을 확인합니다. |
-| `/관리자 프로세스` | `discord-bot` PM2 프로세스 상태를 확인합니다. |
+| `/관리자 프로세스` | `discord-bot` 프로세스 상태를 확인합니다. |
 | `/관리자 배포상태` | 배포 번들 경로와 해시를 확인합니다. |
 | `/관리자 스케줄상태` | 최근 스케줄 실행 결과와 다음 실행 시간을 확인합니다. |
 | `/관리자 채용공고` | 현재 감시 직군 채용공고를 즉시 조회합니다. |
@@ -158,9 +158,9 @@ npm run check:x-profile -- --translate
 
 ```text
 AI_PROVIDER=codex
-CODEX_BIN=/home/icenux/.local/bin/codex
+CODEX_BIN=/Users/smlee/.local/bin/codex
 CODEX_MODEL=gpt-6-luna
-CODEX_WORKDIR=/home/icenux/projects/discord-bot
+CODEX_WORKDIR=/Users/smlee/discord-bot/.local/deploy
 CODEX_TIMEOUT_MS=1800000
 CODEX_SANDBOX=read-only
 CODEX_APPROVAL_POLICY=never
@@ -305,19 +305,19 @@ Dependabot이 매주 루트 npm 의존성을 확인해 업데이트 PR을 만듭
 
 ## 배포
 
-현재 운영 대상 SSH alias는 `icenux-external`입니다. `main` 브랜치 push 시 GitHub Actions self-hosted runner가 `npm ci`, 명령어 레지스트리 생성, 테스트, 타입 검사, 빌드를 수행한 뒤 서버의 `~/projects/discord-bot`에 배포하고 PM2를 재시작합니다.
+`main` 브랜치 push 시 맥미니의 GitHub Actions self-hosted runner가 `npm ci`, 명령어 레지스트리 생성, 테스트, 타입 검사, 빌드를 수행한 뒤 `/Users/smlee/discord-bot/.local/deploy`에 배포하고 launchd 봇 서비스를 재시작합니다. 운영 설정과 이력은 실행 디렉터리에 보존합니다. 자세한 전환·복구 절차는 [맥미니 배포 가이드](documents/mac-mini-deployment.md)를 참고하세요.
 
 서버 상태 확인:
 
 ```bash
-ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"; pm2 status discord-bot --no-color'
+launchctl print "gui/$(id -u)/com.icecokel.discord-bot"
 ```
 
 Codex CLI smoke test:
 
 ```bash
-ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"; codex --version'
-ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "codex auth file exists"'
+codex --version
+codex login status
 ```
 
 ## 문서
@@ -327,6 +327,7 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 - `documents/natural-language-ai-concept.md`: 관리자 AI 중심 컨셉
 - `documents/natural-language-ai-plan.md`: 관리자 AI 운영 플랜
 - `documents/ai-guidelines.md`: AI 사용 지침
-- `documents/pm2-deployment.md`: PM2와 icenux 운영 가이드
-- `documents/discord-bot-infra-diagram-vertical.svg`: 배포·런타임·Codex 연결 구조 다이어그램
+- `documents/mac-mini-deployment.md`: 맥미니 배포와 운영 가이드
+- `documents/pm2-deployment.md`: 이전 icenux PM2 운영 기록
+- `documents/discord-bot-infra-diagram-vertical.svg`: 이전 icenux 배포·런타임 구조 다이어그램
 - `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: 완료된 legacy Hermes 통합 계획과 현재 Codex 대체 상태

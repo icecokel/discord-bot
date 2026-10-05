@@ -1,8 +1,10 @@
 # PM2 배포 운영 가이드
 
+> 이전 icenux 운영 기록입니다. 맥미니 전환 후의 배포 기준은 [맥미니 배포 가이드](mac-mini-deployment.md)를 참고하세요.
+
 ## 운영 기준
 
-디스코드 봇은 로컬 Mac 스케줄러가 아니라 icenux 서버의 PM2 프로세스로 실행한다. 현재 운영 SSH alias는 `icenux-external`이며, `main` 브랜치 push 시 GitHub Actions self-hosted runner가 서버의 `~/projects/discord-bot`에서 배포를 수행한다.
+전환 전 디스코드 봇은 icenux 서버의 PM2 프로세스로 실행했다. 당시 운영 SSH alias는 `icenux-external`이며, `main` 브랜치 push 시 GitHub Actions self-hosted runner가 서버의 `~/projects/discord-bot`에서 배포를 수행했다.
 
 ## 로컬 빌드
 
@@ -14,7 +16,7 @@ npm run build
 
 ## 재배포
 
-현재 사용하는 배포 흐름:
+전환 전 배포 흐름:
 
 1. `main` 브랜치에 변경 사항을 push한다.
 2. runner가 `npm ci`, 명령어 레지스트리 생성, 테스트, 타입 검사, 빌드를 수행한다.
@@ -29,7 +31,7 @@ npm run build
 
 파일 저장은 같은 디렉터리 임시 파일을 작성한 뒤 rename으로 교체한다. 파일이 없을 때만 기본값을 사용한다. JSON 파싱이 실패하면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않는다. 운영 중 이 경로를 수동 정리할 때는 정상 JSON과 복구용 파일을 구분한다.
 
-이전 배포는 로컬 빌드 결과물을 Termux 서버로 SCP 전송하고 Cloudflare/Termux 경로로 PM2를 재시작하는 방식이었다. 해당 흐름은 현재 운영 기준이 아니다.
+더 이전 배포는 로컬 빌드 결과물을 Termux 서버로 SCP 전송하고 Cloudflare/Termux 경로로 PM2를 재시작하는 방식이었다.
 
 ## 운영 스케줄러
 

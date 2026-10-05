@@ -5,6 +5,7 @@ jest.mock("../src/core/admin-middleware", () => ({
 const { registerAdminCommand } = require("../src/core/admin-middleware");
 const {
   formatPm2AppStatus,
+  formatLaunchdAppStatus,
   resolveAllowedDiskPaths,
   redactEnvSummary,
 } = require("../src/features/admin/commands/admin-server");
@@ -95,5 +96,13 @@ describe("admin server command", () => {
     expect(result).toContain("pid=1234");
     expect(result).toContain("restart=2");
     expect(result).not.toContain("other-app");
+  });
+
+  test("reports the live process when launchd manages the bot", () => {
+    const result = formatLaunchdAppStatus();
+
+    expect(result).toContain("discord-bot: running");
+    expect(result).toContain("manager=launchd");
+    expect(result).toContain(`pid=${process.pid}`);
   });
 });

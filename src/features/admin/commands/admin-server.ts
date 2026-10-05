@@ -123,6 +123,16 @@ export const formatPm2AppStatus = (apps: Pm2App[]): string => {
   ].join("\n");
 };
 
+export const formatLaunchdAppStatus = (): string => {
+  return [
+    `${PM2_APP_NAME}: running`,
+    "manager=launchd",
+    `pid=${process.pid}`,
+    `uptime=${formatDuration(process.uptime() * 1000)}`,
+    `memory=${formatBytes(process.memoryUsage().rss)}`,
+  ].join("\n");
+};
+
 const getPm2Binary = (): string => {
   if (process.env.PM2_BIN) return process.env.PM2_BIN;
 
@@ -247,6 +257,12 @@ const handleDisk = async (message: Message, args: string[]) => {
 const handleProcess = async (message: Message) => {
   const embed = createBaseEmbed("프로세스 상태");
 
+  if (process.env.PROCESS_MANAGER === "launchd") {
+    embed.addFields({ name: PM2_APP_NAME, value: formatLaunchdAppStatus() });
+    await message.reply({ embeds: [embed] });
+    return;
+  }
+
   try {
     const { stdout } = await execFile(getPm2Binary(), ["jlist"], {
       timeout: COMMAND_TIMEOUT_MS,
@@ -282,8 +298,10 @@ const handleDeployStatus = async (message: Message) => {
         ].join("\n"),
       },
       {
-        name: "PM2",
-        value: `app=${PM2_APP_NAME}\npm2=${getPm2Binary()}`,
+        name: "프로세스 관리자",
+        value: process.env.PROCESS_MANAGER === "launchd"
+          ? "launchd=com.icecokel.discord-bot"
+          : `app=${PM2_APP_NAME}\npm2=${getPm2Binary()}`,
       },
     );
 
@@ -292,7 +310,7 @@ const handleDeployStatus = async (message: Message) => {
 
 registerAdminCommand("서버상태", handleServerStatus, "서버 런타임 상태 확인");
 registerAdminCommand("디스크", handleDisk, "허용된 디스크 사용량 확인");
-registerAdminCommand("프로세스", handleProcess, "discord-bot PM2 상태 확인");
+registerAdminCommand("프로세스", handleProcess, "discord-bot 프로세스 상태 확인");
 registerAdminCommand("배포상태", handleDeployStatus, "배포 번들 상태 확인");
 
 export {

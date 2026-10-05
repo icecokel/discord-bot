@@ -49,7 +49,7 @@
 
 ## 권장 아키텍처
 
-권장 구조는 PM2 봇 프로세스 내부에서 Codex app-server child process를 장기 실행하는 방식이다.
+권장 구조는 봇 프로세스 내부에서 Codex app-server child process를 장기 실행하는 방식이다.
 
 ```text
 Discord DM
@@ -112,9 +112,9 @@ value = codexThreadId
 
 ```env
 AI_PROVIDER=codex
-CODEX_BIN=/home/icenux/.local/bin/codex
+CODEX_BIN=/Users/smlee/.local/bin/codex
 CODEX_MODEL=gpt-6-luna
-CODEX_WORKDIR=/home/icenux/projects/discord-bot
+CODEX_WORKDIR=/Users/smlee/discord-bot/.local/deploy
 CODEX_TIMEOUT_MS=1800000
 CODEX_SANDBOX=read-only
 CODEX_APPROVAL_POLICY=never
@@ -129,26 +129,19 @@ CODEX_ADMIN_APPROVAL_POLICY=
 - `CODEX_APPROVAL_POLICY=never`
 - `CODEX_ADMIN_SANDBOX=read-only`
 - `CODEX_ADMIN_SEARCH=true`
-- `CODEX_WORKDIR=/home/icenux/projects/discord-bot`
+- `CODEX_WORKDIR=/Users/smlee/discord-bot/.local/deploy`
 
 현재 코드의 관리자 DM 기본 sandbox는 `CODEX_ADMIN_SANDBOX`가 없을 때 `workspace-write`지만, 운영 `.env`는 `read-only`로 오버라이드한다. 관리자가 명시적으로 서버 작업이나 코드 변경을 요청하는 경우에도 위험 작업은 Discord prompt에서 확인을 먼저 받아야 한다. 쓰기 권한이 필요하면 별도 승인된 작업 단위에서만 `workspace-write` 정책을 검토한다.
 
-## 서버 세팅
+## 맥미니 세팅
 
-서버에는 Codex CLI와 인증 캐시가 필요하다.
+맥미니에는 Codex CLI와 로그인 상태가 필요하다.
 
-설치 예:
-
-```bash
-ssh icenux-external 'npm install -g @openai/codex'
-```
-
-인증은 headless 환경이므로 device code 또는 로컬 인증 캐시 복사 중 하나를 사용한다.
-
-device code 예:
+확인:
 
 ```bash
-ssh icenux-external 'codex login --device-auth'
+codex --version
+codex login status
 ```
 
 파일 기반 인증 캐시를 쓰는 경우 `~/.codex/auth.json`은 비밀번호처럼 취급한다. 값은 로그, PR, 이슈, Discord 메시지에 출력하지 않는다.
@@ -162,14 +155,14 @@ cli_auth_credentials_store = "file"
 필요하면 `CODEX_HOME`을 명시해 봇 전용 Codex state를 분리한다.
 
 ```env
-CODEX_HOME=/home/icenux/.codex-discord-bot
+CODEX_HOME=/Users/smlee/.codex-discord-bot
 ```
 
 분리할 경우 `CODEX_HOME` 기준으로 다시 로그인해야 한다.
 
 ## 배포 구조 영향
 
-현재 GitHub Actions 배포는 `package.json`, `package-lock.json`, `ecosystem.config.cjs`, `dist/index.js`만 `~/projects/discord-bot`에 복사한다. 운영 실행 디렉터리는 전체 소스 checkout이 아니다.
+GitHub Actions 배포는 `package.json`, `package-lock.json`, `dist/index.js`, `dist/check-x-profile.js`를 `/Users/smlee/discord-bot/.local/deploy`에 복사한다. 운영 실행 디렉터리는 전체 소스 checkout이 아니다.
 
 Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 있다.
 
@@ -177,11 +170,11 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
    - 가장 안전하고 단순하다.
    - TypeScript 원본과 테스트는 없다.
 
-2. 서버에 read-only 소스 checkout을 별도로 둔다.
+2. 별도 read-only 소스 checkout을 둔다.
    - Codex가 원본 코드와 테스트를 조사할 수 있다.
    - 배포 번들과 운영 소스 checkout의 동기화 정책이 필요하다.
 
-현재 운영은 실행 디렉터리인 `~/projects/discord-bot`를 `CODEX_WORKDIR`로 사용한다. 소스 전체 조사가 필요해지면 별도 read-only checkout을 추가한다.
+운영은 실행 디렉터리인 `.local/deploy`를 `CODEX_WORKDIR`로 사용한다. 소스 전체 조사가 필요해지면 별도 read-only checkout을 추가한다.
 
 ## 오류 처리
 
@@ -217,17 +210,17 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
 운영 smoke test:
 
 ```bash
-ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$PATH"; codex --version'
-ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "codex auth file exists"'
+codex --version
+codex login status
 ```
 
 관리자 DM에서 prefix 없이 짧은 질문을 보내 `[Codex]` 응답이 돌아오는지 확인하면 app-server `initialize -> initialized -> thread/start -> turn/start -> turn/completed` 경로를 함께 검증할 수 있다.
 
 ## 운영 점검 순서
 
-1. 서버에 Codex CLI와 인증이 준비되어 있는지 확인한다.
+1. 맥미니에 Codex CLI와 인증이 준비되어 있는지 확인한다.
 2. 운영 `.env`가 `AI_PROVIDER=codex`와 필요한 `CODEX_*` 값을 갖는지 확인한다.
-3. PM2 프로세스가 `--update-env`로 재시작됐는지 확인한다.
+3. `launchctl print "gui/$(id -u)/com.icecokel.discord-bot"`으로 봇 프로세스가 실행 중인지 확인한다.
 4. 관리자 DM prefix 없는 메시지가 `[Codex]` 응답으로 돌아오는지 확인한다.
 5. 긱뉴스 요약/번역 실패 시 실패 사유가 표시되는지 확인한다.
 
