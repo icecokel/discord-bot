@@ -183,20 +183,40 @@ test("translation failure sends the original while other translations are delive
   expect(result.detail).toContain("번역 실패 1건");
   expect(stored.pending).toEqual([]);
   expect(stored.notifiedIds).toEqual(["99", "100", "101", "102"]);
-  expect(send).toHaveBeenCalledTimes(1);
-  expect(send.mock.calls[0][0].content).toContain("**원문**\nPost 101");
-  expect(send.mock.calls[0][0].content).toContain("번역 실패 · 원문만 전달");
-  expect(send.mock.calls[0][0].content).toContain("**한국어 번역**\n테스트 한국어 번역입니다.");
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[0][0].content).toContain("AI 번역 1건 실패");
+  expect(send.mock.calls[1][0].content).toContain("**원문**\nPost 101");
+  expect(send.mock.calls[1][0].content).toContain("번역 실패 · 원문만 전달");
+  expect(send.mock.calls[1][0].content).toContain("**한국어 번역**\n테스트 한국어 번역입니다.");
   expect(stored.deliveries[0].completedPostIds).toEqual(["101", "102"]);
+});
+
+test("translation error DM failure does not block the original post", async () => {
+  stored.pending = [post("101")];
+  mockTranslate.mockRejectedValue(new Error("unavailable"));
+  send.mockRejectedValueOnce(new Error("DM failed"));
+  const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const result = await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
+    expect(result.status).toBe("partial");
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0].content).toContain("**원문**\nPost 101");
+    expect(stored.notifiedIds).toContain("101");
+    expect(consoleSpy).toHaveBeenCalledWith("[XMonitor] 번역 실패 안내 DM 전송 실패");
+  } finally {
+    consoleSpy.mockRestore();
+  }
 });
 
 test("partly delivered original-only text resumes without translating again", async () => {
   stored.pending = [post("101", "A".repeat(2000) + "END-ORIGINAL")];
   mockTranslate.mockRejectedValue(new Error("unavailable"));
-  send.mockResolvedValueOnce({ id: "456", channelId: "789" }).mockRejectedValueOnce(new Error("DM failed"));
+  send.mockResolvedValueOnce({ id: "warning", channelId: "789" })
+    .mockResolvedValueOnce({ id: "456", channelId: "789" })
+    .mockRejectedValueOnce(new Error("DM failed"));
   expect((await runXMonitor(client, clock("2026-09-14T22:00:00Z"))).status).toBe("failure");
   expect(stored.pending[0]).toMatchObject({ originalOnly: true, sentParts: 1 });
-  const first = send.mock.calls[0][0].content;
+  const first = send.mock.calls[1][0].content;
   send.mockClear();
   await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
   expect(mockTranslate).toHaveBeenCalledTimes(1);

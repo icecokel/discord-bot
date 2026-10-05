@@ -150,6 +150,16 @@ export const runXMonitor = async (
       }
       const messages = buildXMessages(state.pending.filter((post) => post.translatedText || post.originalOnly), now());
       const user = messages.length ? await client.users.fetch(ownerId) : null;
+      if (translationFailures && user && !isXQuietTime(now())) {
+        try {
+          await user.send({
+            content: `⚠️ 티보 게시물 AI 번역 ${translationFailures}건 실패 · 원문 알림을 계속 전송합니다.`,
+            allowedMentions: { parse: [] },
+          });
+        } catch {
+          console.error("[XMonitor] 번역 실패 안내 DM 전송 실패");
+        }
+      }
       for (const message of messages) {
         if (isXQuietTime(now())) break;
         const delivered = await user!.send({ content: message.content, allowedMentions: { parse: [] } });
