@@ -31,12 +31,14 @@ export const buildXMessages = (posts: XPost[], now: Date) => {
   const header = `${title} · @${X_ACCOUNT} · ${posts.length}건`;
   const chunks: { content: string; ids: string[]; progress: { id: string; sentParts: number }[] }[] = [];
   for (const post of [...posts].sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : 1)) {
-    if (!post.translatedText) throw new Error("X 감시 번역이 없는 글은 전송할 수 없습니다.");
+    if (!post.translatedText && !post.originalOnly) throw new Error("X 감시 발송 방식이 정해지지 않았습니다.");
     const observed = new Intl.DateTimeFormat("ko-KR", {
       timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", hourCycle: "h23",
     }).format(new Date(post.observedAt));
-    const text = `**원문${post.textComplete ? "" : " (수집된 일부)"}**\n${escapeMarkdown(post.text)}\n\n**한국어 번역**\n${escapeMarkdown(post.translatedText)}`;
+    const text = `**원문${post.textComplete ? "" : " (수집된 일부)"}**\n${escapeMarkdown(post.text)}` +
+      (post.originalOnly ? "\n\n**번역 실패 · 원문만 전달**" :
+        `\n\n**한국어 번역**\n${escapeMarkdown(post.translatedText!)}`);
     const parts: string[] = [];
     for (let offset = 0; offset < text.length;) {
       const part = text.slice(offset, offset + 1400).replace(/[\uD800-\uDBFF]$/, "");
@@ -137,16 +139,16 @@ export const runXMonitor = async (
     if (state.pending.length && !isXQuietTime(now())) {
       for (const post of state.pending) {
         if (isXQuietTime(now())) break;
-        if (post.translatedText) continue;
+        if (post.translatedText || post.originalOnly) continue;
         try {
           post.translatedText = await translateXPost(post.text);
         } catch {
           translationFailures += 1;
-          continue;
+          post.originalOnly = true;
         }
         saveXMonitorState(state);
       }
-      const messages = buildXMessages(state.pending.filter((post) => post.translatedText), now());
+      const messages = buildXMessages(state.pending.filter((post) => post.translatedText || post.originalOnly), now());
       const user = messages.length ? await client.users.fetch(ownerId) : null;
       for (const message of messages) {
         if (isXQuietTime(now())) break;
@@ -173,7 +175,7 @@ export const runXMonitor = async (
       ? `야간 보류 ${state.pending.length}건 · 07:00 발송 예정`
       : `전송 ${sent}건 · 대기 ${state.pending.length}건`;
     const issue = [collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : ""),
-      translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 다음 주간 배치 재시도` : "",
+      translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 원문 전송${state.pending.some(post => post.originalOnly) ? " 대기" : " 완료"}` : "",
     ].filter(Boolean).join(" · ");
     result = {
       status: issue ? (sent > 0 || posts.length > 0 ? "partial" : "failure") : "success",

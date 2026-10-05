@@ -12,6 +12,7 @@ export interface XPost {
   observedAt: string;
   publishedAt?: string;
   translatedText?: string;
+  originalOnly?: true;
   sentParts?: number;
 }
 
@@ -62,8 +63,10 @@ export const isXPost = (value: unknown): value is XPost => {
     (post.publishedAt === undefined || isDate(post.publishedAt)) &&
     (post.translatedText === undefined || (typeof post.translatedText === "string" &&
       post.translatedText.length <= 200_000 && /[가-힣]/.test(post.translatedText))) &&
+    (post.originalOnly === undefined || post.originalOnly === true) &&
+    !(post.originalOnly && post.translatedText) &&
     (post.sentParts === undefined || (Number.isInteger(post.sentParts) && post.sentParts >= 0 &&
-      post.sentParts <= 1000 && (post.sentParts === 0 || post.translatedText !== undefined)));
+      post.sentParts <= 1000 && (post.sentParts === 0 || post.translatedText !== undefined || post.originalOnly === true)));
 };
 
 export const loadXMonitorState = (): XMonitorState | null => {

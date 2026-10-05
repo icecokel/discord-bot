@@ -175,14 +175,35 @@ test("night collection does not translate until delivery time", async () => {
   expect(send.mock.calls[0][0].content).toContain("**원문**\nPost 101");
   expect(send.mock.calls[0][0].content).toContain("**한국어 번역**\n테스트 한국어 번역입니다.");
 });
-test("translation failure retains the post while other translations are delivered", async () => {
+test("translation failure sends the original while other translations are delivered", async () => {
   stored.pending = [post("101"), post("102")];
   mockTranslate.mockRejectedValueOnce(new Error("unavailable"));
   const result = await runXMonitor(client, clock("2026-09-14T22:00:00Z"));
   expect(result.status).toBe("partial");
   expect(result.detail).toContain("번역 실패 1건");
-  expect(stored.pending.map(p => p.id)).toEqual(["101"]);
-  expect(stored.notifiedIds).toEqual(["99", "100", "102"]);
+  expect(stored.pending).toEqual([]);
+  expect(stored.notifiedIds).toEqual(["99", "100", "101", "102"]);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls[0][0].content).toContain("**원문**\nPost 101");
+  expect(send.mock.calls[0][0].content).toContain("번역 실패 · 원문만 전달");
+  expect(send.mock.calls[0][0].content).toContain("**한국어 번역**\n테스트 한국어 번역입니다.");
+  expect(stored.deliveries[0].completedPostIds).toEqual(["101", "102"]);
+});
+
+test("partly delivered original-only text resumes without translating again", async () => {
+  stored.pending = [post("101", "A".repeat(2000) + "END-ORIGINAL")];
+  mockTranslate.mockRejectedValue(new Error("unavailable"));
+  send.mockResolvedValueOnce({ id: "456", channelId: "789" }).mockRejectedValueOnce(new Error("DM failed"));
+  expect((await runXMonitor(client, clock("2026-09-14T22:00:00Z"))).status).toBe("failure");
+  expect(stored.pending[0]).toMatchObject({ originalOnly: true, sentParts: 1 });
+  const first = send.mock.calls[0][0].content;
+  send.mockClear();
+  await runXMonitor(client, clock("2026-09-14T22:30:00Z"));
+  expect(mockTranslate).toHaveBeenCalledTimes(1);
+  expect(send.mock.calls.every(([m]) => m.content !== first)).toBe(true);
+  expect(send.mock.calls.map(([m]) => m.content).join("")).toContain("END-ORIGINAL");
+  expect(stored.pending).toEqual([]);
+  expect(stored.notifiedIds).toContain("101");
 });
 test("translation is cached and partially sent long text resumes without repeating original parts", async () => {
   stored.pending = [post("101", "A".repeat(2000) + "END-ORIGINAL")];

@@ -31,3 +31,14 @@ test("loads legacy history and validates detailed delivery records", () => {
     expect(() => loadXMonitorState()).toThrow("이력 형식");
   }
 });
+
+test("accepts partially sent original-only posts and rejects conflicting delivery modes", () => {
+  const post = { id: "101", url: "https://x.com/thsottiaux/status/101", text: "original",
+    textComplete: true, observedAt: "2026-09-14T00:00:00Z", originalOnly: true, sentParts: 1 };
+  readJson.mockReturnValue({ ...valid(), pending: [post] });
+  expect(loadXMonitorState().pending).toEqual([post]);
+  for (const invalid of [{ ...post, originalOnly: undefined }, { ...post, translatedText: "번역" }]) {
+    readJson.mockReturnValue({ ...valid(), pending: [invalid] });
+    expect(() => loadXMonitorState()).toThrow("이력 형식");
+  }
+});
