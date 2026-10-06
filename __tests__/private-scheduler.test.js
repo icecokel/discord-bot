@@ -7,7 +7,7 @@ const mockMarkItemAsSent = jest.fn();
 const mockGetShortTermForecast = jest.fn();
 const mockCollectServerHealth = jest.fn();
 const mockBuildServerHealthBriefingLine = jest.fn(
-  () => "🖥️ 서버 | 주의: 메모리 95% · 디스크 40% · 메모리 95%",
+  () => "🖥️ 서버 | 주의 · 디스크 40% · 메모리 여유 5%",
 );
 const mockRegisterScheduleDefinitions = jest.fn();
 const mockRecordScheduleRunStart = jest.fn();
@@ -149,7 +149,7 @@ describe("private scheduler morning briefing", () => {
     mockGetShortTermForecast.mockResolvedValue(forecast);
     mockCollectServerHealth.mockReturnValue({
       diskUsagePercent: 40,
-      memoryUsagePercent: 30,
+      memoryAvailablePercent: 70,
       warnings: [],
     });
     mockFetchFeaturedItemResult.mockResolvedValue({
@@ -266,8 +266,8 @@ describe("private scheduler morning briefing", () => {
     const send = jest.fn().mockResolvedValue(undefined);
     mockCollectServerHealth.mockReturnValue({
       diskUsagePercent: 40,
-      memoryUsagePercent: 95,
-      warnings: ["메모리 95%"],
+      memoryAvailablePercent: 5,
+      warnings: ["메모리 여유 5%"],
     });
     const scheduler = new PrivateScheduler({
       users: { fetch: jest.fn().mockResolvedValue({ send }) },
@@ -278,8 +278,25 @@ describe("private scheduler morning briefing", () => {
     expect(result).toMatchObject({ status: "success" });
     expect(send.mock.calls[0][0].content).toContain("서버 | 주의");
     expect(mockBuildServerHealthBriefingLine).toHaveBeenCalledWith(
-      expect.objectContaining({ warnings: ["메모리 95%"] }),
+      expect.objectContaining({ warnings: ["메모리 여유 5%"] }),
     );
+  });
+
+  test("reports partial success when memory availability cannot be checked", async () => {
+    const send = jest.fn().mockResolvedValue(undefined);
+    mockCollectServerHealth.mockReturnValue({
+      diskUsagePercent: 40,
+      memoryAvailablePercent: null,
+      warnings: ["메모리 확인 실패"],
+    });
+    const scheduler = new PrivateScheduler({
+      users: { fetch: jest.fn().mockResolvedValue({ send }) },
+    });
+
+    const result = await scheduler.sendMorningBriefing();
+
+    expect(result.status).toBe("partial");
+    expect(send.mock.calls[0][0].content).toContain("일부 정보 확인 실패: 서버 메모리");
   });
 
   test("sends geek news separately and marks the item as sent", async () => {

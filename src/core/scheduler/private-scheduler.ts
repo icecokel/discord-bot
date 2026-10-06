@@ -311,6 +311,10 @@ export class PrivateScheduler {
       unavailableSections.push("서버 디스크");
       partialDetails.push("서버 디스크 상태 확인 실패");
     }
+    if (serverHealth.memoryAvailablePercent === null) {
+      unavailableSections.push("서버 메모리");
+      partialDetails.push("서버 메모리 상태 확인 실패");
+    }
 
     const content = buildMorningBriefingContent(
       weather.line,
