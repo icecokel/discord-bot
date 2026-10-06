@@ -39,6 +39,7 @@ interface PendingTurn {
 
 interface CodexTurnOptions extends IGenerationOptions {
   codexApprovalPolicy?: string;
+  codexEphemeral?: boolean;
   codexSandbox?: string;
   codexSearch?: boolean;
   codexThreadKey?: string;
@@ -239,7 +240,7 @@ class CodexAppServerClient {
       input: [
         {
           type: "text",
-          text: this.buildPrompt(prompt, options),
+          text: prompt,
           text_elements: [],
         },
       ],
@@ -256,11 +257,14 @@ class CodexAppServerClient {
     const model = this.resolveModel(options);
     const codexSearch =
       typeof options.codexSearch === "boolean" ? options.codexSearch : undefined;
+    const developerInstructions = this.buildDeveloperInstructions(options);
 
     return {
       cwd: this.resolveWorkdir(options),
       approvalPolicy: this.resolveApprovalPolicy(options),
       sandbox: this.resolveSandboxMode(options),
+      ...(options.codexEphemeral ? { ephemeral: true } : {}),
+      ...(developerInstructions ? { developerInstructions } : {}),
       ...(model ? { model } : {}),
       ...(codexSearch === undefined
         ? {}
@@ -272,21 +276,19 @@ class CodexAppServerClient {
     };
   }
 
-  private buildPrompt(prompt: string, options: CodexTurnOptions): string {
-    const promptParts: string[] = [];
-
+  private buildDeveloperInstructions(options: CodexTurnOptions): string {
+    const instructions: string[] = [];
     if (options.systemInstruction) {
-      promptParts.push(`System instruction:\n${options.systemInstruction}`);
+      instructions.push(options.systemInstruction);
     }
 
     if (options.responseMimeType === "application/json") {
-      promptParts.push(
+      instructions.push(
         "Respond with valid JSON only. Do not include markdown, prose, or code fences.",
       );
     }
 
-    promptParts.push(prompt);
-    return promptParts.join("\n\n");
+    return instructions.join("\n\n");
   }
 
   private request(method: string, params: any): Promise<any> {

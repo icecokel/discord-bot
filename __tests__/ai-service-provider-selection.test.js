@@ -129,6 +129,9 @@ describe("AIService provider selection", () => {
       usedFallback: false,
     });
     expect(mockCodexProvider).toHaveBeenCalledTimes(2);
+    expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {
+      codexEphemeral: true,
+    });
     expect(mockCodexShutdown).toHaveBeenCalledTimes(1);
   });
 

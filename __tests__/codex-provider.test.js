@@ -180,7 +180,7 @@ describe("CodexProvider", () => {
     ]);
   });
 
-  test("includes system and JSON instructions in the turn input", async () => {
+  test("sends instructions as developer instructions, separate from user input", async () => {
     const server = createAppServerProcess();
     const provider = new CodexProvider();
 
@@ -194,14 +194,35 @@ describe("CodexProvider", () => {
     await completeTurn(server, "{}");
 
     await expect(answerPromise).resolves.toBe("{}");
+    const threadStart = server
+      .messages()
+      .find((message) => message.method === "thread/start");
+    expect(threadStart.params.developerInstructions).toContain("엄격하게 답해라.");
+    expect(threadStart.params.developerInstructions).toContain("JSON");
     const turnStart = server
       .messages()
       .find((message) => message.method === "turn/start");
     expect(turnStart.params.model).toBe("gpt-6-luna");
-    const inputText = turnStart.params.input[0].text;
-    expect(inputText).toContain("엄격하게 답해라.");
-    expect(inputText).toContain("payload 반환");
-    expect(inputText).toContain("JSON");
+    expect(turnStart.params.input[0].text).toBe("payload 반환");
+  });
+
+  test("starts one-shot work as an ephemeral thread", async () => {
+    const server = createAppServerProcess();
+    const provider = new CodexProvider();
+
+    const answerPromise = provider.generateText("번역할 글", {
+      codexEphemeral: true,
+    });
+
+    await completeHandshake(server);
+    const threadStart = server
+      .messages()
+      .find((message) => message.method === "thread/start");
+    expect(threadStart.params.ephemeral).toBe(true);
+    await completeThreadStart(server);
+    await completeTurn(server, "번역 결과");
+
+    await expect(answerPromise).resolves.toBe("번역 결과");
   });
 
   test("does not include completed user prompt items in the final response", async () => {

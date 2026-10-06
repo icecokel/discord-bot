@@ -124,11 +124,14 @@ class AIService {
     options: IGenerationOptions = {},
   ): Promise<GeneratedTextResult> {
     const provider = createProvider(providerName);
+    const generationOptions = providerName === "codex"
+      ? { ...options, codexEphemeral: true }
+      : options;
 
     try {
       return {
         providerName,
-        text: await provider.generateText(prompt, options),
+        text: await provider.generateText(prompt, generationOptions),
         usedFallback: false,
       };
     } finally {

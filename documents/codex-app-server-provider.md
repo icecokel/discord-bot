@@ -104,6 +104,8 @@ value = codexThreadId
 
 `!코덱스 초기화`와 `!헤르메스 초기화`는 Codex thread 매핑, 관리자 대화 기억, legacy Hermes session 매핑을 함께 지운다.
 
+긱뉴스 요약·번역과 X 감시 번역처럼 일회성으로 호출하는 Codex 작업은 `ephemeral` thread를 사용한다. 이 작업은 Codex 대화 목록에 저장하지 않는다. `systemInstruction`과 JSON 출력 지시는 `thread/start`의 `developerInstructions`로 전달하고, 번역할 원문만 `turn/start`의 사용자 입력으로 전달한다.
+
 ## Provider 설정
 
 새 provider 이름은 `codex`로 둔다.
