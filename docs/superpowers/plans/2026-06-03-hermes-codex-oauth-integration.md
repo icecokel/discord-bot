@@ -4,10 +4,12 @@
 
 This plan is historical. It originally described adding Hermes CLI as the AI provider while using Codex OAuth on the icenux server. The current implementation has moved past that design.
 
-Current implementation:
+Current default is Claude API; see `documents/claude-api-provider.md`. The Codex implementation below is retained as a historical reference. `!클로드`, `!코덱스`, and `!헤르메스` now control Claude.
+
+Implementation before the Claude migration:
 
 - `discord.js` remains the only Discord gateway.
-- `AI_PROVIDER=codex` is the icenux operating default.
+- `AI_PROVIDER=codex` is the operating default on the Mac mini.
 - `CodexProvider` starts `codex app-server` as a long-running child process and talks to it over stdio JSON-RPC.
 - Admin DM natural-language messages use Codex app-server thread/turn flow.
 - `!코덱스` is the primary admin AI control command.
@@ -20,15 +22,14 @@ Current implementation:
 Use these documents for current behavior:
 
 - `README.md`
-- `documents/codex-app-server-provider.md`
+- `documents/claude-api-provider.md`
 - `documents/natural-language-ai-concept.md`
-- `documents/natural-language-ai-plan.md`
 - `documents/ai-guidelines.md`
-- `documents/pm2-deployment.md`
+- `documents/mac-mini-deployment.md`
 
-## Current Server Defaults
+## Historical icenux Server Defaults
 
-The current icenux `.env` shape is:
+The former icenux `.env` shape was:
 
 ```text
 AI_PROVIDER=codex
@@ -45,7 +46,7 @@ CODEX_ADMIN_APPROVAL_POLICY=
 
 `~/.codex/auth.json` is treated as a secret and must not be printed in logs, commits, issues, PRs, or Discord messages.
 
-## Current Verification
+## Historical Verification
 
 Local verification:
 
@@ -55,7 +56,7 @@ npm run type-check
 npm run build
 ```
 
-Server verification:
+The former icenux server verification used:
 
 ```bash
 ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"; codex --version'
@@ -63,7 +64,7 @@ ssh icenux-external 'test -f "${CODEX_HOME:-$HOME/.codex}/auth.json" && echo "co
 ssh icenux-external 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"; pm2 status discord-bot --no-color'
 ```
 
-Deployment verification is handled by the `Deploy to icenux` GitHub Actions workflow on pushes to `main`.
+Current Mac mini deployment and verification steps are in `documents/mac-mini-deployment.md`.
 
 ## Legacy Notes
 

@@ -7,8 +7,8 @@ test("registers an admin command and uses the common quiet-hours service", async
   expect(mockRegister).toHaveBeenCalledWith("X확인", handleXMonitor, expect.any(String));
   const client = {};
   const reply = jest.fn();
-  mockRun.mockResolvedValue({ status: "success", detail: "야간 보류 2건 · 07:00 발송 예정" });
+  mockRun.mockResolvedValue({ status: "success", detail: "야간 보류 2건 · 06:00 발송 예정" });
   await handleXMonitor({ client, reply });
   expect(mockRun).toHaveBeenCalledWith(client);
-  expect(reply).toHaveBeenCalledWith({ content: "야간 보류 2건 · 07:00 발송 예정", allowedMentions: { parse: [] } });
+  expect(reply).toHaveBeenCalledWith({ content: "야간 보류 2건 · 06:00 발송 예정", allowedMentions: { parse: [] } });
 });

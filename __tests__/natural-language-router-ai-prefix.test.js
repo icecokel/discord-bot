@@ -82,6 +82,52 @@ describe("natural language router admin Codex answer", () => {
     process.env.CODEX_ADMIN_SANDBOX = originalCodexAdminSandbox;
   });
 
+  test("uses Claude labels and passes recent context without promising execution tools", async () => {
+    aiService.getProviderStatus.mockReturnValue({ providerName: "claude" });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "claude", text: "Claude 답변", usedFallback: false,
+    });
+    const message = createMessage({ content: "서버 상태 확인해줘" });
+    await handleNaturalLanguageMessage(message);
+    await handleNaturalLanguageMessage(createMessage({ content: "이전 질문 기억해?" }));
+    expect(message.edit).toHaveBeenCalledWith("[Claude] Claude 답변");
+    const [prompt, options] = aiService.generateTextWithProvider.mock.calls[1];
+    expect(prompt).toContain("Claude: Claude 답변");
+    expect(options.systemInstruction).toContain("접근 도구는 제공되지 않는다");
+    expect(options.systemInstruction).toContain("실행했다고 말하지 않는다");
+    expect(options).not.toHaveProperty("codexThreadKey");
+  });
+
+  test("passes supported images to Claude and explicitly excludes unsupported attachments", async () => {
+    aiService.getProviderStatus.mockReturnValue({ providerName: "claude" });
+    aiService.generateTextWithProvider.mockResolvedValue({
+      providerName: "claude", text: "이미지 답변", usedFallback: false,
+    });
+    const fetchSpy = jest.spyOn(global, "fetch");
+    const attachments = [
+      createAttachment({ id: "svg", name: "image.svg", contentType: "image/svg+xml" }),
+      createAttachment({ id: "big", size: 9 * 1024 * 1024, url: "https://cdn.discordapp.com/big.png" }),
+      ...Array.from({ length: 5 }, (_, i) => createAttachment({ id: `${i}`, url: `https://cdn.discordapp.com/${i}.png` })),
+    ];
+    try {
+      await handleNaturalLanguageMessage(createMessage({ content: "첨부 봐줘", attachments }));
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally { fetchSpy.mockRestore(); }
+    const [prompt, options] = aiService.generateTextWithProvider.mock.calls[0];
+    expect(options.imageUrls).toEqual(Array.from({ length: 4 }, (_, i) => `https://cdn.discordapp.com/${i}.png`));
+    expect(prompt).toContain("claude_image_status: included");
+    expect(prompt).toContain("do not claim to see this attachment");
+    expect(prompt).not.toContain("local_file:");
+  });
+
+  test("limits Claude image size with room for API encoding overhead", () => {
+    const { getDiscordImageUrls } = require("../src/core/discord-message-context");
+    expect(getDiscordImageUrls(createMessage({ attachments: [
+      createAttachment({ id: "limit", size: 7_000_000, url: "https://cdn.discordapp.com/limit.png" }),
+      createAttachment({ id: "over", size: 7_000_001, url: "https://cdn.discordapp.com/over.png" }),
+    ] }))).toEqual(["https://cdn.discordapp.com/limit.png"]);
+  });
+
   test("prefixes admin Codex AI answers", async () => {
     aiService.generateTextWithProvider.mockResolvedValue({
       providerName: "codex",

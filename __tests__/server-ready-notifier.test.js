@@ -25,7 +25,7 @@ describe("server ready notifier", () => {
 
     expect(client.users.fetch).toHaveBeenCalledWith("admin-id");
     expect(client.send).toHaveBeenCalledWith(
-      "Codex 출근했습니다. 질문 받을 준비도 끝났습니다.",
+      "Claude 출근했습니다. 질문 받을 준비도 끝났습니다.",
     );
   });
 

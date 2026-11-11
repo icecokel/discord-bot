@@ -28,13 +28,13 @@ describe("schedule run store", () => {
         MORNING_BRIEFING_SCHEDULE,
         new Date("2026-07-17T20:30:00.000Z"),
       ),
-    ).toBe("2026-07-17T21:30:00.000Z");
+    ).toBe("2026-07-17T21:00:00.000Z");
     expect(
       getNextScheduleRunAt(
         MORNING_BRIEFING_SCHEDULE,
-        new Date("2026-07-17T21:30:00.000Z"),
+        new Date("2026-07-17T21:00:00.000Z"),
       ),
-    ).toBe("2026-07-18T21:30:00.000Z");
+    ).toBe("2026-07-18T21:00:00.000Z");
   });
 
   test("calculates the next three-times-daily job crawl in Asia/Seoul", () => {
@@ -63,8 +63,8 @@ describe("schedule run store", () => {
       recordScheduleRunStart,
       registerScheduleDefinitions,
     } = require("../src/utils/schedule-run-store");
-    const start = new Date("2026-07-17T21:30:00.000Z");
-    const completed = new Date("2026-07-17T21:33:00.000Z");
+    const start = new Date("2026-07-17T21:00:00.000Z");
+    const completed = new Date("2026-07-17T21:03:00.000Z");
 
     registerScheduleDefinitions([MORNING_BRIEFING_SCHEDULE], start);
     recordScheduleRunStart(MORNING_BRIEFING_SCHEDULE, start);
@@ -82,7 +82,7 @@ describe("schedule run store", () => {
         lastAttemptAt: start.toISOString(),
         lastCompletedAt: completed.toISOString(),
         lastSuccessAt: completed.toISOString(),
-        nextRunAt: "2026-07-18T21:30:00.000Z",
+        nextRunAt: "2026-07-18T21:00:00.000Z",
         detail: "긱뉴스 조회 실패",
       }),
     ]);
@@ -128,8 +128,8 @@ describe("schedule run store", () => {
       recordScheduleRunStart,
       registerScheduleDefinitions,
     } = require("../src/utils/schedule-run-store");
-    const started = new Date("2026-07-17T21:30:00.000Z");
-    const restarted = new Date("2026-07-17T21:35:00.000Z");
+    const started = new Date("2026-07-17T21:00:00.000Z");
+    const restarted = new Date("2026-07-17T21:05:00.000Z");
 
     recordScheduleRunStart(MORNING_BRIEFING_SCHEDULE, started);
     registerScheduleDefinitions([MORNING_BRIEFING_SCHEDULE], restarted);
@@ -153,13 +153,15 @@ describe("schedule run store", () => {
   });
 });
 
-describe("30-minute X schedule", () => {
+describe("20-minute X schedule", () => {
   test.each([
-    ["2026-09-14T14:29:59Z", "2026-09-14T14:30:00.000Z"],
-    ["2026-09-14T14:30:00Z", "2026-09-14T15:00:00.000Z"],
+    ["2026-09-14T14:19:59Z", "2026-09-14T14:20:00.000Z"],
+    ["2026-09-14T14:20:00Z", "2026-09-14T14:40:00.000Z"],
+    ["2026-09-14T14:30:00Z", "2026-09-14T14:40:00.000Z"],
+    ["2026-09-14T14:40:00Z", "2026-09-14T15:00:00.000Z"],
     ["2026-09-14T14:59:59Z", "2026-09-14T15:00:00.000Z"],
-    ["2026-09-14T21:30:00Z", "2026-09-14T22:00:00.000Z"],
-    ["2026-09-14T22:00:00Z", "2026-09-14T22:30:00.000Z"],
+    ["2026-09-14T21:00:00Z", "2026-09-14T21:20:00.000Z"],
+    ["2026-09-14T21:20:00Z", "2026-09-14T21:40:00.000Z"],
   ])("next run from %s", (from, expected) => {
     const { X_PROFILE_SCHEDULE } = require("../src/core/scheduler/schedule-definitions");
     const { getNextScheduleRunAt } = require("../src/utils/schedule-run-store");

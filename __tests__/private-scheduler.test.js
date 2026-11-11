@@ -135,10 +135,13 @@ describe("private scheduler owner-only filtering", () => {
 
 describe("private scheduler morning briefing", () => {
   const originalAdminId = process.env.ADMIN_ID;
+  const originalXEnabled = process.env.X_MONITOR_ENABLED;
   const originalWeatherAdminRegion = process.env.WEATHER_ADMIN_REGION;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRunXMonitor.mockReset();
+    delete process.env.X_MONITOR_ENABLED;
     process.env.ADMIN_ID = "admin-id";
     delete process.env.WEATHER_ADMIN_REGION;
     mockGetUserRegion.mockReturnValue(null);
@@ -171,6 +174,8 @@ describe("private scheduler morning briefing", () => {
   });
 
   afterAll(() => {
+    if (originalXEnabled === undefined) delete process.env.X_MONITOR_ENABLED;
+    else process.env.X_MONITOR_ENABLED = originalXEnabled;
     if (originalAdminId === undefined) {
       delete process.env.ADMIN_ID;
     } else {
@@ -183,33 +188,13 @@ describe("private scheduler morning briefing", () => {
     }
   });
 
-  test("registers daily notifications and the six-hour job monitor", () => {
+  test("registers one dispatcher for all scheduled notifications", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
-
     scheduler.start();
-
-    expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith(
-      SCHEDULE_DEFINITIONS,
-    );
+    expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith(SCHEDULE_DEFINITIONS);
+    expect(mockCronSchedule).toHaveBeenCalledTimes(1);
     expect(mockCronSchedule).toHaveBeenCalledWith(
-      "30 6 * * *",
-      expect.any(Function),
-      { timezone: "Asia/Seoul" },
-    );
-    expect(mockCronSchedule).toHaveBeenCalledWith(
-      "50 7 * * *",
-      expect.any(Function),
-      { timezone: "Asia/Seoul" },
-    );
-    expect(mockCronSchedule).toHaveBeenCalledWith(
-      "30 22 * * *",
-      expect.any(Function),
-      { timezone: "Asia/Seoul" },
-    );
-    expect(mockCronSchedule).toHaveBeenCalledWith(
-      "0 7,13,19 * * *",
-      expect.any(Function),
-      { timezone: "Asia/Seoul" },
+      "* * * * *", expect.any(Function), { timezone: "Asia/Seoul" },
     );
   });
 
@@ -219,7 +204,7 @@ describe("private scheduler morning briefing", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
 
     expect(() => scheduler.start()).not.toThrow();
-    expect(mockCronSchedule).toHaveBeenCalledTimes(4);
+    expect(mockCronSchedule).toHaveBeenCalledTimes(1);
     expect(consoleError).toHaveBeenCalledWith(
       "[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.",
     );
@@ -234,7 +219,7 @@ describe("private scheduler morning briefing", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
 
     expect(() => scheduler.start()).not.toThrow();
-    expect(mockCronSchedule).toHaveBeenCalledTimes(4);
+    expect(mockCronSchedule).toHaveBeenCalledTimes(1);
     expect(consoleError).toHaveBeenCalledWith(
       "[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.",
     );
@@ -254,6 +239,7 @@ describe("private scheduler morning briefing", () => {
     expect(result.status).toBe("success");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
+      allowedMentions: { parse: [] },
       content: expect.stringContaining("서울 오늘 (7월 8일)"),
     });
     expect(send.mock.calls[0][0].content).not.toContain("서버 |");
@@ -308,7 +294,7 @@ describe("private scheduler morning briefing", () => {
     const result = await scheduler.sendGeekNewsDM();
 
     expect(result).toMatchObject({ status: "success" });
-    expect(send).toHaveBeenCalledWith({ embeds: [{ title: "embed" }] });
+    expect(send).toHaveBeenCalledWith({ embeds: [{ title: "embed" }], allowedMentions: { parse: [] } });
     expect(mockMarkItemAsSent).toHaveBeenCalledWith(
       expect.objectContaining({ title: "새 긱뉴스" }),
     );
@@ -356,10 +342,10 @@ describe("private scheduler morning briefing", () => {
     });
     scheduler.start();
     const geekNewsCallback = mockCronSchedule.mock.calls.find(
-      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+      ([expression]) => expression === "* * * * *",
     )[1];
 
-    await geekNewsCallback();
+    await geekNewsCallback({ date: new Date("2026-07-17T22:50:00Z") });
 
     expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(
       GEEK_NEWS_SCHEDULE,
@@ -381,10 +367,10 @@ describe("private scheduler morning briefing", () => {
     scheduler.start();
     mockRecordScheduleRunStart.mockReturnValue(false);
     const geekNewsCallback = mockCronSchedule.mock.calls.find(
-      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+      ([expression]) => expression === "* * * * *",
     )[1];
 
-    await geekNewsCallback();
+    await geekNewsCallback({ date: new Date("2026-07-17T22:50:00Z") });
 
     expect(mockFetchFeaturedItemResult).toHaveBeenCalled();
     expect(mockRecordScheduleRunCompletion).toHaveBeenCalled();
@@ -400,10 +386,10 @@ describe("private scheduler morning briefing", () => {
     scheduler.start();
     mockRecordScheduleRunCompletion.mockReturnValue(false);
     const geekNewsCallback = mockCronSchedule.mock.calls.find(
-      ([expression]) => expression === GEEK_NEWS_SCHEDULE.cron,
+      ([expression]) => expression === "* * * * *",
     )[1];
 
-    await geekNewsCallback();
+    await geekNewsCallback({ date: new Date("2026-07-17T22:50:00Z") });
 
     expect(mockRecordScheduleRunFailure).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
@@ -419,10 +405,10 @@ describe("private scheduler morning briefing", () => {
     });
     scheduler.start();
     const morningCallback = mockCronSchedule.mock.calls.find(
-      ([expression]) => expression === MORNING_BRIEFING_SCHEDULE.cron,
+      ([expression]) => expression === "* * * * *",
     )[1];
 
-    await morningCallback();
+    await morningCallback({ date: new Date("2026-07-17T21:00:00Z") });
 
     expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(
       MORNING_BRIEFING_SCHEDULE,
@@ -445,7 +431,7 @@ describe("private scheduler morning briefing", () => {
 
     expect(result.status).toBe("success");
     expect(send).toHaveBeenCalledWith(
-      "🌙 서울 내일 (7월 9일) | 구름많음 🌥️ · 강수 30% | 21~29°",
+      { content: "🌙 서울 내일 (7월 9일) | 구름많음 🌥️ · 강수 30% | 21~29°", allowedMentions: { parse: [] } },
     );
   });
 
@@ -460,7 +446,7 @@ describe("private scheduler morning briefing", () => {
 
     expect(result.status).toBe("success");
     expect(mockGetShortTermForecast).toHaveBeenCalledWith(60, 123);
-    expect(send).toHaveBeenCalledWith(expect.stringContaining("안양 내일"));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("안양 내일") }));
   });
 
   test("does not use an unrelated substring match for an unknown region", async () => {
@@ -529,6 +515,7 @@ describe("private scheduler morning briefing", () => {
 
     expect(result).toMatchObject({ status: "success" });
     expect(send).toHaveBeenCalledWith({
+      allowedMentions: { parse: [] },
       content: expect.stringContaining(`<${posting.url}>`),
     });
     expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
@@ -612,10 +599,10 @@ describe("private scheduler morning briefing", () => {
     });
     scheduler.start();
     const jobCallback = mockCronSchedule.mock.calls.find(
-      ([expression]) => expression === JOB_POSTINGS_SCHEDULE.cron,
+      ([expression]) => expression === "* * * * *",
     )[1];
 
-    await jobCallback();
+    await jobCallback({ date: new Date("2026-07-17T22:00:00Z") });
 
     expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(
       JOB_POSTINGS_SCHEDULE,
@@ -627,6 +614,79 @@ describe("private scheduler morning briefing", () => {
     );
   });
 
+  test("combines the 06:00 weather and X notifications in one DM", async () => {
+    process.env.X_MONITOR_ENABLED = "true";
+    const deliveredX = jest.fn();
+    mockRunXMonitor.mockImplementation(async (_client, _now, deliver) => {
+      await deliver("admin-id", [{ content: "🌅 티보 야간 업데이트", onSent: deliveredX }]);
+    });
+    const send = jest.fn().mockResolvedValue({ id: "456", channelId: "789" });
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    scheduler.start();
+    await mockCronSchedule.mock.calls[0][1]({ date: new Date("2026-07-17T21:00:00Z") });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toContain("서울 오늘");
+    expect(send.mock.calls[0][0].content).toContain("티보 야간 업데이트");
+    expect(deliveredX).toHaveBeenCalledTimes(1);
+    expect(mockCheckForNewJobPostings).not.toHaveBeenCalled();
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalledWith(MORNING_BRIEFING_SCHEDULE, "success", expect.any(String));
+  });
+
+  test.each([7, 13, 19])("combines job postings and X at %s:00 KST", async hour => {
+    process.env.X_MONITOR_ENABLED = "true";
+    mockRunXMonitor.mockImplementation((_client, _now, deliver) => deliver("admin-id", [{ content: "티보 새 글" }]));
+    const posting = { id: "P-1" };
+    mockCheckForNewJobPostings.mockResolvedValue({ newPostings: [posting], initializedCompanies: [], successfulCompanyCount: 1, totalPostingCount: 1, failures: [] });
+    mockBuildJobPostingNotificationChunks.mockReturnValue([{ content: "채용공고", postings: [posting] }]);
+    const send = jest.fn();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date(Date.UTC(2026, 6, 18, hour - 9)));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toBe("채용공고\n\n티보 새 글");
+    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
+    expect(mockGetShortTermForecast).not.toHaveBeenCalled();
+  });
+
+  test("X failure still delivers the morning weather", async () => {
+    process.env.X_MONITOR_ENABLED = "true";
+    mockRunXMonitor.mockResolvedValue({ status: "failure", detail: "X unavailable" });
+    const send = jest.fn();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date("2026-07-17T21:00:00Z"));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toContain("서울 오늘");
+  });
+
+  test("a busy source is skipped without blocking a different due schedule", async () => {
+    process.env.X_MONITOR_ENABLED = "true";
+    let release;
+    mockRunXMonitor.mockReturnValue(new Promise(resolve => { release = resolve; }));
+    const send = jest.fn();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    const first = scheduler.runDueSchedules(new Date("2026-07-17T22:40:00Z"));
+    await scheduler.runDueSchedules(new Date("2026-07-17T22:40:00Z"));
+    await scheduler.runDueSchedules(new Date("2026-07-17T22:50:00Z"));
+    expect(mockRunXMonitor).toHaveBeenCalledTimes(1);
+    expect(mockFetchFeaturedItemResult).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    release();
+    await first;
+  });
+
+  test.each([[20, 1], [40, 1], [30, 0]])("X dispatch at minute %s matches the 20-minute interval", async (minute, expected) => {
+    process.env.X_MONITOR_ENABLED = "true";
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+    await scheduler.runDueSchedules(new Date(Date.UTC(2026, 6, 18, 1, minute)));
+    expect(mockRunXMonitor).toHaveBeenCalledTimes(expected);
+  });
+
+  test("minutes with no due work do not start any notification", async () => {
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+    await scheduler.runDueSchedules(new Date("2026-07-17T21:01:00Z"));
+    expect(mockRecordScheduleRunStart).not.toHaveBeenCalled();
+    expect(mockRunXMonitor).not.toHaveBeenCalled();
+  });
+
   test("uses the expected schedule definitions", () => {
     expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
@@ -634,19 +694,19 @@ describe("private scheduler morning briefing", () => {
   });
 });
 
- test("registers the enabled X schedule every 30 minutes using the common service", async () => {
+ test("registers the enabled X schedule every 20 minutes using the common service", async () => {
   const previous = process.env.X_MONITOR_ENABLED;
   process.env.X_MONITOR_ENABLED = "true";
   try {
     mockCronSchedule.mockClear();
     const client = { users: { fetch: jest.fn() } };
     new PrivateScheduler(client).start();
-    const call = mockCronSchedule.mock.calls.find(([cron]) => cron === "*/30 * * * *");
-    expect(call[2]).toEqual({ timezone: "Asia/Seoul", noOverlap: true });
-    await call[1]();
-    expect(mockRunXMonitor).toHaveBeenCalledWith(client);
+    const call = mockCronSchedule.mock.calls.find(([cron]) => cron === "* * * * *");
+    expect(call[2]).toEqual({ timezone: "Asia/Seoul" });
+    await call[1]({ date: new Date("2026-09-14T01:20:00Z") });
+    expect(mockRunXMonitor).toHaveBeenCalledWith(client, undefined, expect.any(Function));
     expect(mockRegisterScheduleDefinitions).toHaveBeenLastCalledWith(expect.arrayContaining([
-      expect.objectContaining({ id: "x-profile", minutes: [0, 30] }),
+      expect.objectContaining({ id: "x-profile", minutes: [0, 20, 40] }),
     ]));
   } finally {
     if (previous === undefined) delete process.env.X_MONITOR_ENABLED;

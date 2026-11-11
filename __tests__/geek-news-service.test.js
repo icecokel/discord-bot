@@ -241,7 +241,7 @@ describe("GeekNews translation helpers", () => {
     });
   });
 
-  test("parses first JSON translation object when Codex adds trailing prose", () => {
+  test("parses first JSON translation object when Claude adds trailing prose", () => {
     const item = parseGeekNewsTranslationResponse(`
       결과입니다.
       {"title":"번역된 제목","body":"한국어 본문입니다.","reason":"읽어볼 만한 이유입니다."}
@@ -539,7 +539,7 @@ describe("GeekNews channel delivery", () => {
     fetchFeaturedItemResultSpy.mockRestore();
   });
 
-  test("translates featured item with Codex", async () => {
+  test("translates featured item with Claude", async () => {
     const fetchListItemsSpy = jest
       .spyOn(geekNewsService, "fetchListItems")
       .mockResolvedValue({
@@ -563,7 +563,7 @@ describe("GeekNews channel delivery", () => {
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
       .mockResolvedValue({
-        providerName: "codex",
+        providerName: "claude",
         text: JSON.stringify({
           title: "번역된 제목",
           body: "한국어 번역 본문입니다.",
@@ -582,7 +582,7 @@ describe("GeekNews channel delivery", () => {
         selectionReason: "오늘 살펴볼 만한 기술 변화입니다.",
       });
       expect(aiSpy).toHaveBeenCalledWith(
-        "codex",
+        "claude",
         expect.any(String),
         expect.objectContaining({
           responseMimeType: "application/json",
@@ -595,7 +595,7 @@ describe("GeekNews channel delivery", () => {
     }
   });
 
-  test("returns visible failure reason when Codex translation fails", async () => {
+  test("returns visible failure reason when Claude translation fails", async () => {
     const fetchListItemsSpy = jest
       .spyOn(geekNewsService, "fetchListItems")
       .mockResolvedValue({
@@ -621,7 +621,7 @@ describe("GeekNews channel delivery", () => {
       .mockImplementation(() => {});
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
-      .mockRejectedValue(new Error("Codex unavailable"));
+      .mockRejectedValue(new Error("Claude unavailable"));
 
     try {
       const result = await geekNewsService.fetchFeaturedItemResult();
@@ -630,14 +630,14 @@ describe("GeekNews channel delivery", () => {
         status: "fetch-failed",
         item: null,
         reason:
-          "긱뉴스 Codex 번역에 실패했습니다: Codex unavailable",
+          "긱뉴스 Claude 번역에 실패했습니다: Claude unavailable",
       });
 
       const embed = geekNewsService.createEmbed(null, {
         fallbackDescription: result.reason,
       });
       expect(embed.toJSON().description).toBe(
-        "긱뉴스 Codex 번역에 실패했습니다: Codex unavailable",
+        "긱뉴스 Claude 번역에 실패했습니다: Claude unavailable",
       );
     } finally {
       fetchListItemsSpy.mockRestore();
@@ -648,7 +648,7 @@ describe("GeekNews channel delivery", () => {
     }
   });
 
-  test("retries translation with a compact prompt when Codex response is not JSON", async () => {
+  test("retries translation with a compact prompt when Claude response is not JSON", async () => {
     const fetchListItemsSpy = jest
       .spyOn(geekNewsService, "fetchListItems")
       .mockResolvedValue({
@@ -677,12 +677,12 @@ describe("GeekNews channel delivery", () => {
     const aiSpy = jest
       .spyOn(aiService, "generateTextWithProviderOnly")
       .mockResolvedValueOnce({
-        providerName: "codex",
+        providerName: "claude",
         text: "번역 결과를 만들었지만 JSON 객체는 아닙니다.",
         usedFallback: false,
       })
       .mockResolvedValueOnce({
-        providerName: "codex",
+        providerName: "claude",
         text: JSON.stringify({
           title: "재시도 번역 제목",
           body: "재시도 후 생성된 한국어 본문입니다.",

@@ -26,16 +26,10 @@ import {
   recordScheduleRunStart,
   registerScheduleDefinitions,
 } from "../../utils/schedule-run-store";
-import {
-  GEEK_NEWS_SCHEDULE,
-  JOB_POSTINGS_SCHEDULE,
-  MORNING_BRIEFING_SCHEDULE,
-  getEnabledScheduleDefinitions,
-  X_PROFILE_SCHEDULE,
-  isXMonitorEnabled,
-  TOMORROW_WEATHER_SCHEDULE,
-} from "./schedule-definitions";
+import { getEnabledScheduleDefinitions } from "./schedule-definitions";
 import type { ScheduleDefinition } from "./schedule-definitions";
+import { runNotificationBatch, sendNotifications } from "../../utils/notification-batch";
+import type { NotificationSender } from "../../utils/notification-batch";
 
 type WeatherNotificationTarget = "today" | "tomorrow";
 type ScheduleTaskResult = {
@@ -88,9 +82,12 @@ const resolveWeatherCoordinates = (
 
 export class PrivateScheduler {
   private client: Client;
+  private readonly notify: NotificationSender;
+  private readonly runningJobs = new Set<ScheduleDefinition["id"]>();
 
   constructor(client: Client) {
     this.client = client;
+    this.notify = (ownerId, messages) => sendNotifications(client, ownerId, messages);
   }
 
   public start(): void {
@@ -101,73 +98,39 @@ export class PrivateScheduler {
     } catch (error) {
       console.error("[PrivateScheduler] 스케줄 실행 원장 초기화에 실패했습니다.");
     }
-    this.scheduleMorningBriefing();
-    this.scheduleGeekNews();
-    this.scheduleTomorrowWeather();
-    this.scheduleJobPostings();
-    if (isXMonitorEnabled()) {
-      cron.schedule(X_PROFILE_SCHEDULE.cron, () => runXMonitor(this.client), {
-        timezone: X_PROFILE_SCHEDULE.timezone,
-        noOverlap: true,
-      });
-    }
-    console.log(
-      "[PrivateScheduler] 어드민 DM 전용 스케줄러가 시작되었습니다. 서버 채널 알림은 등록하지 않습니다.",
-    );
+    cron.schedule("* * * * *", ({ date }) => this.runDueSchedules(date), {
+      timezone: "Asia/Seoul",
+    });
+    console.log("[PrivateScheduler] 같은 시각의 관리자 DM을 모아 보내는 스케줄러가 시작되었습니다.");
   }
 
-  private scheduleGeekNews(): void {
-    cron.schedule(
-      GEEK_NEWS_SCHEDULE.cron,
-      async () => {
-        await this.runTrackedJob(GEEK_NEWS_SCHEDULE, () =>
-          this.sendGeekNewsDM(),
-        );
-      },
-      { timezone: GEEK_NEWS_SCHEDULE.timezone },
+  public async runDueSchedules(date: Date): Promise<void> {
+    const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    const due = getEnabledScheduleDefinitions().filter(definition =>
+      (definition.hours || [definition.hour]).includes(kst.getUTCHours()) &&
+      (definition.minutes || [definition.minute]).includes(kst.getUTCMinutes()) &&
+      !this.runningJobs.has(definition.id),
     );
-    console.log("[PrivateScheduler] 긱뉴스 알림 등록 완료 (매일 07:50 KST)");
-  }
-
-  private scheduleMorningBriefing(): void {
-    cron.schedule(
-      MORNING_BRIEFING_SCHEDULE.cron,
-      async () => {
-        await this.runTrackedJob(MORNING_BRIEFING_SCHEDULE, () =>
-          this.sendMorningBriefing(),
-        );
-      },
-      { timezone: MORNING_BRIEFING_SCHEDULE.timezone },
-    );
-    console.log("[PrivateScheduler] 아침 브리핑 등록 완료 (매일 06:30 KST)");
-  }
-
-  private scheduleTomorrowWeather(): void {
-    cron.schedule(
-      TOMORROW_WEATHER_SCHEDULE.cron,
-      async () => {
-        await this.runTrackedJob(TOMORROW_WEATHER_SCHEDULE, () =>
-          this.sendTomorrowWeatherDM(),
-        );
-      },
-      { timezone: TOMORROW_WEATHER_SCHEDULE.timezone },
-    );
-    console.log("[PrivateScheduler] 내일 날씨 알림 등록 완료 (매일 22:30 KST)");
-  }
-
-  private scheduleJobPostings(): void {
-    cron.schedule(
-      JOB_POSTINGS_SCHEDULE.cron,
-      async () => {
-        await this.runTrackedJob(JOB_POSTINGS_SCHEDULE, () =>
-          this.sendJobPostingNotifications(),
-        );
-      },
-      { timezone: JOB_POSTINGS_SCHEDULE.timezone },
-    );
-    console.log(
-      "[PrivateScheduler] 채용공고 확인 등록 완료 (매일 07:00, 13:00, 19:00 KST)",
-    );
+    due.forEach(definition => this.runningJobs.add(definition.id));
+    await runNotificationBatch(this.client, due.map(definition => async send => {
+      try {
+        if (definition.id === "x-profile") {
+          await runXMonitor(this.client, undefined, send);
+          return;
+        }
+        await this.runTrackedJob(definition, () => {
+          switch (definition.id) {
+            case "morning-briefing": return this.sendMorningBriefing(undefined, send);
+            case "geek-news": return this.sendGeekNewsDM(undefined, send);
+            case "tomorrow-weather": return this.sendTomorrowWeatherDM(undefined, send);
+            case "job-postings": return this.sendJobPostingNotifications(undefined, send);
+            default: throw new Error(`알 수 없는 스케줄: ${definition.id}`);
+          }
+        });
+      } finally {
+        this.runningJobs.delete(definition.id);
+      }
+    }));
   }
 
   private async runTrackedJob(
@@ -287,6 +250,7 @@ export class PrivateScheduler {
 
   public async sendMorningBriefing(
     ownerId: string | undefined = process.env.ADMIN_ID,
+    send: NotificationSender = this.notify,
   ): Promise<ScheduleTaskResult> {
     if (!ownerId) {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
@@ -325,8 +289,7 @@ export class PrivateScheduler {
     );
 
     try {
-      const user = await this.client.users.fetch(ownerId);
-      await user.send({ content });
+      await send(ownerId, [{ content }]);
 
       const serverWarnings = serverHealth.warnings.length;
       const details = [...partialDetails];
@@ -351,6 +314,7 @@ export class PrivateScheduler {
 
   public async sendGeekNewsDM(
     ownerId: string | undefined = process.env.ADMIN_ID,
+    send: NotificationSender = this.notify,
   ): Promise<ScheduleTaskResult> {
     if (!ownerId) {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
@@ -371,11 +335,12 @@ export class PrivateScheduler {
         });
 
     try {
-      const user = await this.client.users.fetch(ownerId);
-      await user.send({ embeds });
-      if (geekNewsResult.item) {
-        geekNewsService.markItemAsSent(geekNewsResult.item);
-      }
+      await send(ownerId, [{
+        embeds,
+        onSent: () => {
+          if (geekNewsResult.item) geekNewsService.markItemAsSent(geekNewsResult.item);
+        },
+      }]);
 
       return {
         status:
@@ -395,6 +360,7 @@ export class PrivateScheduler {
 
   public async sendJobPostingNotifications(
     ownerId: string | undefined = process.env.ADMIN_ID,
+    send: NotificationSender = this.notify,
   ): Promise<ScheduleTaskResult> {
     if (!ownerId) {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
@@ -440,12 +406,11 @@ export class PrivateScheduler {
     }
 
     try {
-      const user = await this.client.users.fetch(ownerId);
       const messages = buildJobPostingNotificationChunks(result.newPostings);
-      for (const { content, postings } of messages) {
-        await user.send({ content });
-        markJobPostingsAsNotified(postings);
-      }
+      await send(ownerId, messages.map(({ content, postings }) => ({
+        content,
+        onSent: () => markJobPostingsAsNotified(postings),
+      })));
 
       return {
         status: result.failures.length > 0 ? "partial" : "success",
@@ -463,6 +428,7 @@ export class PrivateScheduler {
 
   public async sendTomorrowWeatherDM(
     ownerId: string | undefined = process.env.ADMIN_ID,
+    send: NotificationSender = this.notify,
   ): Promise<ScheduleTaskResult> {
     if (!ownerId) {
       return { status: "failure", detail: "ADMIN_ID가 설정되지 않았습니다." };
@@ -479,8 +445,7 @@ export class PrivateScheduler {
     }
 
     try {
-      const user = await this.client.users.fetch(ownerId);
-      await user.send(weather.line);
+      await send(ownerId, [{ content: weather.line }]);
       return { status: "success", detail: "내일 날씨 DM 전송 완료" };
     } catch (error) {
       return {

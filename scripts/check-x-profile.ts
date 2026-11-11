@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { translateXPost } from "../src/features/x-monitor/x-post-translation";
-import { buildXMessages } from "../src/features/x-monitor/x-monitor-service";
+import { buildXMessages } from "../src/features/x-monitor/x-monitor-message";
 import { isXPost } from "../src/utils/x-monitor-store";
 import { fetchXProfile, readXArticles } from "../src/features/x-monitor/x-profile-source";
 

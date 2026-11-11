@@ -5,6 +5,7 @@ import { Message } from "discord.js";
 
 const MAX_IMAGE_ATTACHMENTS = 4;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_CLAUDE_IMAGE_BYTES = 7_000_000;
 const IMAGE_CONTEXT_DIR_PREFIX = "discord-bot-codex-";
 
 type AttachmentLike = {
@@ -97,10 +98,23 @@ export const hasDiscordAttachments = (
   return (message.attachments?.size || 0) > 0;
 };
 
+export const getDiscordImageUrls = (message: MessageWithAttachments): string[] => {
+  return getAttachments(message)
+    .filter((attachment) => (attachment.contentType
+      ? Object.hasOwn(IMAGE_EXTENSION_BY_CONTENT_TYPE, attachment.contentType)
+      : /\.(gif|jpe?g|png|webp)$/i.test(attachment.name || "")) &&
+      (attachment.size || 0) <= MAX_CLAUDE_IMAGE_BYTES &&
+      attachment.url?.startsWith("https://"))
+    .slice(0, MAX_IMAGE_ATTACHMENTS)
+    .map((attachment) => attachment.url!);
+};
+
 export const buildDiscordMessageContext = async (
   message: MessageWithAttachments,
+  downloadImageFallback = true,
 ): Promise<string> => {
   const attachments = getAttachments(message);
+  const imageUrls = downloadImageFallback ? [] : getDiscordImageUrls(message);
   const parts: string[] = [
     "Discord bridge context:",
     "- Discord 쓰기/삭제/관리 도구는 제공되지 않습니다.",
@@ -135,6 +149,14 @@ export const buildDiscordMessageContext = async (
       `url: ${attachment.url || "(url 없음)"}`,
       `is_image: ${isImage}`,
     );
+
+    if (!downloadImageFallback) {
+      parts.push(imageUrls.includes(attachment.url || "")
+        ? "claude_image_status: included"
+        : "claude_attachment_status: not_included (unsupported format, size, count or URL); do not claim to see this attachment");
+      if (index < attachments.length - 1) parts.push("");
+      continue;
+    }
 
     if (isImage && downloadedImages < MAX_IMAGE_ATTACHMENTS) {
       downloadedImages += 1;

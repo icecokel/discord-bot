@@ -91,6 +91,8 @@ export const resolveAllowedDiskPaths = (_args: string[] = []): string[] => {
 export const redactEnvSummary = (): string => {
   return [
     `AI_PROVIDER=${process.env.AI_PROVIDER || "unset"}`,
+    `CLAUDE_MODEL=${process.env.CLAUDE_MODEL || "claude-sonnet-5-5"}`,
+    `ANTHROPIC_API_KEY_SET=${Boolean(process.env.ANTHROPIC_API_KEY?.trim())}`,
     `CODEX_MODEL=${process.env.CODEX_MODEL || "unset"}`,
     `CODEX_SANDBOX=${process.env.CODEX_SANDBOX || "unset"}`,
     `CODEX_APPROVAL_POLICY=${process.env.CODEX_APPROVAL_POLICY || "unset"}`,

@@ -39,7 +39,7 @@ describe("hermes compatibility command", () => {
     jest.clearAllMocks();
     process.env.ADMIN_ID = "owner-id";
     mockGetProviderStatus.mockReturnValue({
-      providerName: "codex",
+      providerName: "claude",
     });
   });
 
@@ -47,19 +47,19 @@ describe("hermes compatibility command", () => {
     process.env.ADMIN_ID = originalAdminId;
   });
 
-  test("turns Codex on instead of enabling Hermes", async () => {
+  test("turns Claude on instead of enabling Hermes", async () => {
     const message = createMessage();
 
     await command.execute(message, ["켜기"]);
 
-    expect(mockSetPrimaryProvider).toHaveBeenCalledWith("codex");
+    expect(mockSetPrimaryProvider).toHaveBeenCalledWith("claude");
     expect(mockSetPrimaryProvider).not.toHaveBeenCalledWith("hermes");
     expect(message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Codex를 켰습니다"),
+      expect.stringContaining("Claude를 켰습니다"),
     );
   });
 
-  test("clears Codex context and legacy Hermes session", async () => {
+  test("clears Claude context and legacy Hermes session", async () => {
     const message = createMessage();
 
     await command.execute(message, ["초기화"]);
@@ -71,7 +71,7 @@ describe("hermes compatibility command", () => {
     expect(mockClearCodexThread).toHaveBeenCalledWith("owner-id", "channel-id");
     expect(mockResetHermesSession).toHaveBeenCalledWith("owner-id", "channel-id");
     expect(message.reply).toHaveBeenCalledWith(
-      "✅ 현재 채널의 Codex 관리자 대화 기억을 초기화했습니다.",
+      "✅ 현재 채널의 Claude 관리자 대화 기억을 초기화했습니다.",
     );
   });
 });

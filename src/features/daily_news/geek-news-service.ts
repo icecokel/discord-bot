@@ -93,7 +93,7 @@ const GEEK_NEWS_PARSE_FAILED_MESSAGE =
 const GEEK_NEWS_ALREADY_SENT_MESSAGE =
   "이번 회차는 새로 보낼 긱뉴스 기사가 없습니다. 현재 상단 후보는 모두 이미 발송한 기사입니다.";
 const GEEK_NEWS_AI_FAILED_MESSAGE =
-  "긱뉴스 Codex 번역에 실패했습니다. Codex 상태를 확인한 뒤 다시 시도해주세요.";
+  "긱뉴스 Claude 번역에 실패했습니다. Claude 상태를 확인한 뒤 다시 시도해주세요.";
 
 const blockedIpv4 = new net.BlockList();
 for (const [network, prefix] of [
@@ -412,7 +412,7 @@ const formatGeekNewsAiFailureReason = (
   };
 
   if (candidate?.killed && candidate?.signal === "SIGTERM") {
-    return `긱뉴스 Codex ${stage}에 실패했습니다. Codex 실행 시간이 초과되었습니다.`;
+    return `긱뉴스 Claude ${stage}에 실패했습니다. Claude 실행 시간이 초과되었습니다.`;
   }
 
   const rawMessage =
@@ -427,10 +427,10 @@ const formatGeekNewsAiFailureReason = (
     .find(Boolean);
 
   if (!firstLine) {
-    return `긱뉴스 Codex ${stage}에 실패했습니다. Codex가 오류를 반환했습니다.`;
+    return `긱뉴스 Claude ${stage}에 실패했습니다. Claude가 오류를 반환했습니다.`;
   }
 
-  return `긱뉴스 Codex ${stage}에 실패했습니다: ${truncateText(firstLine, 500)}`;
+  return `긱뉴스 Claude ${stage}에 실패했습니다: ${truncateText(firstLine, 500)}`;
 };
 
 const normalizeLink = (href: string): string => {
@@ -997,8 +997,8 @@ class GeekNewsService {
       "입력으로 받은 제목과 설명만 사용해 각 항목의 핵심을 한국어로 짧게 요약하세요.",
       "summary는 반드시 자연스러운 한국어 문장으로 작성하세요.",
       "영어 문장을 그대로 복사하거나 영문만으로 답하지 마세요.",
-      "반드시 JSON 배열만 응답하세요.",
-      '형식: [{"rank":1,"summary":"..."}]',
+      "반드시 JSON 객체만 응답하세요.",
+      '형식: {"summaries":[{"rank":1,"summary":"..."}]}',
       "규칙:",
       "- summary는 1~2문장, 최대 160자",
       "- 링크, 순위, 제목을 그대로 반복하지 말 것",
@@ -1048,12 +1048,23 @@ class GeekNewsService {
 
     try {
       const result = await aiService.generateTextWithProviderOnly(
-        "codex",
+        "claude",
         this.buildSummaryPrompt(items),
         {
           systemInstruction:
             "당신은 한국어 기술 뉴스 요약기입니다. 모든 summary는 반드시 자연스러운 한국어로만 작성하고 JSON 외 텍스트는 출력하지 마세요.",
           responseMimeType: "application/json",
+          responseJsonSchema: {
+            type: "object",
+            properties: { summaries: { type: "array", items: {
+              type: "object",
+              properties: { rank: { type: "integer" }, summary: { type: "string" } },
+              required: ["rank", "summary"],
+              additionalProperties: false,
+            } } },
+            required: ["summaries"],
+            additionalProperties: false,
+          },
           config: {
             temperature: 0.2,
             maxOutputTokens: 1200,
@@ -1070,7 +1081,7 @@ class GeekNewsService {
       );
 
       if (summaryMap.size === 0) {
-        throw new Error("Codex 요약 응답을 JSON으로 파싱하지 못했습니다.");
+        throw new Error("Claude 요약 응답을 JSON으로 파싱하지 못했습니다.");
       }
 
       return items.map((item) => ({
@@ -1082,7 +1093,7 @@ class GeekNewsService {
         ),
       }));
     } catch (error) {
-      console.error("[GeekNewsService] Codex 요약 실패:", error);
+      console.error("[GeekNewsService] Claude 요약 실패:", error);
       throw new Error(formatGeekNewsAiFailureReason("요약", error));
     }
   }
@@ -1169,12 +1180,12 @@ class GeekNewsService {
         maxOutputTokens: 2200,
       },
     ];
-    let lastError: unknown = new Error("Codex 번역을 실행하지 못했습니다.");
+    let lastError: unknown = new Error("Claude 번역을 실행하지 못했습니다.");
 
     for (const [index, attempt] of attempts.entries()) {
       try {
         const result = await aiService.generateTextWithProviderOnly(
-          "codex",
+          "claude",
           this.buildTranslationPrompt(
             item,
             sourceContent,
@@ -1184,6 +1195,16 @@ class GeekNewsService {
             systemInstruction:
               "당신은 한국어 기술 기사 번역기입니다. title, body, reason은 반드시 자연스러운 한국어로 작성하고 JSON 외 텍스트는 출력하지 마세요.",
             responseMimeType: "application/json",
+            responseJsonSchema: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                body: { type: "string" },
+                reason: { type: "string" },
+              },
+              required: ["title", "body", "reason"],
+              additionalProperties: false,
+            },
             config: {
               temperature: 0.2,
               maxOutputTokens: attempt.maxOutputTokens,
@@ -1194,7 +1215,7 @@ class GeekNewsService {
 
         const translation = parseGeekNewsTranslationResponse(rawResponse);
         if (!translation) {
-          throw new Error("Codex 번역 응답을 JSON으로 파싱하지 못했습니다.");
+          throw new Error("Claude 번역 응답을 JSON으로 파싱하지 못했습니다.");
         }
 
         const translatedTitle = cleanText(translation.title);
@@ -1202,15 +1223,15 @@ class GeekNewsService {
         const selectionReason = cleanReasonText(translation.reason);
 
         if (!isKoreanSummary(translatedTitle)) {
-          throw new Error("Codex 번역 제목이 한국어가 아닙니다.");
+          throw new Error("Claude 번역 제목이 한국어가 아닙니다.");
         }
 
         if (!isKoreanSummary(translatedBody)) {
-          throw new Error("Codex 번역 본문이 한국어가 아닙니다.");
+          throw new Error("Claude 번역 본문이 한국어가 아닙니다.");
         }
 
         if (!isKoreanSummary(selectionReason)) {
-          throw new Error("Codex 선정 이유가 한국어가 아닙니다.");
+          throw new Error("Claude 선정 이유가 한국어가 아닙니다.");
         }
 
         return {
@@ -1225,13 +1246,13 @@ class GeekNewsService {
         lastError = error;
         if (index < attempts.length - 1) {
           console.warn(
-            `[GeekNewsService] Codex 본문 번역 재시도 (${attempt.label} 실패): ${formatErrorMessage(error)}`,
+            `[GeekNewsService] Claude 본문 번역 재시도 (${attempt.label} 실패): ${formatErrorMessage(error)}`,
           );
         }
       }
     }
 
-    console.error("[GeekNewsService] Codex 본문 번역 실패:", lastError);
+    console.error("[GeekNewsService] Claude 본문 번역 실패:", lastError);
     throw new Error(formatGeekNewsAiFailureReason("번역", lastError));
   }
 

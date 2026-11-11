@@ -2,7 +2,7 @@ import { aiService } from "../../core/ai";
 
 export const translateXPost = async (text: string): Promise<string> => {
   try {
-    const result = await aiService.generateTextWithProviderOnly("codex", JSON.stringify({ text }), {
+    const result = await aiService.generateTextWithProviderOnly("claude", JSON.stringify({ text }), {
       systemInstruction: [
         "Translate the supplied X post into natural Korean, completely, without summarizing or omitting sentences.",
         "Preserve paragraphs, lists, names, URLs, numbers and the author's tone. Do not add facts or commentary.",
@@ -10,9 +10,12 @@ export const translateXPost = async (text: string): Promise<string> => {
         "Do not use tools, inspect files, run commands or browse links. Return only JSON: {\"translation\":\"...\"}.",
       ].join("\n"),
       responseMimeType: "application/json",
-      codexSandbox: "read-only",
-      codexApprovalPolicy: "never",
-      codexSearch: false,
+      responseJsonSchema: {
+        type: "object",
+        properties: { translation: { type: "string" } },
+        required: ["translation"],
+        additionalProperties: false,
+      },
     });
     const parsed = JSON.parse(result.text);
     const translation = parsed?.translation;
@@ -22,6 +25,6 @@ export const translateXPost = async (text: string): Promise<string> => {
     }
     return translation.trim();
   } catch {
-    throw new Error("X 감시 Codex 번역 실패: 다음 주간 배치에서 재시도합니다.");
+    throw new Error("X 감시 Claude 번역 실패: 다음 주간 배치에서 재시도합니다.");
   }
 };

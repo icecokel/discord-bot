@@ -3,6 +3,8 @@ export interface IGenerationOptions {
   config?: any;
   systemInstruction?: string;
   responseMimeType?: string;
+  responseJsonSchema?: Record<string, unknown>;
+  imageUrls?: string[];
   [key: string]: any;
 }
 

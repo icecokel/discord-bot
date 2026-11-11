@@ -1,8 +1,10 @@
-# Codex App Server Provider Design
+# Legacy Codex app-server provider 구현
+
+현재 기본 공급자는 [Claude API](claude-api-provider.md)다. 이 문서는 `AI_PROVIDER=codex`로 명시 선택할 때의 legacy 구현 참고이며, 아래의 과거 기본값·명령·뉴스 경로 설명은 현재 운영 기준이 아니다. `!코덱스`와 `!헤르메스`는 현재 Claude 제어 alias다.
 
 ## 상태
 
-이 문서는 현재 구현된 Codex app-server provider 운영 기준 문서다. 운영 구조는 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 방식이다.
+이 문서는 현재 구현된 Codex app-server provider의 구조와 오류 처리를 설명한다. 맥미니의 환경변수·배포·점검 명령은 [운영 서버 가이드](mac-mini-deployment.md)를 기준으로 한다.
 
 ## 결정 사항
 
@@ -108,63 +110,13 @@ value = codexThreadId
 
 ## Provider 설정
 
-새 provider 이름은 `codex`로 둔다.
+`AI_PROVIDER`가 비어 있거나 지원하지 않는 값이면 `codex`를 선택한다. `CodexProvider`는 `CODEX_BIN`, `CODEX_MODEL`, `CODEX_WORKDIR`, `CODEX_TIMEOUT_MS`, `CODEX_SANDBOX`, `CODEX_APPROVAL_POLICY`를 사용한다. 관리자 DM 경로는 별도로 `CODEX_ADMIN_SEARCH`, `CODEX_ADMIN_SANDBOX`, `CODEX_ADMIN_APPROVAL_POLICY`를 적용한다.
 
-운영 `.env` 예시:
-
-```env
-AI_PROVIDER=codex
-CODEX_BIN=/Users/smlee/.local/bin/codex
-CODEX_MODEL=gpt-6-luna
-CODEX_WORKDIR=/Users/smlee/discord-bot/.local/deploy
-CODEX_TIMEOUT_MS=1800000
-CODEX_SANDBOX=read-only
-CODEX_APPROVAL_POLICY=never
-CODEX_ADMIN_SEARCH=true
-CODEX_ADMIN_SANDBOX=read-only
-CODEX_ADMIN_APPROVAL_POLICY=
-```
-
-권장 기본값:
-
-- `CODEX_SANDBOX=read-only`
-- `CODEX_APPROVAL_POLICY=never`
-- `CODEX_ADMIN_SANDBOX=read-only`
-- `CODEX_ADMIN_SEARCH=true`
-- `CODEX_WORKDIR=/Users/smlee/discord-bot/.local/deploy`
-
-현재 코드의 관리자 DM 기본 sandbox는 `CODEX_ADMIN_SANDBOX`가 없을 때 `workspace-write`지만, 운영 `.env`는 `read-only`로 오버라이드한다. 관리자가 명시적으로 서버 작업이나 코드 변경을 요청하는 경우에도 위험 작업은 Discord prompt에서 확인을 먼저 받아야 한다. 쓰기 권한이 필요하면 별도 승인된 작업 단위에서만 `workspace-write` 정책을 검토한다.
-
-## 맥미니 세팅
-
-맥미니에는 Codex CLI와 로그인 상태가 필요하다.
-
-확인:
-
-```bash
-codex --version
-codex login status
-```
-
-파일 기반 인증 캐시를 쓰는 경우 `~/.codex/auth.json`은 비밀번호처럼 취급한다. 값은 로그, PR, 이슈, Discord 메시지에 출력하지 않는다.
-
-권장 `~/.codex/config.toml` 기본값:
-
-```toml
-cli_auth_credentials_store = "file"
-```
-
-필요하면 `CODEX_HOME`을 명시해 봇 전용 Codex state를 분리한다.
-
-```env
-CODEX_HOME=/Users/smlee/.codex-discord-bot
-```
-
-분리할 경우 `CODEX_HOME` 기준으로 다시 로그인해야 한다.
+`CodexProvider` 자체의 sandbox 기본값은 `read-only`지만, 관리자 DM 경로는 `CODEX_ADMIN_SANDBOX`가 없을 때 `workspace-write`를 전달한다. 현재 운영 `.env`는 이를 `read-only`로 설정한다. 실제 값과 인증 점검 방법은 [운영 서버 가이드](mac-mini-deployment.md#운영-설정)에 둔다.
 
 ## 배포 구조 영향
 
-GitHub Actions 배포는 `package.json`, `package-lock.json`, `dist/index.js`, `dist/check-x-profile.js`를 `/Users/smlee/discord-bot/.local/deploy`에 복사한다. 운영 실행 디렉터리는 전체 소스 checkout이 아니다.
+운영 실행 디렉터리는 전체 소스 checkout이 아니다. 복사되는 파일과 배포 절차는 [운영 서버 가이드](mac-mini-deployment.md#배포)에 둔다.
 
 Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 있다.
 
@@ -176,7 +128,7 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
    - Codex가 원본 코드와 테스트를 조사할 수 있다.
    - 배포 번들과 운영 소스 checkout의 동기화 정책이 필요하다.
 
-운영은 실행 디렉터리인 `.local/deploy`를 `CODEX_WORKDIR`로 사용한다. 소스 전체 조사가 필요해지면 별도 read-only checkout을 추가한다.
+현재 `CODEX_WORKDIR`는 운영 실행 디렉터리를 가리킨다. 소스 전체 조사가 필요해지면 별도 read-only checkout을 추가한다.
 
 ## 오류 처리
 
@@ -196,6 +148,8 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
 
 긱뉴스 요약/번역은 Codex 전용으로 운영한다. 실패하면 관리자 DM embed에 실패 사유를 보여준다.
 
+X 감시 번역도 Codex를 호출한다. 번역이 실패한 글은 원문만 전송하고 실패 사실을 표시한다.
+
 ## 테스트 범위
 
 단위 테스트:
@@ -209,25 +163,10 @@ Codex app-server가 프로젝트 파일을 조사해야 한다면 선택지가 �
 - `CodexProvider`가 `systemInstruction`, JSON-only instruction, `model`, `cwd`, sandbox 설정을 turn에 반영한다.
 - `AI_PROVIDER`가 비어 있거나 지원하지 않는 값이면 Codex를 선택한다.
 
-운영 smoke test:
-
-```bash
-codex --version
-codex login status
-```
-
-관리자 DM에서 prefix 없이 짧은 질문을 보내 `[Codex]` 응답이 돌아오는지 확인하면 app-server `initialize -> initialized -> thread/start -> turn/start -> turn/completed` 경로를 함께 검증할 수 있다.
-
-## 운영 점검 순서
-
-1. 맥미니에 Codex CLI와 인증이 준비되어 있는지 확인한다.
-2. 운영 `.env`가 `AI_PROVIDER=codex`와 필요한 `CODEX_*` 값을 갖는지 확인한다.
-3. `launchctl print "gui/$(id -u)/com.icecokel.discord-bot"`으로 봇 프로세스가 실행 중인지 확인한다.
-4. 관리자 DM prefix 없는 메시지가 `[Codex]` 응답으로 돌아오는지 확인한다.
-5. 긱뉴스 요약/번역 실패 시 실패 사유가 표시되는지 확인한다.
+운영 점검은 [운영 서버 가이드](mac-mini-deployment.md#상태-확인)의 명령과 관리자 DM의 `[Codex]` 응답으로 수행한다. DM 응답은 app-server의 `initialize -> initialized -> thread/start -> turn/start -> turn/completed` 경로를 함께 확인한다.
 
 ## 남은 결정 사항
 
 - Codex thread id를 메모리로만 유지할지, JSON store로 영속화할지.
-- 운영 디렉터리만 `CODEX_WORKDIR`로 둘지, read-only 소스 checkout을 따로 둘지.
+- 소스 전체 조사가 필요해질 때 read-only checkout을 추가할지.
 - Discord 명령어의 `!헤르메스` 호환 alias를 언제 제거할지.

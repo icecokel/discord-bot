@@ -1,10 +1,12 @@
 # Legacy Hermes Provider Notes
 
+현재 기본 공급자는 [Claude API](claude-api-provider.md)이며 `!코덱스`, `!헤르메스`는 Claude 제어 alias다. 아래는 Claude 전환 이전 구조를 남긴 legacy 참고다.
+
 ## 상태
 
-이 문서는 과거 Hermes 에이전트 운영 목표를 현재 구현 기준으로 정리한 legacy 참고 문서다. 현재 운영 기준은 `documents/codex-app-server-provider.md`이며, icenux 운영 기본값은 `AI_PROVIDER=codex`다.
+이 문서는 과거 Hermes 에이전트 운영 목표를 현재 구현 기준으로 정리한 legacy 참고 문서다. 현재 운영 서버는 맥미니이며, 배포 기준은 `documents/mac-mini-deployment.md`, AI provider 기준은 `documents/codex-app-server-provider.md`다. 운영 기본값은 `AI_PROVIDER=codex`다.
 
-## 현재 결론
+## Claude 전환 이전 결론
 
 - Hermes gateway는 사용하지 않는다.
 - `HermesProvider` 구현은 legacy provider로 남아 있지만 현재 기본 경로가 아니다.
@@ -20,7 +22,7 @@ Hermes 관련 코드는 즉시 제거하지 않고 다음 목적의 호환 계�
 - `AI_PROVIDER=hermes`로 수동 전환할 수 있는 legacy provider 코드를 보존한다.
 - 과거 Hermes session 매핑이 남아 있어도 Codex 초기화와 함께 정리되도록 한다.
 
-## 현재 관리자 AI 구조
+## Claude 전환 이전 관리자 AI 구조
 
 현재 관리자 DM 자연어 경로는 Codex app-server를 사용한다.
 

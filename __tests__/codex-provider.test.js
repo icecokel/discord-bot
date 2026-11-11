@@ -202,7 +202,7 @@ describe("CodexProvider", () => {
     const turnStart = server
       .messages()
       .find((message) => message.method === "turn/start");
-    expect(turnStart.params.model).toBe("gpt-6-luna");
+    expect(turnStart.params).not.toHaveProperty("model");
     expect(turnStart.params.input[0].text).toBe("payload 반환");
   });
 

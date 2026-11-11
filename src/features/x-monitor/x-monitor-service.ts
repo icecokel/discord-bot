@@ -1,7 +1,9 @@
-import { escapeMarkdown } from "discord.js";
 import type { Client } from "discord.js";
+import type { NotificationSender } from "../../utils/notification-batch";
 import { translateXPost } from "./x-post-translation";
 import { fetchXProfile } from "./x-profile-source";
+import { isXQuietTime } from "./x-monitor-message";
+import { sendXNotifications } from "./x-monitor-notifier";
 import {
   isXPost, loadXMonitorState, saveXMonitorState, X_ACCOUNT,
 } from "../../utils/x-monitor-store";
@@ -18,51 +20,6 @@ export interface XMonitorResult {
 
 // ponytail: process-wide lock; use a shared lock before enabling multiple PM2 instances.
 let running = false;
-export const getKstHour = (now: Date): number =>
-  new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
-export const isXQuietTime = (now: Date): boolean => {
-  const hour = getKstHour(now);
-  return hour >= 20 || hour < 7;
-};
-
-export const buildXMessages = (posts: XPost[], now: Date) => {
-  const title = getKstHour(now) === 7 && new Date(now.getTime() + 9 * 3600_000).getUTCMinutes() < 30
-    ? "🌅 X 야간 업데이트" : "🆕 X 미전송 업데이트 모음";
-  const header = `${title} · @${X_ACCOUNT} · ${posts.length}건`;
-  const chunks: { content: string; ids: string[]; progress: { id: string; sentParts: number }[] }[] = [];
-  for (const post of [...posts].sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : 1)) {
-    if (!post.translatedText && !post.originalOnly) throw new Error("X 감시 발송 방식이 정해지지 않았습니다.");
-    const observed = new Intl.DateTimeFormat("ko-KR", {
-      timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-    }).format(new Date(post.observedAt));
-    const text = `**원문${post.textComplete ? "" : " (수집된 일부)"}**\n${escapeMarkdown(post.text)}` +
-      (post.originalOnly ? "\n\n**번역 실패 · 원문만 전달**" :
-        `\n\n**한국어 번역**\n${escapeMarkdown(post.translatedText!)}`);
-    const parts: string[] = [];
-    for (let offset = 0; offset < text.length;) {
-      const part = text.slice(offset, offset + 1400).replace(/[\uD800-\uDBFF]$/, "");
-      parts.push(part);
-      offset += part.length;
-    }
-    if ((post.sentParts || 0) >= parts.length) throw new Error("X 감시 전송 위치가 올바르지 않습니다.");
-    for (let index = post.sentParts || 0; index < parts.length; index += 1) {
-      const block = `\n\n${parts.length > 1 ? `[본문 ${index + 1}/${parts.length}]\n` : ""}${parts[index]}\n원문 링크: <${post.url}>\n확인: ${observed} KST`;
-      let chunk = chunks[chunks.length - 1];
-      if (!chunk || chunk.content.length + block.length > 1760) {
-        chunk = { content: header, ids: [], progress: [] };
-        chunks.push(chunk);
-      }
-      chunk.content += block;
-      chunk.progress.push({ id: post.id, sentParts: index + 1 });
-      if (index === parts.length - 1) chunk.ids.push(post.id);
-    }
-  }
-  return chunks.map((chunk, index) => ({
-    ...chunk,
-    content: chunks.length > 1 ? `${chunk.content}\n(${index + 1}/${chunks.length})` : chunk.content,
-  }));
-};
 
 const safeError = (error: unknown): string => {
   // Do not send browser logs, URLs from errors, or authentication state to Discord.
@@ -83,6 +40,7 @@ const record = (action: () => boolean): void => {
 export const runXMonitor = async (
   client: Client,
   now: () => Date = () => new Date(),
+  send?: NotificationSender,
 ): Promise<XMonitorResult> => {
   if (!isXMonitorEnabled()) return { status: "skipped", detail: "X_MONITOR_ENABLED=true 설정이 필요합니다." };
   if (running) return { status: "skipped", detail: "X 확인이 이미 실행 중입니다." };
@@ -148,44 +106,13 @@ export const runXMonitor = async (
         }
         saveXMonitorState(state);
       }
-      const messages = buildXMessages(state.pending.filter((post) => post.translatedText || post.originalOnly), now());
-      const user = messages.length ? await client.users.fetch(ownerId) : null;
-      if (translationFailures && user && !isXQuietTime(now())) {
-        try {
-          await user.send({
-            content: `⚠️ 티보 게시물 AI 번역 ${translationFailures}건 실패 · 원문 알림을 계속 전송합니다.`,
-            allowedMentions: { parse: [] },
-          });
-        } catch {
-          console.error("[XMonitor] 번역 실패 안내 DM 전송 실패");
-        }
-      }
-      for (const message of messages) {
-        if (isXQuietTime(now())) break;
-        const delivered = await user!.send({ content: message.content, allowedMentions: { parse: [] } });
-        (state.deliveries ??= []).push({
-          sentAt: now().toISOString(), recipientId: ownerId,
-          channelId: delivered.channelId, messageId: delivered.id,
-          content: message.content,
-          postIds: [...new Set(message.progress.map(part => part.id))],
-          completedPostIds: [...message.ids],
-        });
-        for (const progress of message.progress) {
-          const post = state.pending.find((post) => post.id === progress.id)!;
-          post.sentParts = progress.sentParts;
-        }
-        const sentIds = new Set(message.ids);
-        state.notifiedIds.push(...message.ids);
-        state.pending = state.pending.filter((post) => !sentIds.has(post.id));
-        saveXMonitorState(state);
-        sent += message.ids.length;
-      }
+      sent = await sendXNotifications(client, ownerId, state, now, translationFailures, send);
     }
     const detail = isXQuietTime(now())
-      ? `야간 보류 ${state.pending.length}건 · 07:00 발송 예정`
+      ? `야간 보류 ${state.pending.length}건 · 06:00 발송 예정`
       : `전송 ${sent}건 · 대기 ${state.pending.length}건`;
     const issue = [collectionError || (!complete ? "coverage-gap: 수집 범위 연결 확인 필요" : ""),
-      translationFailures ? `Codex 번역 실패 ${translationFailures}건 · 원문 전송${state.pending.some(post => post.originalOnly) ? " 대기" : " 완료"}` : "",
+      translationFailures ? `Claude 번역 실패 ${translationFailures}건 · 원문 전송${state.pending.some(post => post.originalOnly) ? " 대기" : " 완료"}` : "",
     ].filter(Boolean).join(" · ");
     result = {
       status: issue ? (sent > 0 || posts.length > 0 ? "partial" : "failure") : "success",

@@ -1,3 +1,10 @@
+const mockClaudeGenerateText = jest.fn();
+const mockClaudeProvider = jest.fn();
+
+jest.mock("../src/core/ai/providers/claude-provider", () => ({
+  ClaudeProvider: mockClaudeProvider,
+}));
+
 const mockCodexGenerateText = jest.fn();
 const mockHermesGenerateText = jest.fn();
 const mockCodexShutdown = jest.fn();
@@ -20,6 +27,7 @@ describe("AIService provider selection", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.resetAllMocks();
+    mockClaudeProvider.mockImplementation(() => ({ generateText: mockClaudeGenerateText }));
     mockCodexProvider.mockImplementation(() => ({
       generateText: mockCodexGenerateText,
       shutdown: mockCodexShutdown,
@@ -35,16 +43,27 @@ describe("AIService provider selection", () => {
     process.env = originalEnv;
   });
 
-  test("defaults to Codex when AI_PROVIDER is not set", async () => {
-    mockCodexGenerateText.mockResolvedValueOnce("codex response");
+  test("defaults to Claude when AI_PROVIDER is not set", async () => {
+    mockClaudeGenerateText.mockResolvedValueOnce("claude response");
     const AIService = loadAiService();
     const service = new AIService();
 
     await expect(service.generateText("prompt")).resolves.toBe(
-      "codex response",
+      "claude response",
     );
-    expect(service.getProviderStatus()).toEqual({ providerName: "codex" });
-    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
+    expect(service.getProviderStatus()).toEqual({ providerName: "claude" });
+    expect(mockClaudeProvider).toHaveBeenCalledTimes(1);
+    expect(mockCodexProvider).not.toHaveBeenCalled();
+    expect(mockHermesProvider).not.toHaveBeenCalled();
+  });
+
+  test("uses explicitly configured Claude without starting a CLI provider", async () => {
+    process.env.AI_PROVIDER = " CLAUDE ";
+    mockClaudeGenerateText.mockResolvedValueOnce("claude response");
+    const AIService = loadAiService();
+    const service = new AIService();
+    await expect(service.generateText("prompt")).resolves.toBe("claude response");
+    expect(mockCodexProvider).not.toHaveBeenCalled();
     expect(mockHermesProvider).not.toHaveBeenCalled();
   });
 
@@ -60,14 +79,14 @@ describe("AIService provider selection", () => {
     expect(service.getProviderStatus()).toEqual({ providerName: "hermes" });
   });
 
-  test("uses Codex for unsupported provider names", async () => {
+  test("uses Claude for unsupported provider names", async () => {
     process.env.AI_PROVIDER = "unknown";
-    mockCodexGenerateText.mockResolvedValueOnce("codex response");
+    mockClaudeGenerateText.mockResolvedValueOnce("claude response");
     const AIService = loadAiService();
     const service = new AIService();
 
     await expect(service.generateText("prompt")).resolves.toBe(
-      "codex response",
+      "claude response",
     );
     expect(mockHermesProvider).not.toHaveBeenCalled();
   });
@@ -95,9 +114,9 @@ describe("AIService provider selection", () => {
     });
   });
 
-  test("does not switch providers when Codex fails", async () => {
-    const error = new Error("codex failed");
-    mockCodexGenerateText.mockRejectedValueOnce(error);
+  test("does not switch providers when Claude fails", async () => {
+    const error = new Error("claude failed");
+    mockClaudeGenerateText.mockRejectedValueOnce(error);
     const AIService = loadAiService();
     const service = new AIService();
 
@@ -106,6 +125,7 @@ describe("AIService provider selection", () => {
   });
 
   test("shuts down the previous Codex provider when reconfigured", () => {
+    process.env.AI_PROVIDER = "codex";
     const AIService = loadAiService();
     const service = new AIService();
 
@@ -128,7 +148,7 @@ describe("AIService provider selection", () => {
       text: "codex response",
       usedFallback: false,
     });
-    expect(mockCodexProvider).toHaveBeenCalledTimes(2);
+    expect(mockCodexProvider).toHaveBeenCalledTimes(1);
     expect(mockCodexGenerateText).toHaveBeenCalledWith("prompt", {
       codexEphemeral: true,
     });

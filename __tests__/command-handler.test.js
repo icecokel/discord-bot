@@ -63,8 +63,8 @@ describe("command handler", () => {
     const names = commands.map((command) => command.name);
     const keywords = commands.flatMap((command) => command.keywords || []);
 
-    expect(names).toEqual(["코덱스", "헤르메스"]);
-    expect(keywords).toEqual(["코덱스", "codex", "헤르메스", "hermes"]);
+    expect(names).toEqual(["클로드", "코덱스", "헤르메스"]);
+    expect(keywords).toEqual(["클로드", "claude", "코덱스", "codex", "헤르메스", "hermes"]);
   });
 
   test("does not register removed public commands", () => {

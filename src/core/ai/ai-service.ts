@@ -1,10 +1,11 @@
 import { HermesProvider } from "./providers/hermes-provider";
 import { CodexProvider } from "./providers/codex-provider";
+import { ClaudeProvider } from "./providers/claude-provider";
 import { BaseProvider, IGenerationOptions } from "./providers/base-provider";
 
-export type ProviderName = "hermes" | "codex";
+export type ProviderName = "claude" | "hermes" | "codex";
 
-const DEFAULT_PROVIDER: ProviderName = "codex";
+const DEFAULT_PROVIDER: ProviderName = "claude";
 
 export interface GeneratedTextResult {
   providerName: ProviderName;
@@ -27,6 +28,9 @@ function resolvePrimaryProviderName(name: string | undefined): ProviderName {
 }
 
 function createProvider(name: ProviderName): BaseProvider {
+  if (name === "claude") {
+    return new ClaudeProvider();
+  }
   if (name === "hermes") {
     return new HermesProvider();
   }

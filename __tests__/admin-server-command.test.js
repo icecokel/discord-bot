@@ -16,6 +16,8 @@ describe("admin server command", () => {
     ADMIN_ID: process.env.ADMIN_ID,
     DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
     AI_PROVIDER: process.env.AI_PROVIDER,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    CLAUDE_MODEL: process.env.CLAUDE_MODEL,
     CODEX_BIN: process.env.CODEX_BIN,
     CODEX_WORKDIR: process.env.CODEX_WORKDIR,
     CODEX_MODEL: process.env.CODEX_MODEL,
@@ -53,6 +55,8 @@ describe("admin server command", () => {
   test("redacts secret environment values from status output", () => {
     process.env.ADMIN_ID = "123456789";
     process.env.DISCORD_BOT_TOKEN = "secret-token";
+    process.env.ANTHROPIC_API_KEY = "secret-anthropic-key";
+    process.env.CLAUDE_MODEL = "claude-sonnet-5-5";
     process.env.CODEX_BIN = "/opt/codex/bin/codex";
     process.env.CODEX_WORKDIR = "/srv/discord-bot";
     process.env.CODEX_MODEL = "gpt-5";
@@ -63,6 +67,9 @@ describe("admin server command", () => {
     const summary = redactEnvSummary();
 
     expect(summary).toContain("AI_PROVIDER=codex");
+    expect(summary).toContain("ANTHROPIC_API_KEY_SET=true");
+    expect(summary).toContain("CLAUDE_MODEL=claude-sonnet-5-5");
+    expect(summary).not.toContain("secret-anthropic-key");
     expect(summary).toContain("CODEX_MODEL=gpt-5");
     expect(summary).toContain("CODEX_SANDBOX=read-only");
     expect(summary).toContain("CODEX_APPROVAL_POLICY=never");

@@ -17,9 +17,9 @@ export interface ScheduleDefinition {
 export const MORNING_BRIEFING_SCHEDULE: ScheduleDefinition = {
   id: "morning-briefing",
   label: "아침 브리핑",
-  cron: "30 6 * * *",
+  cron: "0 6 * * *",
   hour: 6,
-  minute: 30,
+  minute: 0,
   timezone: "Asia/Seoul",
 };
 
@@ -61,11 +61,11 @@ export const SCHEDULE_DEFINITIONS: ScheduleDefinition[] = [
 export const X_PROFILE_SCHEDULE: ScheduleDefinition = {
   id: "x-profile",
   label: "X 업데이트",
-  cron: "*/30 * * * *",
+  cron: "*/20 * * * *",
   hour: 0,
   hours: Array.from({ length: 24 }, (_, hour) => hour),
   minute: 0,
-  minutes: [0, 30],
+  minutes: [0, 20, 40],
   timezone: "Asia/Seoul",
 };
 

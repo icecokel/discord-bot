@@ -4,7 +4,7 @@ import {
   appendAdminConversationTurn,
   buildAdminConversationPrompt,
 } from "./admin-conversation-context-store";
-import { buildDiscordMessageContext, hasDiscordAttachments } from "./discord-message-context";
+import { buildDiscordMessageContext, getDiscordImageUrls, hasDiscordAttachments } from "./discord-message-context";
 import { getHermesSessionName } from "./hermes-session-store";
 
 const FINDING_INFO_MESSAGE = "필요한 정보를 찾고 있습니다...";
@@ -96,10 +96,13 @@ const getAiAnswerPrefix = (result: {
     return "[Codex] ";
   }
 
+  if (result.providerName === "claude") return "[Claude] ";
+
   return "";
 };
 
 const getAssistantLabel = (providerName: string): string => {
+  if (providerName === "claude") return "Claude";
   if (providerName === "codex") return "Codex";
   if (providerName === "hermes") return "Hermes";
   return "AI";
@@ -122,6 +125,13 @@ const ADMIN_AI_ANSWER_SYSTEM_PROMPT = `너는 디스코드 봇 관리자 DM에�
 민감정보 값은 출력하지 말고 설정 여부나 키 이름 정도로만 설명한다.
 Discord 메시지 전송, 삭제, 채널 관리 도구는 제공되지 않으며 최종 응답 전송은 디스코드 봇이 담당한다.`;
 
+const CLAUDE_ADMIN_SYSTEM_PROMPT = `너는 디스코드 봇 관리자 DM에서 동작하는 한국어 AI 비서다.
+제공된 메시지, 최근 대화, 첨부 이미지를 바탕으로 정확하고 간결하게 답변한다.
+웹 검색, 브라우저, 터미널, 서버 및 로컬 파일 접근 도구는 제공되지 않는다.
+직접 조사하거나 작업을 실행했다고 말하지 않는다. 실시간 확인이나 실행이 필요하면 관리자에게 필요한 자료나 실행 방법을 안내한다.
+민감정보 값은 출력하지 말고 설정 여부나 키 이름 정도로만 설명한다.
+최종 Discord 응답 전송은 디스코드 봇이 담당한다.`;
+
 const answerWithAdminAi = async (
   message: Message,
   progressMessage?: ProgressMessage,
@@ -140,7 +150,7 @@ const answerWithAdminAi = async (
     assistantLabel,
   );
   const prompt = hasDiscordAttachments(message)
-    ? `${basePrompt}\n\n${await buildDiscordMessageContext(message)}`
+    ? `${basePrompt}\n\n${await buildDiscordMessageContext(message, providerStatus.providerName !== "claude")}`
     : basePrompt;
 
   const answerPromise = (async (): Promise<string> => {
@@ -165,10 +175,12 @@ const answerWithAdminAi = async (
               hermesToolsets:
                 process.env.HERMES_ADMIN_TOOLSETS || DEFAULT_HERMES_ADMIN_TOOLSETS,
             }
-          : {};
+          : { imageUrls: getDiscordImageUrls(message) };
 
     const result = await aiService.generateTextWithProvider(prompt, {
-      systemInstruction: ADMIN_AI_ANSWER_SYSTEM_PROMPT,
+      systemInstruction: providerStatus.providerName === "claude"
+        ? CLAUDE_ADMIN_SYSTEM_PROMPT
+        : ADMIN_AI_ANSWER_SYSTEM_PROMPT,
       ...providerOptions,
     });
 

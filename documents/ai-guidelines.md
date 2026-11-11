@@ -4,26 +4,25 @@
 
 AI는 일반 사용자 기능 판별에 사용하지 않는다. 현재 AI 사용 범위는 관리자 기능으로 제한한다.
 
-- 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Codex app-server thread로 처리한다.
-- 현재 운영 구조는 Hermes 없이 Discord bot이 Codex app-server를 직접 호출하는 `AI_PROVIDER=codex` 구조다.
+- 관리자 DM의 prefix 없는 메시지는 기본값에서 Claude Messages API로 처리하고 최근 대화 10턴을 전달한다.
+- 기본 구조는 공식 `@anthropic-ai/sdk`와 `ANTHROPIC_API_KEY`를 사용하는 `AI_PROVIDER=claude` 구조다.
 - `/질문 <질문>` 관리자 명령어에서 현재 AI 공급자 기반 단발 답변을 생성한다. 이 경로는 관리자 DM thread 기억과 백그라운드 후속 보고를 사용하지 않는다.
 - 긱뉴스 스케줄러가 기사 본문 번역/요약에 AI를 사용할 수 있다.
-- 현재 긱뉴스 AI 요약/번역은 Codex만 사용한다. 실패하면 대체 번역을 보내지 않고 실패 사유를 노출한다.
+- 긱뉴스 AI 요약/번역은 Claude만 사용한다. 실패하면 대체 번역을 보내지 않고 실패 사유를 노출한다.
+- X 감시 번역도 Claude를 사용한다. 번역 실패 글은 실패 사실을 표시하고 원문만 발송한다.
 - 운세 일반 명령어는 제거됐지만, 기존 데이터 조회/초기화를 위한 데이터 파일은 유지한다.
 
-## Codex 운영 원칙
+## Claude 운영 원칙
 
-Codex app-server는 관리자 DM에서 서버 작업, 리서치, 브라우저 확인, 파일 read-only 조회를 돕는 작업 에이전트로 사용한다. 봇은 Discord 입력 검증과 최종 메시지 전송을 담당하고, Codex에는 Discord 쓰기/삭제/관리 권한을 넘기지 않는다.
-
-- `discord.js` 봇이 유일한 Discord gateway로 남는다.
-- 봇 프로세스 안에서 `codex app-server`를 장기 실행 child process로 띄우고 stdio JSON-RPC로 통신한다.
-- 관리자 DM 채널별 Codex thread를 유지해 작업 맥락을 이어간다.
-- 기본 sandbox는 read-only로 두고, 승인 없는 위험 작업은 실행하지 않는다.
-- `codex exec` 단발 호출은 목표 구조나 fallback 구조로 쓰지 않는다.
+- `discord.js` 봇이 유일한 Discord gateway로 남고 최종 응답을 보낸다.
+- Claude에는 웹 검색, 브라우저, 터미널, 서버·로컬 파일 접근 도구를 제공하지 않는다. 직접 조사하거나 작업을 실행했다고 답하지 않도록 안내한다.
+- 관리자 대화·이미지와 뉴스·X 원문이 외부 Claude API로 전달된다. API 키와 오류 원문은 출력하지 않는다.
+- JSON 작업은 스키마를 지정하고, 잘리거나 비어 있는 응답은 실패 처리한다.
+- Codex/Hermes 구현은 명시적으로 선택하는 legacy 호환용이며 Claude 실패 시 자동 전환하지 않는다.
 
 ## 관리자 AI 원칙
 
-Codex는 현재 구현의 관리자 AI provider다. 관리자 DM에서 서버 작업, 리서치, 브라우저 확인, 파일 조회를 돕는 작업 에이전트로 사용한다. Hermes provider는 legacy 호환용으로만 남긴다.
+Claude는 기본 관리자 AI provider다. 제공된 메시지·최근 대화·이미지를 바탕으로 답변한다. 실제 실행이 필요한 요청에는 필요한 자료나 실행 방법을 안내한다.
 
 - 사실 확인과 정확성을 우선한다.
 - 작업 전후로 확인한 내용과 변경 사항을 간결하게 보고한다.

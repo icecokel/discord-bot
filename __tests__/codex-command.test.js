@@ -46,25 +46,25 @@ describe("codex command", () => {
 
   test("shows the current AI provider status to the admin", async () => {
     mockGetProviderStatus.mockReturnValue({
-      providerName: "codex",
+      providerName: "claude",
     });
     const message = createMessage();
 
     await command.execute(message, []);
 
     expect(message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("현재 AI 공급자: codex"),
+      expect.stringContaining("현재 AI 공급자: claude"),
     );
   });
 
-  test("turns Codex on for the admin", async () => {
+  test("turns Claude on for the admin", async () => {
     const message = createMessage();
 
     await command.execute(message, ["켜기"]);
 
-    expect(mockSetPrimaryProvider).toHaveBeenCalledWith("codex");
+    expect(mockSetPrimaryProvider).toHaveBeenCalledWith("claude");
     expect(message.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Codex를 켰습니다"),
+      expect.stringContaining("Claude를 켰습니다"),
     );
   });
 
@@ -77,7 +77,7 @@ describe("codex command", () => {
     expect(message.reply).toHaveBeenCalledWith("⛔ 관리자 권한이 없습니다.");
   });
 
-  test("clears Codex admin context for the admin", async () => {
+  test("clears Claude admin context for the admin", async () => {
     const message = createMessage();
 
     await command.execute(message, ["초기화"]);
@@ -89,7 +89,7 @@ describe("codex command", () => {
     expect(mockClearCodexThread).toHaveBeenCalledWith("owner-id", "channel-id");
     expect(mockResetHermesSession).toHaveBeenCalledWith("owner-id", "channel-id");
     expect(message.reply).toHaveBeenCalledWith(
-      "✅ 현재 채널의 Codex 관리자 대화 기억을 초기화했습니다.",
+      "✅ 현재 채널의 Claude 관리자 대화 기억을 초기화했습니다.",
     );
   });
 });

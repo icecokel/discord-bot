@@ -7,7 +7,7 @@ jest.mock("../src/core/admin-middleware", () => ({
 
 jest.mock("../src/utils/schedule-run-store", () => ({
   getScheduleRunRecords: mockGetScheduleRunRecords,
-  getNextScheduleRunAt: jest.fn(() => "2026-07-18T21:30:00.000Z"),
+  getNextScheduleRunAt: jest.fn(() => "2026-07-18T21:00:00.000Z"),
 }));
 
 const {
@@ -28,18 +28,18 @@ describe("admin schedule status command", () => {
     const text = formatScheduleRunRecord({
       jobId: "morning-briefing",
       label: "아침 브리핑",
-      cron: "30 6 * * *",
+      cron: "0 6 * * *",
       timezone: "Asia/Seoul",
       status: "success",
-      lastAttemptAt: "2026-07-17T21:30:00.000Z",
-      lastSuccessAt: "2026-07-17T21:33:00.000Z",
-      nextRunAt: "2026-07-18T21:30:00.000Z",
+      lastAttemptAt: "2026-07-17T21:00:00.000Z",
+      lastSuccessAt: "2026-07-17T21:03:00.000Z",
+      nextRunAt: "2026-07-18T21:00:00.000Z",
       detail: "전송 완료",
     });
 
     expect(text).toContain("🟢 성공");
-    expect(text).toContain("07. 18. 06:30");
-    expect(text).toContain("07. 19. 06:30");
+    expect(text).toContain("07. 18. 06:00");
+    expect(text).toContain("07. 19. 06:00");
     expect(text).toContain("메모: 전송 완료");
   });
 
