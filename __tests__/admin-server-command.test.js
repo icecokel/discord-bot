@@ -5,7 +5,9 @@ jest.mock("../src/core/admin-middleware", () => ({
 const { registerAdminCommand } = require("../src/core/admin-middleware");
 const {
   formatPm2AppStatus,
-  formatLaunchdAppStatus,
+  formatManagedAppStatus,
+  handleProcess,
+  handleDeployStatus,
   resolveAllowedDiskPaths,
   redactEnvSummary,
 } = require("../src/features/admin/commands/admin-server");
@@ -23,6 +25,7 @@ describe("admin server command", () => {
     CODEX_MODEL: process.env.CODEX_MODEL,
     CODEX_SANDBOX: process.env.CODEX_SANDBOX,
     CODEX_APPROVAL_POLICY: process.env.CODEX_APPROVAL_POLICY,
+    PROCESS_MANAGER: process.env.PROCESS_MANAGER,
   };
 
   afterEach(() => {
@@ -105,11 +108,39 @@ describe("admin server command", () => {
     expect(result).not.toContain("other-app");
   });
 
-  test("reports the live process when launchd manages the bot", () => {
-    const result = formatLaunchdAppStatus();
+  test.each(["launchd", "systemd"])("reports the live process managed by %s", (manager) => {
+    const result = formatManagedAppStatus(manager);
 
     expect(result).toContain("discord-bot: running");
-    expect(result).toContain("manager=launchd");
+    expect(result).toContain(`manager=${manager}`);
     expect(result).toContain(`pid=${process.pid}`);
+  });
+
+  test("uses the running systemd process without querying PM2", async () => {
+    process.env.PROCESS_MANAGER = "systemd";
+    const message = { reply: jest.fn().mockResolvedValue(undefined) };
+
+    await handleProcess(message);
+
+    const fields = message.reply.mock.calls[0][0].embeds[0].toJSON().fields;
+    expect(fields).toEqual([
+      expect.objectContaining({
+        name: "discord-bot",
+        value: expect.stringContaining("manager=systemd"),
+      }),
+    ]);
+  });
+
+  test("identifies the systemd unit in deployment status", async () => {
+    process.env.PROCESS_MANAGER = "systemd";
+    const message = { reply: jest.fn().mockResolvedValue(undefined) };
+
+    await handleDeployStatus(message);
+
+    const fields = message.reply.mock.calls[0][0].embeds[0].toJSON().fields;
+    expect(fields).toContainEqual({
+      name: "프로세스 관리자",
+      value: "systemd=discord-bot.service",
+    });
   });
 });

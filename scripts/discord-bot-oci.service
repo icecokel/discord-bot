@@ -1,0 +1,29 @@
+[Unit]
+Description=Discord Bot on OCI
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/discord-bot
+Environment=NODE_ENV=production
+Environment=PROCESS_MANAGER=systemd
+Environment=PLAYWRIGHT_BROWSERS_PATH=/home/ubuntu/discord-bot/.local/ms-playwright
+Environment=TMPDIR=/home/ubuntu/discord-bot/.local/tmp
+Environment=XDG_CACHE_HOME=/home/ubuntu/discord-bot/.local/cache
+ExecStartPre=/usr/bin/test -f /home/ubuntu/discord-bot/.env
+ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/dist/data
+ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/.local/ms-playwright
+ExecStart=/usr/bin/xvfb-run -a /home/ubuntu/discord-bot/.local/node/bin/node /home/ubuntu/discord-bot/dist/index.js
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=150
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

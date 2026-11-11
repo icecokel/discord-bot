@@ -125,10 +125,10 @@ export const formatPm2AppStatus = (apps: Pm2App[]): string => {
   ].join("\n");
 };
 
-export const formatLaunchdAppStatus = (): string => {
+export const formatManagedAppStatus = (manager: "launchd" | "systemd"): string => {
   return [
     `${PM2_APP_NAME}: running`,
-    "manager=launchd",
+    `manager=${manager}`,
     `pid=${process.pid}`,
     `uptime=${formatDuration(process.uptime() * 1000)}`,
     `memory=${formatBytes(process.memoryUsage().rss)}`,
@@ -259,8 +259,9 @@ const handleDisk = async (message: Message, args: string[]) => {
 const handleProcess = async (message: Message) => {
   const embed = createBaseEmbed("프로세스 상태");
 
-  if (process.env.PROCESS_MANAGER === "launchd") {
-    embed.addFields({ name: PM2_APP_NAME, value: formatLaunchdAppStatus() });
+  const manager = process.env.PROCESS_MANAGER;
+  if (manager === "launchd" || manager === "systemd") {
+    embed.addFields({ name: PM2_APP_NAME, value: formatManagedAppStatus(manager) });
     await message.reply({ embeds: [embed] });
     return;
   }
@@ -303,7 +304,9 @@ const handleDeployStatus = async (message: Message) => {
         name: "프로세스 관리자",
         value: process.env.PROCESS_MANAGER === "launchd"
           ? "launchd=com.icecokel.discord-bot"
-          : `app=${PM2_APP_NAME}\npm2=${getPm2Binary()}`,
+          : process.env.PROCESS_MANAGER === "systemd"
+            ? "systemd=discord-bot.service"
+            : `app=${PM2_APP_NAME}\npm2=${getPm2Binary()}`,
       },
     );
 
