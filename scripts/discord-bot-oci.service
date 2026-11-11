@@ -2,6 +2,7 @@
 Description=Discord Bot on OCI
 Wants=network-online.target
 After=network-online.target
+ConditionPathExists=/home/ubuntu/discord-bot/.local/activate-oci
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
@@ -19,7 +20,7 @@ ExecStartPre=/usr/bin/test -f /home/ubuntu/discord-bot/.env
 ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/dist/data
 ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/.local/ms-playwright
 ExecStart=/usr/bin/xvfb-run -a /home/ubuntu/discord-bot/.local/node/bin/node /home/ubuntu/discord-bot/dist/index.js
-Restart=on-failure
+Restart=always
 RestartSec=10
 KillMode=control-group
 TimeoutStopSec=150

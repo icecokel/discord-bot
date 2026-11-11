@@ -2,6 +2,21 @@
 
 현재 디스코드 봇의 운영 호스트는 Apple Silicon 맥미니다. 배포와 상태 확인은 이 문서를 기준으로 한다.
 
+## OCI 이관 준비 (2026-11-11)
+
+사용자 승인으로 춘천 `oci-termux-prod-01`(`140.245.73.237`) 이관을 시작했다. 현재 봇은 여전히 맥미니에서 실행 중이며, GitHub Actions의 배포 대상도 맥미니다. OCI 검증과 최종 데이터 동기화 전에는 기존 봇을 종료하지 않는다.
+
+- OCI 앱 경로: `/home/ubuntu/discord-bot`. 번들, 운영 의존성, ARM64 Chromium 설치를 완료했다.
+- Node.js `26.7.0`은 `.local/node`에 설치하고 공식 SHA-256과 일치함을 확인했다. 시스템 `libatomic1`이 없어 임시 검사에는 `.local/runtime-libs/usr/lib/aarch64-linux-gnu`를 `LD_LIBRARY_PATH`로 사용했다.
+- 운영 `.env`를 권한 `600`으로 전송하고 맥미니 전용 경로와 미사용 legacy CLI 설정을 제거했다. 원본 운영 설정은 맥미니에 보존했다.
+- JSON 4개 약 1.6MB를 초기 복사했다. 이 데이터는 최종 전환 사본이 아니며, 최종 기준은 맥미니의 `.local/deploy/dist/data/`다.
+- OCI에서 Discord REST 인증, Claude 실제 응답, 단기 예보, 네이버 뉴스 API가 정상이다. 채용 수집은 17곳 중 16곳이 성공했고 두나무는 OCI에서만 HTTP 403이다. 중기 예보 HTTP 403은 맥미니에서도 재현된다.
+- 자동 실행 보안 훅이 `sudo`를 차단했다. 관리자 설치는 [준비 스크립트](../scripts/prepare-oci-system.sh)를 OCI에서 root로 직접 실행해야 한다. 이 스크립트는 시스템 의존성 및 [서비스](../scripts/discord-bot-oci.service)를 설치하고 `.local/system-prepared`를 만든 뒤 전환 신호를 최대 15분 기다린다.
+- 전환 신호는 `/home/ubuntu/discord-bot/.local/activate-oci`다. Xvfb에서 실제 수집을 검증하고 맥미니 봇 종료 및 최종 JSON 복사·해시 검증을 마친 뒤에만 만든다. 서비스에도 이 파일의 존재 조건을 설정했다.
+- [OCI 배포 스크립트](../scripts/deploy-oci.sh)는 실행 중인 OCI 서비스만 갱신하며 `.env`와 `dist/data/`를 전송하지 않는다. systemd의 `Restart=always`와 ubuntu 소유 프로세스에 대한 종료 신호로 재시작한다. 실제 OCI 재배포는 아직 미검증이다.
+
+OCI 준비가 끝나면 워크플로의 마지막 배포 단계를 `bash scripts/deploy-oci.sh`로 바꾼다. 맥미니 runner는 빌드용으로 유지하고 봇의 launchd 작업만 중지·비활성화한다. 이후 OCI의 Discord 로그인, 준비 알림, X 수집, 자동 재시작과 실제 CI 배포를 확인한다.
+
 ## 구성
 
 - 대상: `/Users/smlee/discord-bot`를 작업 공간으로 쓰는 Apple Silicon 맥미니
