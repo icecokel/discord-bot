@@ -1,36 +1,32 @@
-name: Deploy to Mac mini
+name: Deploy to OCI
 
 on:
   push:
     branches: ["main"]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: discord-bot-oci-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    runs-on: [self-hosted, macOS, ARM64, mac-mini, discord-bot]
+    runs-on: [self-hosted, Linux, ARM64, discord-bot-oci]
+    timeout-minutes: 25
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: "26"
-          cache: "npm"
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Use the OCI runtime
+        run: echo "/home/ubuntu/discord-bot/.local/node/bin" >> "$GITHUB_PATH"
 
-      - name: Generate command registry
-        run: npm run gen:registry
-
-      - name: Run tests
-        run: npm test -- --runInBand
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Build
-        run: npm run build
-
-      - name: Deploy and restart launchd process
-        run: bash scripts/deploy-mac-mini.sh
+      - run: npm ci
+      - run: npm run gen:registry
+      - run: npm test -- --runInBand
+      - run: npm run type-check
+      - run: npm run build
+      - name: Deploy locally and verify Discord login
+        run: bash scripts/deploy-oci.sh

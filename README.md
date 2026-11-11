@@ -1,6 +1,6 @@
 # Discord Bot
 
-맥미니에서 launchd로 실행되는 관리자 중심 디스코드 봇입니다. 일반 사용자용 명령어와 일반 DM 자연어 기능은 제거했고, 현재 운영 범위는 스케줄러와 관리자 기능으로 제한합니다.
+관리자 명령과 정기 알림을 제공하는 디스코드 봇입니다. 일반 사용자용 명령어와 일반 DM 자연어 기능은 제거했고, 현재 운영 범위는 스케줄러와 관리자 기능으로 제한합니다.
 
 ## 현재 컨셉
 
@@ -44,11 +44,11 @@ npm run check:x-profile -- --live
 npm run check:x-profile -- --translate
 ```
 
-`--translate`는 직전에 수집한 원문을 실제 Claude API로 번역해 `.local/x-bilingual-preview.json`에 원문·번역·발송 메시지를 저장합니다. Discord로 보내지 않습니다. 배포 서버의 점검 명령은 [운영 서버 가이드](documents/mac-mini-deployment.md#상태-확인)를 참고하세요.
+`--translate`는 직전에 수집한 원문을 실제 Claude API로 번역해 `.local/x-bilingual-preview.json`에 원문·번역·발송 메시지를 저장합니다. Discord로 보내지 않습니다. 배포 서버의 점검 명령은 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-전환)를 참고하세요.
 
-첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집 결과와 전체 본문을 `.local/x-profile-preview.json`에 저장하며 알림 이력 저장·Discord 전송은 하지 않습니다. 최초 수집은 정상적으로 읽힌 최근 목록을 기준선으로 사용하고, 접힌 글은 상세 페이지에서 원문을 읽습니다. 후속 수집은 기존 체크포인트 연결 여부를 계속 검증합니다. 창 모드가 기본값이며, `X_MONITOR_HEADLESS=true`는 해당 환경에서 실제 수집 성공을 확인한 경우에만 사용합니다. 배포 워크플로는 맥미니 실행 디렉터리의 `.local/ms-playwright`에 Chromium을 설치합니다. 배포된 맥미니의 점검 명령은 [운영 서버 가이드](documents/mac-mini-deployment.md#상태-확인)를 참고하세요.
+첫 검사는 네트워크 없이 Chromium에서 DOM 추출 규칙을 확인합니다. `--live`는 실제 X 수집 결과와 전체 본문을 `.local/x-profile-preview.json`에 저장하며 알림 이력 저장·Discord 전송은 하지 않습니다. 최초 수집은 정상적으로 읽힌 최근 목록을 기준선으로 사용하고, 접힌 글은 상세 페이지에서 원문을 읽습니다. 후속 수집은 기존 체크포인트 연결 여부를 계속 검증합니다. 창 모드가 기본값이며, `X_MONITOR_HEADLESS=true`는 해당 환경에서 실제 수집 성공을 확인한 경우에만 사용합니다. OCI 배포 워크플로는 운영 앱의 `.local/ms-playwright`에 Chromium을 설치합니다. OCI에서 Xvfb로 실행하는 점검 명령은 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-전환)를 참고하세요.
 
-로그인이 필요한 환경에서는 운영자가 Chromium에서 직접 로그인해 저장한 상태를 실행 디렉터리의 `.local/x-auth-state.json`에 둡니다. 파일은 `chmod 600`으로 보호하고 Git·로그·배포 아티팩트에 포함하지 않습니다. 로그인 만료·CAPTCHA·접근 차단은 실패로 기록하며 우회하지 않습니다. `.local/`과 운영 이력 `dist/data/x-profile-history.json`은 배포·재시작 시 보존합니다. 단일 launchd 프로세스에서 동작하며, 전송 성공 직후 저장 전에 종료되면 같은 글이 다시 올 수 있습니다.
+로그인이 필요한 환경에서는 운영자가 Chromium에서 직접 로그인해 저장한 상태를 실행 디렉터리의 `.local/x-auth-state.json`에 둡니다. 파일은 `chmod 600`으로 보호하고 Git·로그·배포 아티팩트에 포함하지 않습니다. 로그인 만료·CAPTCHA·접근 차단은 실패로 기록하며 우회하지 않습니다. `.local/`과 운영 이력 `dist/data/x-profile-history.json`은 배포·재시작 시 보존합니다. 단일 봇 프로세스에서 동작하며, 전송 성공 직후 저장 전에 종료되면 같은 글이 다시 올 수 있습니다.
 
 이전 설계의 수집 범위·인수 조건은 [X 감시 설계서](documents/x-profile-monitor-design.md)에 남아 있습니다.
 
@@ -185,7 +185,7 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 
 ## 환경변수
 
-로컬 개발은 저장소 루트 `.env`를 사용합니다. 맥미니 운영은 실행 디렉터리의 `.env`를 사용하며, 필수 값과 기능별 변수는 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-설정)에 정리했습니다. `.env`는 커밋하지 않습니다.
+로컬 개발은 저장소 루트 `.env`를 사용합니다. 운영 봇은 실행 디렉터리의 `.env`를 사용하며, 필수 값과 기능별 변수는 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-설정)에 정리했습니다. `.env`는 커밋하지 않습니다.
 
 ## 개발
 
@@ -229,7 +229,7 @@ Dependabot이 매주 루트 npm 의존성을 확인해 업데이트 PR을 만듭
 
 ## 배포
 
-`main` 브랜치 push 시 맥미니의 GitHub Actions self-hosted runner가 테스트, 타입 검사, 빌드를 수행한 뒤 실행 디렉터리에 배포하고 launchd 봇 서비스를 재시작합니다. 운영 설정, 상태 확인, 복구 절차는 [운영 서버 가이드](documents/mac-mini-deployment.md)를 참고하세요.
+`main` 브랜치 push 시 춘천 OCI의 GitHub Actions 러너 `discord-bot-oci`가 테스트, 타입 검사, 빌드를 수행합니다. 같은 호스트에서 운영 번들을 배포하고 systemd가 재시작한 봇의 Discord 로그인을 확인합니다. 운영 설정, 상태 확인, 복구 절차는 [운영 서버 가이드](documents/mac-mini-deployment.md)를 참고하세요.
 
 ## 문서
 
@@ -238,6 +238,6 @@ Dependabot이 매주 루트 npm 의존성을 확인해 업데이트 PR을 만듭
 - `documents/hermes-agent-goal.md`: legacy Hermes provider와 `!헤르메스` 호환 alias 기준
 - `documents/natural-language-ai-concept.md`: 관리자 AI 중심 컨셉
 - `documents/ai-guidelines.md`: AI 사용 지침
-- `documents/mac-mini-deployment.md`: 현재 맥미니 운영 서버 가이드
+- `documents/mac-mini-deployment.md`: Mac에서 OCI로의 전환과 운영 서버 가이드
 - `documents/discord-bot-infra-diagram-vertical.svg`: 이전 icenux 배포·런타임 구조 다이어그램
 - `docs/superpowers/plans/2026-06-03-hermes-codex-oauth-integration.md`: 완료된 legacy Hermes 통합 계획
