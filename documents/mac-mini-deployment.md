@@ -1,8 +1,12 @@
 # Discord 봇 운영과 배포
 
-## 이관 상태
+## 현재 운영 상태
 
-2026-11-11 전환 준비 시점에 운영 봇은 Mac mini의 `com.icecokel.discord-bot`에서 실행 중이다. 춘천 OCI의 앱 경로는 `/home/ubuntu/discord-bot`다. 같은 저장소에 등록한 Linux ARM64 러너 이름과 전용 레이블은 모두 `discord-bot-oci`이다. `main`의 배포 워크플로는 OCI 단독 기동 검증 후 전환한다.
+2026-11-11 KST에 Discord 봇과 `main`의 빌드·배포를 춘천 OCI로 이관했다. 앱 경로는 `/home/ubuntu/discord-bot`이고, Linux ARM64 러너 이름과 전용 레이블은 `discord-bot-oci`다. 봇과 러너의 systemd 서비스는 모두 활성화돼 있다. Mac의 봇 LaunchAgent `com.icecokel.discord-bot`은 중지하고 자동 시작을 해제했다. 기존 Mac 러너는 등록 상태를 유지한다.
+
+- 23:40 KST Mac에서 X 스케줄이 끝난 뒤 실행 중인 작업이 0개인 것을 확인했다. Mac 봇을 종료한 후 `dist/data/` 전체를 OCI에 복사하고 JSON 4개의 파일 목록·SHA-256·JSON 파싱 결과를 확인한 뒤 OCI 봇을 시작했다.
+- [첫 운영 배포](https://github.com/icecokel/discord-bot/actions/runs/43041159820)는 OCI 러너에서 테스트 39개 묶음·342개, 타입 검사, 빌드, 로컬 배포를 통과했다. 운영 번들 두 개와 패키지 파일 두 개가 러너의 빌드 결과와 일치했다.
+- 23:43 KST 배포 재시작 후 새 프로세스에서 Discord 로그인, 준비 알림 전송, 스케줄 5개 등록을 확인했다. Xvfb DOM 검사가 통과했고 배포 후 실수집에서 게시물 5건의 본문 5건을 읽었다. 자동 재시작은 실행 중인 서비스의 프로세스 교체로 검증했다.
 
 ## OCI 배포 경로
 
