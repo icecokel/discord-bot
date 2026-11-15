@@ -92,6 +92,47 @@ describe("ClaudeProvider", () => {
     await expect(new ClaudeProvider().generateText("질문")).resolves.toBe("첫 답변");
   });
 
+  test("runs client tools until Claude finishes and returns every result in one turn", async () => {
+    const search = { name: "search_gmail", description: "검색", inputSchema: { type: "object", properties: {} },
+      run: jest.fn().mockResolvedValue('{"messages":[]}') };
+    const broken = { name: "read_gmail", description: "읽기", inputSchema: { type: "object", properties: {} },
+      run: jest.fn().mockRejectedValue(new Error("Gmail 로그인 실패")) };
+    const toolTurn = { stop_reason: "tool_use", content: [
+      { type: "thinking", thinking: "", signature: "sig" },
+      { type: "tool_use", id: "t1", name: "search_gmail", input: { query: "newer_than:1d" } },
+      { type: "tool_use", id: "t2", name: "read_gmail", input: { uid: 3 } },
+      { type: "tool_use", id: "t3", name: "unknown_tool", input: {} },
+    ] };
+    mockCreate.mockResolvedValueOnce(toolTurn)
+      .mockResolvedValueOnce({ stop_reason: "end_turn", content: [{ type: "text", text: "새 메일 없음" }] });
+
+    await expect(new ClaudeProvider().generateText("오늘 메일?", { tools: [search, broken] })).resolves.toBe("새 메일 없음");
+    expect(search.run).toHaveBeenCalledWith({ query: "newer_than:1d" });
+    const first = mockCreate.mock.calls[0][0];
+    expect(first.tools).toEqual([
+      { name: "search_gmail", description: "검색", input_schema: { type: "object", properties: {} } },
+      { name: "read_gmail", description: "읽기", input_schema: { type: "object", properties: {} } },
+    ]);
+    expect(first.messages).toHaveLength(1);
+    const second = mockCreate.mock.calls[1][0].messages;
+    expect(second[1]).toEqual({ role: "assistant", content: toolTurn.content });
+    expect(second[2]).toEqual({ role: "user", content: [
+      { type: "tool_result", tool_use_id: "t1", content: '{"messages":[]}' },
+      { type: "tool_result", tool_use_id: "t2", is_error: true, content: "Gmail 로그인 실패" },
+      { type: "tool_result", tool_use_id: "t3", is_error: true, content: expect.stringContaining("unknown_tool") },
+    ] });
+  });
+
+  test("stops a runaway tool loop", async () => {
+    const tool = { name: "search_gmail", description: "검색", inputSchema: { type: "object", properties: {} },
+      run: jest.fn().mockResolvedValue("[]") };
+    mockCreate.mockResolvedValue({ stop_reason: "tool_use", content: [
+      { type: "tool_use", id: "t", name: "search_gmail", input: {} },
+    ] });
+    await expect(new ClaudeProvider().generateText("질문", { tools: [tool] })).rejects.toThrow("도구 호출이 너무 많아");
+    expect(mockCreate).toHaveBeenCalledTimes(8);
+  });
+
   test.each([
     [new sdk.AuthenticationError(401, {}, "sensitive request", new Headers()), "인증에 실패"],
     [new sdk.RateLimitError(429, {}, "sensitive request", new Headers()), "요청 한도"],

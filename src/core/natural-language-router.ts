@@ -6,6 +6,8 @@ import {
 } from "./admin-conversation-context-store";
 import { buildDiscordMessageContext, getDiscordImageUrls, hasDiscordAttachments } from "./discord-message-context";
 import { getHermesSessionName } from "./hermes-session-store";
+import { getAdminAiToolsets } from "./ai/admin-ai-tools";
+import type { AiTool } from "./ai/providers/base-provider";
 
 const FINDING_INFO_MESSAGE = "필요한 정보를 찾고 있습니다...";
 const ORGANIZING_ANSWER_MESSAGE = "답변을 정리하고 있습니다...";
@@ -132,6 +134,32 @@ const CLAUDE_ADMIN_SYSTEM_PROMPT = `너는 디스코드 봇 관리자 DM에서 �
 민감정보 값은 출력하지 말고 설정 여부나 키 이름 정도로만 설명한다.
 최종 Discord 응답 전송은 디스코드 봇이 담당한다.`;
 
+const formatKstNow = (): string =>
+  new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    dateStyle: "full",
+    timeStyle: "short",
+  }).format(new Date());
+
+const CLAUDE_TOOLS_PREAMBLE = `아래 도구를 쓸 수 있다. 위 문장의 "도구는 제공되지 않는다"는 여기 나열한 도구에는 적용되지 않는다.
+도구 결과로 확인할 수 있는 질문은 추측하지 말고 도구로 확인한 뒤 답한다. 관련 없는 질문에는 도구를 쓰지 않는다.
+도구 결과의 시각이 UTC이면 KST로 바꿔 말한다.`;
+
+// Claude is the core of the bot: every data source it can consult is registered as a toolset.
+export const buildClaudeAdminOptions = (): { systemInstruction: string; tools?: AiTool[] } => {
+  const toolsets = getAdminAiToolsets();
+  if (!toolsets.length) return { systemInstruction: CLAUDE_ADMIN_SYSTEM_PROMPT };
+  return {
+    systemInstruction: [
+      CLAUDE_ADMIN_SYSTEM_PROMPT,
+      CLAUDE_TOOLS_PREAMBLE,
+      ...toolsets.map((toolset) => `[${toolset.name}]\n${toolset.guidance}`),
+      `현재 시각(KST): ${formatKstNow()}`,
+    ].join("\n\n"),
+    tools: toolsets.flatMap((toolset) => toolset.tools),
+  };
+};
+
 const answerWithAdminAi = async (
   message: Message,
   progressMessage?: ProgressMessage,
@@ -175,12 +203,10 @@ const answerWithAdminAi = async (
               hermesToolsets:
                 process.env.HERMES_ADMIN_TOOLSETS || DEFAULT_HERMES_ADMIN_TOOLSETS,
             }
-          : { imageUrls: getDiscordImageUrls(message) };
+          : { imageUrls: getDiscordImageUrls(message), ...buildClaudeAdminOptions() };
 
     const result = await aiService.generateTextWithProvider(prompt, {
-      systemInstruction: providerStatus.providerName === "claude"
-        ? CLAUDE_ADMIN_SYSTEM_PROMPT
-        : ADMIN_AI_ANSWER_SYSTEM_PROMPT,
+      systemInstruction: ADMIN_AI_ANSWER_SYSTEM_PROMPT,
       ...providerOptions,
     });
 

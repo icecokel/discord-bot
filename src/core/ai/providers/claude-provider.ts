@@ -1,7 +1,38 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { BaseProvider, IGenerationOptions } from "./base-provider";
+import { AiTool, BaseProvider, IGenerationOptions } from "./base-provider";
 
 export const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5-5";
+// Each round is one API call; a mail question normally needs a search and a read or two.
+const MAX_TOOL_ROUNDS = 8;
+const MAX_TOOL_RESULT_LENGTH = 40_000;
+
+const runTool = async (
+  tools: AiTool[],
+  block: Anthropic.ToolUseBlock,
+): Promise<Anthropic.ToolResultBlockParam> => {
+  const tool = tools.find((candidate) => candidate.name === block.name);
+  try {
+    if (!tool) throw new Error(`알 수 없는 도구입니다: ${block.name}`);
+    const input = block.input && typeof block.input === "object" ? block.input as Record<string, unknown> : {};
+    const output = await tool.run(input);
+    console.log(`[ClaudeProvider] 도구 실행: ${block.name}`);
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      content: output.length > MAX_TOOL_RESULT_LENGTH
+        ? `${output.slice(0, MAX_TOOL_RESULT_LENGTH)}\n...(결과가 길어 잘렸습니다)`
+        : output,
+    };
+  } catch (error) {
+    console.error(`[ClaudeProvider] 도구 실패: ${block.name}`);
+    return {
+      type: "tool_result",
+      tool_use_id: block.id,
+      is_error: true,
+      content: error instanceof Error ? error.message.slice(0, 300) : "도구 실행에 실패했습니다.",
+    };
+  }
+};
 
 export class ClaudeProvider extends BaseProvider {
   constructor(config: any = {}) {
@@ -37,19 +68,51 @@ export class ClaudeProvider extends BaseProvider {
       { type: "text", text: prompt },
     ];
 
-    let response: Anthropic.Message;
+    const tools = options.tools || [];
+    const messages: Anthropic.MessageParam[] = [{ role: "user", content }];
+    const request = {
+      model: options.model || process.env.CLAUDE_MODEL || DEFAULT_CLAUDE_MODEL,
+      max_tokens: Number.isSafeInteger(maxTokens) && maxTokens > 0 ? maxTokens : 4096,
+      ...(system ? { system } : {}),
+      ...(tools.length ? {
+        tools: tools.map((tool): Anthropic.Tool => ({
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.inputSchema,
+        })),
+      } : {}),
+      ...(options.responseJsonSchema ? {
+        output_config: {
+          format: { type: "json_schema" as const, schema: options.responseJsonSchema },
+        },
+      } : {}),
+    };
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+      const response = await this.createMessage(client, { ...request, messages: [...messages] });
+      if (response.stop_reason === "tool_use" && tools.length) {
+        const toolUses = response.content.filter(
+          (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
+        );
+        // Keep the whole assistant turn (thinking blocks included) and answer every call at once.
+        messages.push({ role: "assistant", content: response.content });
+        messages.push({
+          role: "user",
+          content: await Promise.all(toolUses.map((block) => runTool(tools, block))),
+        });
+        continue;
+      }
+      return this.readText(response);
+    }
+    throw new Error("Claude 도구 호출이 너무 많아 중단했습니다. 질문 범위를 좁혀 다시 시도해주세요.");
+  }
+
+  private async createMessage(
+    client: Anthropic,
+    body: Anthropic.MessageCreateParamsNonStreaming,
+  ): Promise<Anthropic.Message> {
     try {
-      response = await client.messages.create({
-        model: options.model || process.env.CLAUDE_MODEL || DEFAULT_CLAUDE_MODEL,
-        max_tokens: Number.isSafeInteger(maxTokens) && maxTokens > 0 ? maxTokens : 4096,
-        ...(system ? { system } : {}),
-        messages: [{ role: "user", content }],
-        ...(options.responseJsonSchema ? {
-          output_config: {
-            format: { type: "json_schema", schema: options.responseJsonSchema },
-          },
-        } : {}),
-      });
+      return await client.messages.create(body);
     } catch (error) {
       if (error instanceof Anthropic.AuthenticationError ||
           error instanceof Anthropic.PermissionDeniedError) {
@@ -64,7 +127,9 @@ export class ClaudeProvider extends BaseProvider {
       // SDK 오류의 원문에는 요청 데이터나 인증 정보가 포함될 수 있다.
       throw new Error("Claude API 요청에 실패했습니다. 모델과 연결 상태를 확인해주세요.");
     }
+  }
 
+  private readText(response: Anthropic.Message): string {
     if (response.stop_reason !== "end_turn") {
       throw new Error("Claude 응답이 완료되지 않았습니다. 요청 범위를 줄여 다시 시도해주세요.");
     }

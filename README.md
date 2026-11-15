@@ -4,6 +4,15 @@
 
 ## 현재 컨셉
 
+봇의 중심은 **관리자 DM의 Claude**입니다. 나머지 기능은 둘 중 하나입니다.
+
+| 구분 | 설명 | 예 | 추가하는 곳 |
+| --- | --- | --- | --- |
+| Claude 도구 | Claude가 답변하면서 직접 호출해 데이터를 조회합니다. | Gmail 검색·읽기 | `src/core/ai/admin-ai-tools.ts`에 toolset 등록 |
+| 스케줄 | 정해진 시각에 스스로 실행하고 결과를 관리자 DM으로 보냅니다. | 아침 브리핑, 긱뉴스, 날씨, 채용공고, X·GitHub Actions·Gmail 감시 | `src/core/scheduler/schedule-definitions.ts`와 `private-scheduler.ts` |
+
+새 기능은 우선 Claude 도구로 노출하는 것을 기본으로 하고, 시간에 맞춰 알려야 하는 것만 스케줄로 둡니다. `/관리자 ...` 명령은 운영 점검과 수동 실행용으로 유지합니다.
+
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
 - 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X·Gmail 감시 알림을 관리자 DM으로 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
@@ -156,7 +165,18 @@ npm run check:x-profile -- --translate
 | `!클로드 초기화` | 현재 채널의 관리자 대화 기억과 legacy 세션 매핑을 초기화합니다. |
 | `!코덱스 ...`, `!헤르메스 ...` | 기존 명령어를 위한 Claude 제어 호환 alias입니다. |
 
-관리자 DM의 일반 메시지는 Claude API에 전달합니다. 최근 대화 10턴과 지원되는 첨부 이미지를 사용하며, Claude API 경로에는 웹 검색, 브라우저, 터미널, 서버·로컬 파일 접근 도구를 제공하지 않습니다.
+관리자 DM의 일반 메시지는 Claude API에 전달합니다. 최근 대화 10턴과 지원되는 첨부 이미지를 사용하며, Claude API 경로에는 웹 검색, 브라우저, 터미널, 서버·로컬 파일 접근 도구를 제공하지 않습니다. 예외는 아래의 Gmail 읽기 도구입니다.
+
+#### Claude의 Gmail 조회
+
+`GMAIL_ADDRESS`와 `GMAIL_APP_PASSWORD`가 설정돼 있으면 관리자 DM의 Claude가 Gmail을 **읽기 전용**으로 조회할 수 있습니다. "오늘 온 메일 요약해줘", "토스에서 온 영수증 찾아줘", "지난주 GitHub 실패 메일 정리해줘"처럼 물으면 Claude가 직접 검색하고 필요한 메일 본문을 읽은 뒤 답합니다. 새 메일 DM 알림(`GMAIL_MONITOR_ENABLED`)과는 별개로 동작합니다.
+
+- 도구는 두 가지입니다. `search_gmail`은 전체보관함을 Gmail 검색 문법으로 검색해 최신순 최대 20건의 제목, 보낸 사람, 미리보기, 링크를 돌려줍니다. `read_gmail`은 그 결과의 메일 한 통의 받는 사람, 라벨, 첨부파일 이름, 본문(최대 12,000자)을 읽습니다.
+- 메일함은 읽기 전용으로 엽니다. 답장, 삭제, 읽음 처리, 이동은 할 수 없습니다.
+- 조회한 메일 내용은 답변을 만들기 위해 Claude API로 전달됩니다. 원하지 않으면 `GMAIL_AI_ENABLED=false`로 끕니다.
+- 메일 본문은 외부인이 쓴 데이터로 취급하도록 시스템 지시에 명시했습니다. 메일 안의 지시는 따르지 않습니다.
+- 질문 한 번에 Claude API 호출은 최대 8번입니다. 메일을 여러 번 검색하면 응답이 30~40초 걸릴 수 있고, 60초가 넘으면 기존 규칙대로 백그라운드 완료 보고로 전환됩니다.
+- `/질문` 단발 답변에는 Gmail 도구를 붙이지 않습니다.
 
 `/질문 <질문>`은 현재 AI 공급자를 사용하는 단발 관리자 AI 답변입니다. 관리자 DM thread 기억, 관리자 최근 대화 10턴, 백그라운드 후속 보고 흐름을 사용하지 않습니다.
 
@@ -220,7 +240,7 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/core/natural-language-router.ts` | 관리자 DM 자연어 답변 경로 |
 | `src/core/admin-conversation-context-store.ts` | 관리자 DM 최근 대화 기억 |
 | `src/core/ai/ai-service.ts` | Claude 및 legacy 공급자 선택 |
-| `src/core/ai/providers/claude-provider.ts` | Claude Messages API 공급자 |
+| `src/core/ai/providers/claude-provider.ts` | Claude Messages API 공급자와 클라이언트 도구 호출 루프 |
 | `src/core/ai/providers/codex-provider.ts` | Legacy Codex app-server 공급자 |
 | `src/core/ai/providers/hermes-provider.ts` | Legacy Hermes CLI 공급자 |
 | `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고/GitHub Actions 감시와 선택적 X·Gmail 감시 스케줄러 |
@@ -234,10 +254,12 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/features/github-actions-monitor/github-actions-monitor-service.ts` | 실패·복구 판단과 기준선/알림 이력 처리 |
 | `src/features/github-actions-monitor/github-actions-message.ts` | GitHub Actions 알림 DM 메시지 생성 |
 | `src/utils/github-actions-monitor-store.ts` | 워크플로별 확인 완료 실행 키 영속 저장소 |
-| `src/features/gmail-monitor/gmail-source.ts` | Gmail IMAP 접속, 새 메일 조회, 미리보기 추출 |
+| `src/features/gmail-monitor/gmail-source.ts` | Gmail IMAP 접속, 새 메일 조회, 검색·본문 읽기, 미리보기 추출 |
 | `src/features/gmail-monitor/gmail-monitor-service.ts` | Gmail 기준선/확인 위치 처리와 DM 전송 |
 | `src/features/gmail-monitor/gmail-message.ts` | Gmail 알림 DM 메시지 생성과 분할 |
 | `src/utils/gmail-monitor-store.ts` | Gmail 확인 위치(UID) 영속 저장소 |
+| `src/core/ai/admin-ai-tools.ts` | 관리자 Claude가 쓸 수 있는 toolset 등록소 |
+| `src/features/gmail-monitor/gmail-ai-tools.ts` | 관리자 Claude용 읽기 전용 Gmail 검색·읽기 toolset |
 | `src/features/tools/weather-notification-message.ts` | 날씨 스케줄러 DM 메시지 생성 |
 | `scripts/generate-registry.ts` | prefix 명령어 레지스트리 자동 생성 |
 

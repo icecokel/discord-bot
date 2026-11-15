@@ -1,4 +1,24 @@
+/**
+ * A client-side tool the model may call while answering. Only the Claude provider runs tools;
+ * other providers ignore this option.
+ */
+export interface AiTool {
+  name: string;
+  description: string;
+  inputSchema: { type: "object"; properties: Record<string, unknown>; required?: string[] };
+  /** Returns the text handed back to the model. Throwing reports the error message to the model. */
+  run(input: Record<string, unknown>): Promise<string>;
+}
+
+/** A group of related tools plus the system-prompt guidance on when and how to use them. */
+export interface AiToolset {
+  name: string;
+  guidance: string;
+  tools: AiTool[];
+}
+
 export interface IGenerationOptions {
+  tools?: AiTool[];
   model?: string;
   config?: any;
   systemInstruction?: string;
