@@ -1,5 +1,6 @@
 import { MessageFlags } from "discord.js";
 import type { Client, Message, MessageCreateOptions } from "discord.js";
+import { appendAdminNotification } from "../core/admin-conversation-context-store";
 
 export interface Notification {
   content?: string;
@@ -24,6 +25,30 @@ const embedLength = (embeds: Notification["embeds"] = []): number =>
       (data.author?.name.length || 0) + (data.footer?.text.length || 0) +
       (data.fields || []).reduce((sum, field) => sum + field.name.length + field.value.length, 0);
   }, 0);
+
+/** Plain-text view of a delivered notification, as the admin Claude will see it in later turns. */
+export const notificationToText = (content: string, embeds: Notification["embeds"] = []): string =>
+  [
+    content,
+    ...embeds.map((embed) => {
+      const data = "toJSON" in embed ? embed.toJSON() : embed;
+      return [
+        data.title,
+        data.description,
+        ...(data.fields || []).map((field) => `${field.name}: ${field.value}`),
+        data.url,
+      ].filter(Boolean).join("\n");
+    }),
+  ].filter(Boolean).join("\n\n");
+
+const rememberNotification = (ownerId: string, delivered: Message | undefined, text: string): void => {
+  try {
+    if (delivered?.channelId) appendAdminNotification(ownerId, delivered.channelId, text);
+  } catch {
+    // Conversation memory is best-effort and must never fail a delivered notification.
+    console.error("[Notification] 대화 기억에 알림 기록 실패");
+  }
+};
 
 const deliverBatches = async (client: Client, batches: Batch[]): Promise<void> => {
   const notifiedOwners = new Set<string>();
@@ -79,6 +104,7 @@ const deliverBatches = async (client: Client, batches: Batch[]): Promise<void> =
         ...(notifiedOwners.has(first.batch.ownerId) ? { flags: MessageFlags.SuppressNotifications } : {}),
       });
       notifiedOwners.add(first.batch.ownerId);
+      rememberNotification(first.batch.ownerId, delivered, notificationToText(content, embeds));
       for (const item of group) {
         try {
           item.message.onSent?.(delivered, content);

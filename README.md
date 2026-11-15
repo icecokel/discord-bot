@@ -16,7 +16,7 @@
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
 - 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X·Gmail 감시 알림을 관리자 DM으로 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
-- 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Claude API로 처리하며 최근 대화 10턴을 전달합니다.
+- 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Claude API로 처리합니다. 최근 대화와 봇이 보낸 알림을 최대 40개, 40,000자까지 함께 전달하며 재시작해도 유지합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Claude는 봇 프로세스 내부 provider로만 호출합니다.
 - AI 에이전트에는 Discord 메시지 전송, 삭제, 채널 관리 도구를 제공하지 않습니다.
 - 봇이 서버에서 준비되면 `ADMIN_ID` 사용자에게 준비 완료 DM을 보냅니다.
@@ -134,7 +134,7 @@ npm run check:x-profile -- --translate
 
 ### 상태 데이터
 
-운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`, `github-actions-monitor-history.json`, `gmail-monitor-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`, `github-actions-monitor-history.json`, `gmail-monitor-history.json`, `admin-conversation-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
 
 ### 관리자 명령어
 
@@ -165,7 +165,15 @@ npm run check:x-profile -- --translate
 | `!클로드 초기화` | 현재 채널의 관리자 대화 기억과 legacy 세션 매핑을 초기화합니다. |
 | `!코덱스 ...`, `!헤르메스 ...` | 기존 명령어를 위한 Claude 제어 호환 alias입니다. |
 
-관리자 DM의 일반 메시지는 Claude API에 전달합니다. 최근 대화 10턴과 지원되는 첨부 이미지를 사용하며, Claude API 경로에는 웹 검색, 브라우저, 터미널, 서버·로컬 파일 접근 도구를 제공하지 않습니다. 예외는 아래의 Gmail 읽기 도구입니다.
+관리자 DM의 일반 메시지는 Claude API에 전달합니다. 대화 기억과 지원되는 첨부 이미지를 사용하며, Claude API 경로에는 웹 검색, 브라우저, 터미널, 서버·로컬 파일 접근 도구를 제공하지 않습니다. 예외는 아래의 Gmail 읽기 도구입니다.
+
+#### 대화 기억
+
+- 관리자 DM마다 최근 대화(관리자 메시지와 봇의 최종 답변)와 봇이 그 DM에 보낸 알림(아침 브리핑, 긱뉴스, 채용공고, X·GitHub Actions·Gmail 알림, `/관리자 메일확인` 결과 등)을 시간순으로 기억합니다. 그래서 알림을 받은 뒤 "방금 온 메일 자세히 알려줘"처럼 이어서 물을 수 있습니다.
+- 최대 40개 항목, 합계 40,000자까지 유지하고 넘치면 오래된 것부터 지웁니다. 한 항목이 6,000자를 넘으면 뒷부분을 생략합니다. 40,000자는 요청 한 번에 대략 3만 토큰입니다.
+- `dist/data/admin-conversation-history.json`에 저장하므로 재시작과 배포 후에도 유지됩니다. 파일이 손상되면 복구 사본을 남기고 빈 기억으로 시작하며, 답변은 계속합니다.
+- 도구 결과(메일 본문 등)와 예전 첨부 이미지는 저장하지 않습니다. 필요하면 봇이 다시 조회합니다.
+- `!클로드 초기화`로 현재 DM의 기억을 지웁니다. `/질문` 단발 답변은 대화 기억을 쓰지 않습니다.
 
 #### Claude의 Gmail 조회
 
@@ -178,7 +186,7 @@ npm run check:x-profile -- --translate
 - 질문 한 번에 Claude API 호출은 최대 8번입니다. 메일을 여러 번 검색하면 응답이 30~40초 걸릴 수 있고, 60초가 넘으면 기존 규칙대로 백그라운드 완료 보고로 전환됩니다.
 - `/질문` 단발 답변에는 Gmail 도구를 붙이지 않습니다.
 
-`/질문 <질문>`은 현재 AI 공급자를 사용하는 단발 관리자 AI 답변입니다. 관리자 DM thread 기억, 관리자 최근 대화 10턴, 백그라운드 후속 보고 흐름을 사용하지 않습니다.
+`/질문 <질문>`은 현재 AI 공급자를 사용하는 단발 관리자 AI 답변입니다. 관리자 DM thread 기억, 관리자 대화 기억, 백그라운드 후속 보고 흐름을 사용하지 않습니다.
 
 ## 제거된 사용자 노출 기능
 
@@ -238,7 +246,7 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/core/command-handler.ts` | prefix 명령어 실행 |
 | `src/core/admin-middleware.ts` | 관리자 DM 명령어 처리 |
 | `src/core/natural-language-router.ts` | 관리자 DM 자연어 답변 경로 |
-| `src/core/admin-conversation-context-store.ts` | 관리자 DM 최근 대화 기억 |
+| `src/core/admin-conversation-context-store.ts` | 관리자 DM 대화·알림 기억 영속 저장소 |
 | `src/core/ai/ai-service.ts` | Claude 및 legacy 공급자 선택 |
 | `src/core/ai/providers/claude-provider.ts` | Claude Messages API 공급자와 클라이언트 도구 호출 루프 |
 | `src/core/ai/providers/codex-provider.ts` | Legacy Codex app-server 공급자 |

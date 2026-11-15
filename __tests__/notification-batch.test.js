@@ -138,3 +138,27 @@ test("empty batches do not fetch a user or send a message", async () => {
   await runNotificationBatch(client, [deliver => deliver("admin", [])]);
   expect(client.users.fetch).not.toHaveBeenCalled();
 });
+
+describe("conversation memory of delivered notifications", () => {
+  const store = require("../src/core/admin-conversation-context-store");
+  const { sendNotifications } = require("../src/utils/notification-batch");
+  beforeEach(() => store.clearAllAdminConversationContexts());
+
+  test("records what was actually delivered, including embed text, keyed by the DM channel", async () => {
+    const userSend = jest.fn().mockResolvedValue({ id: "m1", channelId: "dm-1" });
+    const client = { users: { fetch: jest.fn().mockResolvedValue({ send: userSend }) } };
+    await sendNotifications(client, "owner", [
+      { content: "🌤️ 서울 맑음" },
+      { embeds: [{ title: "긱뉴스", description: "요약", fields: [{ name: "원문", value: "링크" }] }] },
+    ]);
+    const entries = store.getAdminConversationEntries("owner", "dm-1");
+    // Chunks of one source are sent as separate DMs, so each becomes its own memory entry.
+    expect(entries.map((entry) => entry.content)).toEqual(["🌤️ 서울 맑음", "긱뉴스\n요약\n원문: 링크"]);
+  });
+
+  test("records nothing when delivery fails", async () => {
+    const client = { users: { fetch: jest.fn().mockResolvedValue({ send: jest.fn().mockRejectedValue(new Error("closed")) }) } };
+    await expect(sendNotifications(client, "owner", [{ content: "알림" }])).rejects.toThrow("closed");
+    expect(store.getAdminConversationEntries("owner", "dm-1")).toEqual([]);
+  });
+});
