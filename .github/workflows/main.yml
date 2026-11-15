@@ -21,7 +21,7 @@ jobs:
           persist-credentials: false
 
       - name: Use the OCI runtime
-        run: echo "/home/ubuntu/discord-bot/.local/node/bin" >> "$GITHUB_PATH"
+        run: echo "/srv/discord-bot/.local/node/bin" >> "$GITHUB_PATH"
 
       - run: npm ci
       - run: npm run gen:registry

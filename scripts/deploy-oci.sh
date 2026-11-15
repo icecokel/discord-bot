@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
-app_dir="${OCI_APP_DIR:-/home/ubuntu/discord-bot}"
+app_dir="${OCI_APP_DIR:-/srv/discord-bot}"
 service=discord-bot.service
 artifacts=(package.json package-lock.json dist/index.js dist/check-x-profile.js)
 for file in "${artifacts[@]}"; do test -s "$repo_dir/$file"; done

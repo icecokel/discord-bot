@@ -2,24 +2,24 @@
 Description=Discord Bot on OCI
 Wants=network-online.target
 After=network-online.target
-ConditionPathExists=/home/ubuntu/discord-bot/.local/activate-oci
+ConditionPathExists=/srv/discord-bot/.local/activate-oci
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/home/ubuntu/discord-bot
+User=discord-bot
+Group=discord-bot
+WorkingDirectory=/srv/discord-bot
 Environment=NODE_ENV=production
 Environment=PROCESS_MANAGER=systemd
-Environment=PLAYWRIGHT_BROWSERS_PATH=/home/ubuntu/discord-bot/.local/ms-playwright
-Environment=TMPDIR=/home/ubuntu/discord-bot/.local/tmp
-Environment=XDG_CACHE_HOME=/home/ubuntu/discord-bot/.local/cache
-ExecStartPre=/usr/bin/test -f /home/ubuntu/discord-bot/.env
-ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/dist/data
-ExecStartPre=/usr/bin/test -d /home/ubuntu/discord-bot/.local/ms-playwright
-ExecStart=/usr/bin/xvfb-run -a /home/ubuntu/discord-bot/.local/node/bin/node /home/ubuntu/discord-bot/dist/index.js
+Environment=PLAYWRIGHT_BROWSERS_PATH=/srv/discord-bot/.local/ms-playwright
+Environment=TMPDIR=/srv/discord-bot/.local/tmp
+Environment=XDG_CACHE_HOME=/srv/discord-bot/.local/cache
+ExecStartPre=/usr/bin/test -f /srv/discord-bot/.env
+ExecStartPre=/usr/bin/test -d /srv/discord-bot/dist/data
+ExecStartPre=/usr/bin/test -d /srv/discord-bot/.local/ms-playwright
+ExecStart=/usr/bin/xvfb-run -a /srv/discord-bot/.local/node/bin/node /srv/discord-bot/dist/index.js
 Restart=always
 RestartSec=10
 KillMode=control-group

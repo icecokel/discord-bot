@@ -2,7 +2,7 @@
 
 ## 현재 운영 상태
 
-2026-11-11 KST에 Discord 봇과 `main`의 빌드·배포를 춘천 OCI로 이관했다. 앱 경로는 `/home/ubuntu/discord-bot`이고, Linux ARM64 러너 이름과 전용 레이블은 `discord-bot-oci`다. 봇과 러너의 systemd 서비스는 모두 활성화돼 있다. Mac의 봇 LaunchAgent `com.icecokel.discord-bot`은 중지하고 자동 시작을 해제했다. 기존 Mac 러너는 등록 상태를 유지한다.
+2026-11-11 KST에 Discord 봇과 `main`의 빌드·배포를 춘천 OCI로 이관했다. 앱 경로는 `/srv/discord-bot`(전용 계정 `discord-bot` 소유, 계정 분리 전에는 `/home/ubuntu/discord-bot`)이고, Linux ARM64 러너 이름과 전용 레이블은 `discord-bot-oci`다. 봇과 러너의 systemd 서비스는 모두 활성화돼 있다. Mac의 봇 LaunchAgent `com.icecokel.discord-bot`은 중지하고 자동 시작을 해제했다. 기존 Mac 러너는 등록 상태를 유지한다.
 
 - 23:40 KST Mac에서 X 스케줄이 끝난 뒤 실행 중인 작업이 0개인 것을 확인했다. Mac 봇을 종료한 후 `dist/data/` 전체를 OCI에 복사하고 JSON 4개의 파일 목록·SHA-256·JSON 파싱 결과를 확인한 뒤 OCI 봇을 시작했다.
 - [첫 운영 배포](https://github.com/icecokel/discord-bot/actions/runs/43041159820)는 OCI 러너에서 테스트 39개 묶음·342개, 타입 검사, 빌드, 로컬 배포를 통과했다. 운영 번들 두 개와 패키지 파일 두 개가 러너의 빌드 결과와 일치했다.
@@ -19,7 +19,7 @@
 
 ## 운영 설정
 
-OCI의 `/home/ubuntu/discord-bot/.env`는 ubuntu 소유·권한 600으로 관리한다. Discord 로그인과 관리자 알림은 `DISCORD_BOT_TOKEN`과 `ADMIN_ID`를 사용한다. Claude는 `ANTHROPIC_API_KEY`를 사용하며 X 감시는 `X_MONITOR_ENABLED=true`일 때 등록된다. OCI에서는 Xvfb의 창 모드를 사용한다. 인증 파일은 `.local/x-auth-state.json`에 둔다.
+OCI의 `/srv/discord-bot/.env`는 discord-bot 계정 소유·권한 600으로 관리한다. Discord 로그인과 관리자 알림은 `DISCORD_BOT_TOKEN`과 `ADMIN_ID`를 사용한다. Claude는 `ANTHROPIC_API_KEY`를 사용하며 X 감시는 `X_MONITOR_ENABLED=true`일 때 등록된다. OCI에서는 Xvfb의 창 모드를 사용한다. 인증 파일은 `.local/x-auth-state.json`에 둔다.
 
 날씨는 `WEATHER_ADMIN_REGION`, `WEATHER_SHORT_END_POINT`, `WEATHER_SHORT_API_KRY`, `WEATHER_MIDDLE_END_POINT`, `WEATHER_MIDDLE_API_KEY`를, 뉴스는 `NAVER_APP_CLIENT_ID`, `NAVER_APP_CLIENT_SECRET`을 사용한다. 디스크 조회 대상은 `ADMIN_DISK_PATHS`로 지정한다.
 
@@ -30,7 +30,7 @@ OCI의 `/home/ubuntu/discord-bot/.env`는 ubuntu 소유·권한 600으로 관리
 - 관리자 설치 후 `.local/system-prepared`를 확인한다. 앱 경로에서 다음 명령으로 DOM과 실제 X 수집을 검사한다. 검사 결과에는 건수와 성공 여부만 남기고 미리보기·인증 파일은 배포 대상에서 제외한다.
 
 ```bash
-cd /home/ubuntu/discord-bot
+cd /srv/discord-bot
 export PATH="$PWD/.local/node/bin:$PATH"
 export PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/ms-playwright"
 xvfb-run -a node -r dotenv/config dist/check-x-profile.js

@@ -12,7 +12,7 @@ if [[ "$ID" != ubuntu || "$VERSION_ID" != 24.04 || "$(uname -m)" != aarch64 ]]; 
   exit 1
 fi
 
-app_dir=/home/ubuntu/discord-bot
+app_dir=/srv/discord-bot
 runner_dir="$app_dir/.local/actions-runner"
 runner_service=actions.runner.icecokel-discord-bot.discord-bot-oci.service
 runner_option="${1:-}"
@@ -47,7 +47,7 @@ systemctl enable discord-bot.service
 if [[ "$runner_option" == --with-oci-runner ]]; then
   cd "$runner_dir"
   if [[ ! -f "/etc/systemd/system/$runner_service" ]]; then
-    ./svc.sh install ubuntu
+    ./svc.sh install discord-bot
   fi
   systemctl enable --now "$runner_service"
   systemctl is-active --quiet "$runner_service"
@@ -58,7 +58,7 @@ if systemctl is-active --quiet discord-bot.service; then
   exit 0
 fi
 
-install -o ubuntu -g ubuntu -m 600 /dev/null "$app_dir/.local/system-prepared"
+install -o discord-bot -g discord-bot -m 600 /dev/null "$app_dir/.local/system-prepared"
 echo "System ready. Waiting up to 15 minutes for the migration cutover signal."
 for ((attempt=0; attempt<900; attempt++)); do
   if [[ -f "$app_dir/.local/activate-oci" ]]; then
