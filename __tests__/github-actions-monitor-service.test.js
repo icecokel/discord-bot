@@ -81,7 +81,7 @@ beforeEach(() => {
 });
 
 describe("기준선(첫 확인)", () => {
-  test("이력이 없으면 24시간보다 오래된 실패는 조용히 기준선에 넣고 최근 실패만 알린다", async () => {
+  test("이력이 없으면 가장 최근 완료 실행이 24시간 안의 실패일 때 그 한 건만 알린다", async () => {
     const fetchImpl = fetchByWorkflow({
       "production-chat-smoke.yml": okResponse([
         apiRun(30, "failure", 2),
@@ -98,6 +98,69 @@ describe("기준선(첫 확인)", () => {
     expect(stored.workflows[SMOKE_KEY].seenRunKeys).toEqual(["10:1", "20:1"]);
     expect(stored.workflows[DEPLOY_KEY].seenRunKeys).toEqual(["40:1"]);
     expect(BASELINE_LOOKBACK_MS).toBe(24 * 3600_000);
+  });
+
+  test("24시간 안의 실패라도 뒤에 성공한 실행이 있으면 해결된 것으로 보고 실패·복구 DM을 보내지 않는다", async () => {
+    const config = { ...CONFIG, workflows: ["deploy-api.yml"] };
+    const fetchImpl = fetchByWorkflow({
+      "deploy-api.yml": okResponse([
+        apiRun(43, "success", 1),
+        apiRun(42, "failure", 3),
+        apiRun(41, "timed_out", 5),
+      ]),
+    });
+
+    const result = await checkGitHubActionsRuns(config, NOW, fetchImpl);
+    expect(result.events).toEqual([]);
+    expect(stored.workflows[DEPLOY_KEY].seenRunKeys).toEqual(["41:1", "42:1", "43:1"]);
+    expect(stored.workflows[DEPLOY_KEY].failingRunKey).toBeUndefined();
+
+    // 이후 새 성공이 와도 알림을 보낸 적 없는 실패이므로 복구 DM이 없다.
+    const next = await checkGitHubActionsRuns(config, NOW, fetchByWorkflow({
+      "deploy-api.yml": okResponse([apiRun(44, "success", 0.1), apiRun(43, "success", 1), apiRun(42, "failure", 3)]),
+    }));
+    expect(next.events).toEqual([]);
+  });
+
+  test("최근 실패가 여러 건이어도 가장 최근 실행 한 건만 알린다", async () => {
+    const fetchImpl = fetchByWorkflow({
+      "production-chat-smoke.yml": okResponse([
+        apiRun(32, "failure", 1),
+        apiRun(31, "startup_failure", 3),
+        apiRun(30, "failure", 5),
+      ]),
+    });
+    const result = await checkGitHubActionsRuns({ ...CONFIG, workflows: ["production-chat-smoke.yml"] }, NOW, fetchImpl);
+    expect(result.events.map(event => [event.type, event.run.id])).toEqual([["failure", 32]]);
+    expect(stored.workflows[SMOKE_KEY].seenRunKeys).toEqual(["30:1", "31:1"]);
+  });
+
+  test("가장 최근 실패가 24시간보다 오래됐거나 최근 실행이 취소면 알리지 않는다", async () => {
+    const old = await checkGitHubActionsRuns({ ...CONFIG, workflows: ["production-chat-smoke.yml"] }, NOW, fetchByWorkflow({
+      "production-chat-smoke.yml": okResponse([apiRun(20, "failure", 25), apiRun(10, "failure", 49)]),
+    }));
+    expect(old.events).toEqual([]);
+
+    stored = undefined;
+    const cancelled = await checkGitHubActionsRuns({ ...CONFIG, workflows: ["deploy-api.yml"] }, NOW, fetchByWorkflow({
+      "deploy-api.yml": okResponse([apiRun(51, "cancelled", 1), apiRun(50, "failure", 2)]),
+    }));
+    expect(cancelled.events).toEqual([]);
+    expect(stored.workflows[DEPLOY_KEY].seenRunKeys).toEqual(["50:1", "51:1"]);
+  });
+
+  test("기준선에서 알린 실패가 전송된 뒤 성공하면 복구 DM을 보낸다", async () => {
+    const config = { ...CONFIG, workflows: ["production-chat-smoke.yml"] };
+    const first = await checkGitHubActionsRuns(config, NOW, fetchByWorkflow({
+      "production-chat-smoke.yml": okResponse([apiRun(30, "failure", 1), apiRun(29, "success", 30)]),
+    }));
+    expect(first.events.map(event => event.run.id)).toEqual([30]);
+    markGitHubActionsEventsNotified(first.events, NOW);
+
+    const next = await checkGitHubActionsRuns(config, NOW, fetchByWorkflow({
+      "production-chat-smoke.yml": okResponse([apiRun(31, "success", 0.1), apiRun(30, "failure", 1)]),
+    }));
+    expect(next.events.map(event => [event.type, event.run.id])).toEqual([["recovered", 31]]);
   });
 
   test("기준선 조회가 실패하면 이력을 만들지 않아 다음 확인에서 다시 기준선을 잡는다", async () => {

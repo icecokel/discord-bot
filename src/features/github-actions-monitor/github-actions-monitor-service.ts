@@ -17,8 +17,8 @@ import type { GitHubActionsEvent } from "./github-actions-message";
 // failure·timed_out은 실제 실패, startup_failure는 워크플로가 시작조차 못 한 상태라 알린다.
 // cancelled는 사람이 취소했거나 동시성 정책으로 밀린 경우라 알리지 않는다.
 export const ALERT_CONCLUSIONS = new Set(["failure", "timed_out", "startup_failure"]);
-// 첫 확인(기준선) 때도 최근 24시간 안에 끝난 실패는 알린다. 하루 한 번 도는 smoke의
-// 마지막 실패가 배포 직전에 있었다면 놓치지 않고, 그보다 오래된 실패는 쏟아내지 않는다.
+// 첫 확인(기준선) 때는 가장 최근 완료 실행이 이 시간 안에 끝난 실패일 때만 알린다.
+// 배포 직전에 깨져 아직 고쳐지지 않은 상태는 놓치지 않고, 해결된 과거 실패는 쏟아내지 않는다.
 export const BASELINE_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
 export interface GitHubActionsWorkflowFailure {
@@ -117,8 +117,19 @@ export const checkGitHubActionsRuns = async (
     const silentKeys: string[] = [];
     let failing = Boolean(workflowState.failingRunKey);
 
+    // 기준선: 가장 최근 완료 실행이 24시간 안에 끝난 실패일 때만 그 한 건을 알린다.
+    // 뒤에 성공한 실행이 있는 실패는 이미 해결된 것이라 실패·복구 DM 모두 보내지 않는다.
+    const latestRun = newRuns[newRuns.length - 1];
+    const baselineAlertRun =
+      !existing &&
+      latestRun?.conclusion &&
+      ALERT_CONCLUSIONS.has(latestRun.conclusion) &&
+      now.getTime() - Date.parse(latestRun.completedAt) <= BASELINE_LOOKBACK_MS
+        ? latestRun
+        : undefined;
+
     for (const run of newRuns) {
-      if (!existing && now.getTime() - Date.parse(run.completedAt) > BASELINE_LOOKBACK_MS) {
+      if (!existing && run !== baselineAlertRun) {
         silentKeys.push(getRunKey(run));
         continue;
       }
