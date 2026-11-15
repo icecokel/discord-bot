@@ -8,6 +8,33 @@
 - [첫 운영 배포](https://github.com/icecokel/discord-bot/actions/runs/43041159820)는 OCI 러너에서 테스트 39개 묶음·342개, 타입 검사, 빌드, 로컬 배포를 통과했다. 운영 번들 두 개와 패키지 파일 두 개가 러너의 빌드 결과와 일치했다.
 - 23:43 KST 배포 재시작 후 새 프로세스에서 Discord 로그인, 준비 알림 전송, 스케줄 5개 등록을 확인했다. Xvfb DOM 검사가 통과했고 배포 후 실수집에서 게시물 5건의 본문 5건을 읽었다. 자동 재시작은 실행 중인 서비스의 프로세스 교체로 검증했다.
 
+- 2026-11-15 KST 운영 설정을 GitHub Secrets·Variables로 전환했다. 서버 `.env`의 15개 키를 그대로 옮긴 뒤 [배포](https://github.com/icecokel/discord-bot/actions/runs/43716944216)에서 `.env`를 생성·교체했고(키 15개, discord-bot 소유·600), 새 실행의 Discord 로그인과 스케줄러 초기화를 확인했다.
+
+## 운영 서버 접속
+
+운영 서버는 춘천 OCI 1호기(`oci-termux-prod-01`)다. 봇(`discord-bot.service`)과 배포 러너(`discord-bot-oci`)가 모두 전용 계정 `discord-bot`으로 실행되며, 운영 작업도 이 계정으로 접속해서 한다.
+
+```bash
+ssh -F /Users/smlee/icecoke-ops/config/ssh-config oci-01-discordbot
+```
+
+- 접속하면 홈이자 앱 루트인 `/srv/discord-bot`에서 시작한다. 키는 `/Users/smlee/icecoke-ops/config/oci_discord_bot_key`이며 복사·출력·커밋하지 않는다.
+- 주요 경로: `.env`(운영 비밀값, 600, 배포가 생성), `dist/`(실행 번들), `dist/data/`(운영 JSON 이력), `.local/node/bin/node`(전용 Node), `.local/ms-playwright/`(브라우저), `.local/actions-runner/`(배포 러너).
+
+| 작업 | 명령 |
+| --- | --- |
+| 상태 확인 | `systemctl is-active discord-bot.service actions.runner.icecokel-discord-bot.discord-bot-oci.service` |
+| 로그 | `journalctl -u discord-bot.service -n 100 --no-pager` |
+| 현재 실행의 로그인 | `journalctl _SYSTEMD_INVOCATION_ID=$(systemctl show -p InvocationID --value discord-bot.service) --no-pager -o cat \| grep 'Logged in as'` |
+| 봇 재시작 | `kill -TERM "$(systemctl show -p MainPID --value discord-bot.service)"` → systemd(`Restart=always`)가 약 10초 뒤 다시 띄운다. 이후 위 명령으로 새 실행의 로그인을 확인한다. |
+| 운영 데이터 보기 | `ls dist/data` (봇이 쓰는 중이므로 편집이 필요하면 먼저 확인받는다) |
+
+- **할 수 없는 것:** 모든 `sudo`(패키지 설치, systemd unit 변경, 러너 재시작 포함), 포트 포워딩, 다른 프로젝트(`/srv/vscoke-api`)와 관리자 홈(`/home/ubuntu`) 접근. 필요하면 인프라 관리자 작업으로 요청한다. 관리자 접속(`oci-01`, ubuntu)은 쓰지 않는다.
+- 배포는 `main` push로 도는 GitHub Actions `Deploy to OCI`로만 한다. **`main` push가 곧 운영 배포다.** 서버에서 `dist/`·`node_modules/`를 직접 바꾸지 않는다.
+- `.env`의 토큰·API 키 원문을 출력하거나 기록하지 않는다.
+- Mac의 봇 LaunchAgent(`com.icecokel.discord-bot`)는 꺼 둔다. 켜면 같은 토큰으로 중복 로그인된다.
+- 서버를 바꾼 작업은 이 문서에 반영한다.
+
 ## OCI 배포 경로
 
 1. GitHub의 `main` push를 춘천 OCI의 러너가 수신한다. 러너는 봇과 별도 systemd 서비스로 실행한다.
@@ -31,15 +58,14 @@
 - `DISCORD_BOT_TOKEN`과 `ADMIN_ID`가 없으면 서버를 건드리지 않고 배포가 실패한다. GitHub에 봇 설정이 하나도 없으면 서버의 기존 `.env`를 그대로 쓴다(전환 전 상태).
 - 배포 로그에는 키 이름만 나오고 값은 나오지 않는다.
 
-기존 서버 `.env`를 GitHub으로 옮길 때는 값이 로컬 디스크에 남지 않도록 파이프로 넘긴다. `gh`가 이 저장소에 로그인된 PC에서 실행한다.
+서버 `.env`를 다시 GitHub으로 옮겨야 할 때(예: 저장소 재생성)는 값이 로컬 디스크에 남지 않도록 파이프로 넘긴다. `discord-bot` 계정은 자기 `.env`를 `sudo` 없이 읽는다. `gh`는 저장소 소유 계정(icecokel) 토큰으로 실행한다.
 
 ```bash
-# 0) 실제 OCI 접속 대상으로 바꾼다(예: ubuntu@서버공인IP 또는 ~/.ssh/config의 Host 이름)
-OCI_HOST='ubuntu@서버주소'
-# 1) 분류 확인(업로드 안 함)
-ssh "$OCI_HOST" 'sudo cat /srv/discord-bot/.env' | node scripts/push-env-to-github.cjs --dry-run
+export GH_TOKEN="$(gh auth token --user icecokel)"
+# 1) 분류 확인(업로드 안 함, 키 이름만 출력)
+ssh -F /Users/smlee/icecoke-ops/config/ssh-config oci-01-discordbot 'cat .env' | node scripts/push-env-to-github.cjs --dry-run
 # 2) 업로드
-ssh "$OCI_HOST" 'sudo cat /srv/discord-bot/.env' | node scripts/push-env-to-github.cjs
+ssh -F /Users/smlee/icecoke-ops/config/ssh-config oci-01-discordbot 'cat .env' | node scripts/push-env-to-github.cjs
 # 3) Actions에서 Deploy to OCI 재실행 → 로그의 "Rendered N settings" 확인
 ```
 

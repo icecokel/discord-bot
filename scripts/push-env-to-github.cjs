@@ -3,9 +3,9 @@
  * Copies a dotenv file into this repository's GitHub Actions secrets and variables, so the
  * deploy workflow can render the production .env (see render-production-env.cjs).
  *
- *   OCI_HOST='ubuntu@server'   # the real SSH target
- *   ssh "$OCI_HOST" 'sudo cat /srv/discord-bot/.env' | node scripts/push-env-to-github.cjs --dry-run
- *   ssh "$OCI_HOST" 'sudo cat /srv/discord-bot/.env' | node scripts/push-env-to-github.cjs
+ *   export GH_TOKEN="$(gh auth token --user icecokel)"   # repository owner account
+ *   ssh -F /Users/smlee/icecoke-ops/config/ssh-config oci-01-discordbot 'cat .env' | node scripts/push-env-to-github.cjs --dry-run
+ *   ssh -F /Users/smlee/icecoke-ops/config/ssh-config oci-01-discordbot 'cat .env' | node scripts/push-env-to-github.cjs
  *
  * Reads stdin so values never touch the local disk; secret values go to `gh` over stdin, never
  * argv. Names starting with GITHUB_ are stored as GH_ (GitHub reserves the prefix).
