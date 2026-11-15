@@ -55,6 +55,7 @@ describe("admin schedule status command", () => {
       "긱뉴스",
       "내일 날씨",
       "채용공고",
+      "GitHub Actions 감시",
     ]);
   });
 });
@@ -70,5 +71,19 @@ describe("admin schedule status command", () => {
   } finally {
     if (previous === undefined) delete process.env.X_MONITOR_ENABLED;
     else process.env.X_MONITOR_ENABLED = previous;
+  }
+});
+
+test("GitHub Actions 감시를 끄면 스케줄 상태에서 숨긴다", async () => {
+  const previous = process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
+  process.env.GITHUB_ACTIONS_MONITOR_ENABLED = "false";
+  try {
+    mockGetScheduleRunRecords.mockReturnValue([]);
+    const reply = jest.fn();
+    await handleScheduleStatus({ reply });
+    expect(reply.mock.calls[0][0].embeds[0].toJSON().fields.map(f => f.name)).not.toContain("GitHub Actions 감시");
+  } finally {
+    if (previous === undefined) delete process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
+    else process.env.GITHUB_ACTIONS_MONITOR_ENABLED = previous;
   }
 });

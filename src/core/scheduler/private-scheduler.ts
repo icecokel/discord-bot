@@ -1,4 +1,5 @@
 import { runXMonitor } from "../../features/x-monitor/x-monitor-service";
+import { runGitHubActionsMonitor } from "../../features/github-actions-monitor/github-actions-monitor-service";
 import cron from "node-cron";
 import { Client } from "discord.js";
 import { getUserRegion } from "../../utils/user-store";
@@ -124,6 +125,8 @@ export class PrivateScheduler {
             case "geek-news": return this.sendGeekNewsDM(undefined, send);
             case "tomorrow-weather": return this.sendTomorrowWeatherDM(undefined, send);
             case "job-postings": return this.sendJobPostingNotifications(undefined, send);
+            // 실패 알림은 야간에도 미루지 않고 즉시 보낸다.
+            case "github-actions": return runGitHubActionsMonitor(send);
             default: throw new Error(`알 수 없는 스케줄: ${definition.id}`);
           }
         });

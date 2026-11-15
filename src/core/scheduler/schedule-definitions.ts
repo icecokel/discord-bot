@@ -4,7 +4,8 @@ export interface ScheduleDefinition {
     | "geek-news"
     | "tomorrow-weather"
     | "job-postings"
-    | "x-profile";
+    | "x-profile"
+    | "github-actions";
   label: string;
   cron: string;
   hour: number;
@@ -69,7 +70,27 @@ export const X_PROFILE_SCHEDULE: ScheduleDefinition = {
   timezone: "Asia/Seoul",
 };
 
+// 실패 알림이 늦으면 다음 배포·smoke까지 문제가 이어지므로 10분마다 확인한다.
+// 워크플로 2개 기준 시간당 12회로, 토큰 없는 GitHub API 한도(시간당 60회)의 1/5이다.
+export const GITHUB_ACTIONS_SCHEDULE: ScheduleDefinition = {
+  id: "github-actions",
+  label: "GitHub Actions 감시",
+  cron: "*/10 * * * *",
+  hour: 0,
+  hours: Array.from({ length: 24 }, (_, hour) => hour),
+  minute: 0,
+  minutes: [0, 10, 20, 30, 40, 50],
+  timezone: "Asia/Seoul",
+};
+
 export const isXMonitorEnabled = (): boolean => process.env.X_MONITOR_ENABLED === "true";
 
-export const getEnabledScheduleDefinitions = (): ScheduleDefinition[] =>
-  isXMonitorEnabled() ? [...SCHEDULE_DEFINITIONS, X_PROFILE_SCHEDULE] : SCHEDULE_DEFINITIONS;
+// 공개 저장소라 토큰 없이 동작하므로 기본 활성화하고, 명시적으로 끌 때만 비활성화한다.
+export const isGitHubActionsMonitorEnabled = (): boolean =>
+  !/^(false|0|off|no)$/i.test(process.env.GITHUB_ACTIONS_MONITOR_ENABLED?.trim() || "");
+
+export const getEnabledScheduleDefinitions = (): ScheduleDefinition[] => [
+  ...SCHEDULE_DEFINITIONS,
+  ...(isXMonitorEnabled() ? [X_PROFILE_SCHEDULE] : []),
+  ...(isGitHubActionsMonitorEnabled() ? [GITHUB_ACTIONS_SCHEDULE] : []),
+];

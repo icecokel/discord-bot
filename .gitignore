@@ -15,3 +15,5 @@ src/data/daily-history.json
 output/playwright/
 src/data/x-profile-history.json
 src/data/x-profile-history.json.corrupt-*
+src/data/github-actions-monitor-history.json
+src/data/github-actions-monitor-history.json.corrupt-*

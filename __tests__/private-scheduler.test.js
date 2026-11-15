@@ -1,4 +1,8 @@
 const mockRunXMonitor = jest.fn();
+const mockRunGitHubActionsMonitor = jest.fn();
+jest.mock("../src/features/github-actions-monitor/github-actions-monitor-service", () => ({
+  runGitHubActionsMonitor: (...args) => mockRunGitHubActionsMonitor(...args),
+}));
 jest.mock("../src/features/x-monitor/x-monitor-service", () => ({ runXMonitor: (...args) => mockRunXMonitor(...args) }));
 const mockCronSchedule = jest.fn();
 const mockFetchFeaturedItemResult = jest.fn();
@@ -62,6 +66,7 @@ jest.mock("../src/features/job-monitor/job-notification-message", () => ({
 
 const {
   GEEK_NEWS_SCHEDULE,
+  GITHUB_ACTIONS_SCHEDULE,
   JOB_POSTINGS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
@@ -136,12 +141,16 @@ describe("private scheduler owner-only filtering", () => {
 describe("private scheduler morning briefing", () => {
   const originalAdminId = process.env.ADMIN_ID;
   const originalXEnabled = process.env.X_MONITOR_ENABLED;
+  const originalGitHubEnabled = process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
   const originalWeatherAdminRegion = process.env.WEATHER_ADMIN_REGION;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockRunXMonitor.mockReset();
+    mockRunGitHubActionsMonitor.mockReset();
+    mockRunGitHubActionsMonitor.mockResolvedValue({ status: "success", detail: "새 실패 없음" });
     delete process.env.X_MONITOR_ENABLED;
+    delete process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
     process.env.ADMIN_ID = "admin-id";
     delete process.env.WEATHER_ADMIN_REGION;
     mockGetUserRegion.mockReturnValue(null);
@@ -176,6 +185,8 @@ describe("private scheduler morning briefing", () => {
   afterAll(() => {
     if (originalXEnabled === undefined) delete process.env.X_MONITOR_ENABLED;
     else process.env.X_MONITOR_ENABLED = originalXEnabled;
+    if (originalGitHubEnabled === undefined) delete process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
+    else process.env.GITHUB_ACTIONS_MONITOR_ENABLED = originalGitHubEnabled;
     if (originalAdminId === undefined) {
       delete process.env.ADMIN_ID;
     } else {
@@ -191,7 +202,10 @@ describe("private scheduler morning briefing", () => {
   test("registers one dispatcher for all scheduled notifications", () => {
     const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
     scheduler.start();
-    expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith(SCHEDULE_DEFINITIONS);
+    expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith([
+      ...SCHEDULE_DEFINITIONS,
+      GITHUB_ACTIONS_SCHEDULE,
+    ]);
     expect(mockCronSchedule).toHaveBeenCalledTimes(1);
     expect(mockCronSchedule).toHaveBeenCalledWith(
       "* * * * *", expect.any(Function), { timezone: "Asia/Seoul" },
@@ -687,7 +701,71 @@ describe("private scheduler morning briefing", () => {
     expect(mockRunXMonitor).not.toHaveBeenCalled();
   });
 
+  test("GitHub Actions 감시는 기본 활성화되어 10분마다 공용 DM 발송 함수로 실행된다", async () => {
+    const send = jest.fn();
+    const client = { users: { fetch: jest.fn().mockResolvedValue({ send }) } };
+    const scheduler = new PrivateScheduler(client);
+    await scheduler.runDueSchedules(new Date("2026-07-18T03:10:00Z"));
+    await scheduler.runDueSchedules(new Date("2026-07-18T03:15:00Z"));
+    expect(mockRunGitHubActionsMonitor).toHaveBeenCalledTimes(1);
+    expect(mockRunGitHubActionsMonitor).toHaveBeenCalledWith(expect.any(Function));
+    expect(mockRecordScheduleRunStart).toHaveBeenCalledWith(GITHUB_ACTIONS_SCHEDULE);
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalledWith(
+      GITHUB_ACTIONS_SCHEDULE, "success", "새 실패 없음",
+    );
+  });
+
+  test("GitHub Actions 감시는 야간(02:00 KST)에도 실패 알림을 바로 보낸다", async () => {
+    mockRunGitHubActionsMonitor.mockImplementation(async deliver => {
+      await deliver("admin-id", [{ content: "🚨 GitHub Actions 실패" }]);
+      return { status: "success", detail: "실패 알림 1건" };
+    });
+    const send = jest.fn().mockResolvedValue({ id: "1" });
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date("2026-07-17T17:00:00Z"));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toBe("🚨 GitHub Actions 실패");
+  });
+
+  test("GitHub Actions 실패 알림은 같은 시각의 채용공고 DM과 합쳐진다", async () => {
+    mockRunGitHubActionsMonitor.mockImplementation(async deliver => {
+      await deliver("admin-id", [{ content: "🚨 GitHub Actions 실패" }]);
+      return { status: "success", detail: "실패 알림 1건" };
+    });
+    const posting = { id: "P-1" };
+    mockCheckForNewJobPostings.mockResolvedValue({ newPostings: [posting], initializedCompanies: [], successfulCompanyCount: 1, totalPostingCount: 1, failures: [] });
+    mockBuildJobPostingNotificationChunks.mockReturnValue([{ content: "채용공고", postings: [posting] }]);
+    const send = jest.fn().mockResolvedValue({ id: "1" });
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date(Date.UTC(2026, 6, 18, 4)));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].content).toBe("채용공고\n\n🚨 GitHub Actions 실패");
+  });
+
+  test("GitHub Actions 감시 실패는 실행 원장에 실패로 기록된다", async () => {
+    mockRunGitHubActionsMonitor.mockResolvedValue({ status: "failure", detail: "조회 실패" });
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+    await scheduler.runDueSchedules(new Date("2026-07-18T03:10:00Z"));
+    expect(mockRecordScheduleRunFailure).toHaveBeenCalledWith(GITHUB_ACTIONS_SCHEDULE, "조회 실패");
+    consoleError.mockRestore();
+  });
+
+  test.each(["false", "0", "off", " FALSE "])(
+    "GITHUB_ACTIONS_MONITOR_ENABLED=%s이면 등록·실행하지 않는다",
+    async value => {
+      process.env.GITHUB_ACTIONS_MONITOR_ENABLED = value;
+      const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+      scheduler.start();
+      expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith(SCHEDULE_DEFINITIONS);
+      await scheduler.runDueSchedules(new Date("2026-07-18T03:10:00Z"));
+      expect(mockRunGitHubActionsMonitor).not.toHaveBeenCalled();
+    },
+  );
+
   test("uses the expected schedule definitions", () => {
+    expect(GITHUB_ACTIONS_SCHEDULE.cron).toBe("*/10 * * * *");
+    expect(GITHUB_ACTIONS_SCHEDULE.minutes).toEqual([0, 10, 20, 30, 40, 50]);
     expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");
     expect(TOMORROW_WEATHER_SCHEDULE.cron).toBe("30 22 * * *");
     expect(JOB_POSTINGS_SCHEDULE.cron).toBe("0 7,13,19 * * *");
