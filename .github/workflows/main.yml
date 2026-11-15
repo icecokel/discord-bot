@@ -28,5 +28,19 @@ jobs:
       - run: npm test -- --runInBand
       - run: npm run type-check
       - run: npm run build
+      # Production settings live in repository secrets and variables (Settings > Secrets and
+      # variables > Actions). GitHub reserves the GITHUB_ prefix, so GH_X is written as GITHUB_X.
+      - name: Render production .env from GitHub secrets and variables
+        env:
+          BOT_SECRETS_JSON: ${{ toJSON(secrets) }}
+          BOT_VARS_JSON: ${{ toJSON(vars) }}
+        run: node scripts/render-production-env.cjs "$RUNNER_TEMP/production.env"
       - name: Deploy locally and verify Discord login
-        run: bash scripts/deploy-oci.sh
+        run: |
+          if [ -s "$RUNNER_TEMP/production.env" ]; then
+            export RENDERED_ENV_FILE="$RUNNER_TEMP/production.env"
+          fi
+          bash scripts/deploy-oci.sh
+      - name: Remove the rendered .env from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/production.env"

@@ -5,7 +5,14 @@ repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 app_dir="${OCI_APP_DIR:-/srv/discord-bot}"
 service=discord-bot.service
 artifacts=(package.json package-lock.json dist/index.js dist/check-x-profile.js)
+# Optional: .env rendered from GitHub secrets/variables by the workflow. Without it the
+# server keeps its current .env.
+rendered_env="${RENDERED_ENV_FILE:-}"
 for file in "${artifacts[@]}"; do test -s "$repo_dir/$file"; done
+if [[ -n "$rendered_env" ]]; then
+  test -s "$rendered_env"
+  grep -q '^DISCORD_BOT_TOKEN=' "$rendered_env"
+fi
 cd "$app_dir"
 test -f .local/activate-oci
 test -f .env
@@ -48,7 +55,8 @@ restart_bot() {
   return 1
 }
 
-# Keep live data and environment in place while replacing the four build files and dependencies.
+# Keep live data in place while replacing the four build files, dependencies and (when
+# rendered from GitHub) the environment; any failure restores all of them together.
 restore_on_error() {
   local rc=$?
   trap - EXIT
@@ -56,6 +64,7 @@ restore_on_error() {
     mv node_modules "$stage/failed-node_modules" 2>/dev/null || true
     mv "$stage/previous/node_modules" node_modules
     for file in "${artifacts[@]}"; do cp -p "$stage/previous/$file" "$file"; done
+    if [[ -f "$stage/previous/.env" ]]; then cp -p "$stage/previous/.env" .env; fi
     if ! restart_bot; then
       echo "Previous release restored; verify the service before retrying. Backup: $stage" >&2
       exit "$rc"
@@ -67,6 +76,12 @@ restore_on_error() {
 trap restore_on_error EXIT
 mv node_modules "$stage/previous/node_modules"
 mv "$stage/node_modules" node_modules
+if [[ -n "$rendered_env" ]]; then
+  cp -p .env "$stage/previous/.env"
+  install -m 600 "$rendered_env" "$stage/next.env"
+  mv -f "$stage/next.env" .env
+  echo "Production .env replaced from GitHub secrets and variables."
+fi
 for file in "${artifacts[@]}"; do
   install -m 644 "$repo_dir/$file" "$stage/installing"
   mv -f "$stage/installing" "$file"

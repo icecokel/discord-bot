@@ -327,10 +327,12 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/features/gmail-monitor/gmail-ai-tools.ts` | 관리자 Claude용 읽기 전용 Gmail 검색·읽기 toolset |
 | `src/features/tools/weather-notification-message.ts` | 날씨 스케줄러 DM 메시지 생성 |
 | `scripts/generate-registry.ts` | prefix 명령어 레지스트리 자동 생성 |
+| `scripts/render-production-env.cjs` | 배포 시 GitHub Secrets·Variables로 운영 `.env` 생성 |
+| `scripts/push-env-to-github.cjs` | 기존 `.env`를 GitHub Secrets·Variables로 옮기는 도구 |
 
 ## 환경변수
 
-로컬 개발은 저장소 루트 `.env`를 사용합니다. 운영 봇은 실행 디렉터리의 `.env`를 사용하며, 필수 값과 기능별 변수는 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-설정)에 정리했습니다. `.env`는 커밋하지 않습니다.
+로컬 개발은 저장소 루트 `.env`를 사용합니다. 운영 설정은 **GitHub 저장소의 Actions Secrets·Variables**로 관리하고, 배포할 때마다 운영 서버의 `.env`를 그 값으로 다시 만듭니다. 서버의 `.env`를 직접 고치면 다음 배포에서 덮어써집니다. GitHub이 막는 `GITHUB_` 접두사는 `GH_`로 저장합니다(예: `GH_TOKEN` → `GITHUB_TOKEN`). 관리 방법과 기능별 변수는 [운영 서버 가이드](documents/mac-mini-deployment.md#운영-설정)에 정리했습니다. `.env`는 커밋하지 않습니다.
 
 ## 개발
 

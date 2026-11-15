@@ -58,6 +58,30 @@ describe("OCI local deployment", () => {
     expect(value(".env")).toBe("original configuration");
     expect(value("dist/data/history.json")).toBe("original history");
   });
+  test("installs the .env rendered from GitHub with owner-only permissions", () => {
+    write(tmp, "rendered.env", "DISCORD_BOT_TOKEN='new'\nADMIN_ID='1'\n");
+    env.RENDERED_ENV_FILE = path.join(tmp, "rendered.env");
+    const result = run();
+    if (result.status !== 0) throw new Error(result.stderr);
+    expect(value(".env")).toBe("DISCORD_BOT_TOKEN='new'\nADMIN_ID='1'\n");
+    expect(fs.statSync(path.join(app, ".env")).mode & 0o777).toBe(0o600);
+    expect(result.stdout).toContain("replaced from GitHub");
+  });
+  test("rejects a rendered .env without the bot token before touching anything", () => {
+    write(tmp, "rendered.env", "ADMIN_ID='1'\n");
+    env.RENDERED_ENV_FILE = path.join(tmp, "rendered.env");
+    expect(run().status).not.toBe(0);
+    expect(value(".env")).toBe("original configuration");
+    expect(value("dist/index.js")).toBe("old");
+  });
+  test("restores the previous .env with the previous build if publication fails", () => {
+    write(tmp, "rendered.env", "DISCORD_BOT_TOKEN='new'\n");
+    env.RENDERED_ENV_FILE = path.join(tmp, "rendered.env");
+    stub("install", 'case "$3" in */dist/index.js) exit 27;; esac\ncp "$3" "$4"');
+    expect(run().status).toBe(27);
+    expect(value(".env")).toBe("original configuration");
+    expect(value("dist/index.js")).toBe("old");
+  });
   test("preserves the running release when dependency preparation fails", () => {
     env.FAIL_NPM = "1";
     expect(run().status).toBe(23);
