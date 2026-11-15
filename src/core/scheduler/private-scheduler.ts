@@ -115,7 +115,9 @@ export class PrivateScheduler {
       !this.runningJobs.has(definition.id),
     );
     due.forEach(definition => this.runningJobs.add(definition.id));
-    await runNotificationBatch(this.client, due.map(definition => async send => {
+    // Every minute: run due schedules (they only queue notifications), then dispatch the queue.
+    // Dispatch also delivers retries and releases the overnight hold from 06:00.
+    await runNotificationBatch(this.client, due.map(definition => async (send: NotificationSender) => {
       try {
         if (definition.id === "x-profile") {
           await runXMonitor(this.client, undefined, send);
@@ -131,7 +133,7 @@ export class PrivateScheduler {
             case "geek-news": return this.sendGeekNewsDM(undefined, send);
             case "tomorrow-weather": return this.sendTomorrowWeatherDM(undefined, send);
             case "job-postings": return this.sendJobPostingNotifications(undefined, send);
-            // 실패 알림은 야간에도 미루지 않고 즉시 보낸다.
+            // 실패 알림도 큐에 쌓이고, 큐는 23:00~06:00에 홀드됐다가 06:00에 발송된다.
             case "github-actions": return runGitHubActionsMonitor(send);
             case "github-trending": return sendGitHubTrending(process.env.ADMIN_ID, send);
             default: throw new Error(`알 수 없는 스케줄: ${definition.id}`);
@@ -140,7 +142,7 @@ export class PrivateScheduler {
       } finally {
         this.runningJobs.delete(definition.id);
       }
-    }));
+    }), { now: () => date });
   }
 
   private async runTrackedJob(

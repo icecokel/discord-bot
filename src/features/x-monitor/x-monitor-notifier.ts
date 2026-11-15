@@ -21,7 +21,11 @@ export const sendXNotifications = async (
   await send(ownerId, messages.map(message => ({
     content: message.content,
     shouldSend: () => !isXQuietTime(now()),
+    // X keeps its own outbox (translation, delivery IDs, partial progress), so it is delivered
+    // directly alongside the queue and follows the same quiet hours through shouldSend.
+    delivery: "direct",
     onSent: (delivered, content) => {
+      if (!delivered) throw new Error("X 알림은 직접 전송되어야 합니다.");
       (state.deliveries ??= []).push({
         sentAt: now().toISOString(), recipientId: ownerId,
         channelId: delivered.channelId, messageId: delivered.id,

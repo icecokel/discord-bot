@@ -110,13 +110,32 @@ test("sends new mail to the admin DM and advances the checkpoint", async () => {
   expect(mockComplete).toHaveBeenCalled();
 });
 
-test("keeps the checkpoint when the DM fails so the mail is retried", async () => {
+test("a failed DM stays in the notification queue for retry once the mail is queued", async () => {
+  const { loadNotificationQueue } = require("../src/utils/notification-queue-store");
   send.mockRejectedValue(new Error("Cannot send messages to this user"));
   mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 102, maxUid: 101, messages: [mail(101)], omittedCount: 0 });
   const result = await runGmailMonitor(client, clock);
-  expect(result.status).toBe("failure");
-  expect(stored.lastUid).toBe(100);
-  expect(mockFailure).toHaveBeenCalled();
+  // The queue owns delivery: Gmail moves on, the queue retries the DM with backoff.
+  expect(result.status).toBe("success");
+  expect(stored.lastUid).toBe(101);
+  const queue = loadNotificationQueue();
+  expect(queue.entries).toHaveLength(1);
+  expect(queue.entries[0]).toMatchObject({ attempts: 1, lastError: "Cannot send messages to this user" });
+  expect(queue.entries[0].content).toContain("메일 101");
+});
+
+test("keeps the checkpoint when the notification cannot be queued", async () => {
+  const store = require("../src/utils/notification-queue-store");
+  const spy = jest.spyOn(store, "enqueueNotifications").mockImplementation(() => { throw new Error("알림 큐 저장에 실패했습니다."); });
+  mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 102, maxUid: 101, messages: [mail(101)], omittedCount: 0 });
+  try {
+    const result = await runGmailMonitor(client, clock);
+    expect(result.status).toBe("failure");
+    expect(stored.lastUid).toBe(100);
+    expect(mockFailure).toHaveBeenCalled();
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 test("reports login failures without leaking server details", async () => {

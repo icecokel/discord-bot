@@ -6,7 +6,8 @@ import { sendGitHubTrending } from "../../github-trending/github-trending-servic
 export const handleGitHubTrending = async (message: Message): Promise<void> => {
   const result = await sendGitHubTrending(
     process.env.ADMIN_ID,
-    (ownerId, messages) => sendNotifications(message.client, ownerId, messages),
+    // The admin asked for it, so the digest is delivered now even during quiet hours.
+    (ownerId, messages) => sendNotifications(message.client, ownerId, messages, { immediate: true }),
   );
   if (result.status !== "success") {
     await message.reply({ content: result.detail, allowedMentions: { parse: [] } });

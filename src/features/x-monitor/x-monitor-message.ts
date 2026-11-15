@@ -1,14 +1,14 @@
 import { escapeMarkdown } from "discord.js";
 import { X_ACCOUNT } from "../../utils/x-monitor-store";
 import type { XPost } from "../../utils/x-monitor-store";
+import { isQuietHours } from "../../utils/quiet-hours";
 
 export const getKstHour = (now: Date): number =>
   new Date(now.getTime() + 9 * 60 * 60 * 1000).getUTCHours();
 
-export const isXQuietTime = (now: Date): boolean => {
-  const hour = getKstHour(now);
-  return hour >= 20 || hour < 6;
-};
+// X follows the bot-wide quiet hours but keeps its own pending queue so posts are retried,
+// translated and recorded with their delivery IDs; its notifications are marked "self".
+export const isXQuietTime = (now: Date): boolean => isQuietHours(now);
 
 export const buildXMessages = (posts: XPost[], now: Date) => {
   const title = getKstHour(now) === 6 && new Date(now.getTime() + 9 * 3600_000).getUTCMinutes() < 20

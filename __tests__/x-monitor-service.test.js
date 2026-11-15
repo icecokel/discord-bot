@@ -28,6 +28,8 @@ const previousEnabled = process.env.X_MONITOR_ENABLED;
 const previousAdmin = process.env.ADMIN_ID;
 beforeEach(() => {
   jest.clearAllMocks();
+  // X follows the bot-wide quiet hours; use the production default (23:00~06:00 KST).
+  delete process.env.NOTIFICATION_QUIET_HOURS;
   mockTranslate.mockResolvedValue("테스트 한국어 번역입니다.");
   process.env.X_MONITOR_ENABLED = "true";
   process.env.ADMIN_ID = "123";
@@ -47,7 +49,7 @@ afterAll(() => {
 });
 
 test.each([
-  ["2026-09-14T10:59:59Z", false], ["2026-09-14T11:00:00Z", true],
+  ["2026-09-14T13:59:59Z", false], ["2026-09-14T14:00:00Z", true],
   ["2026-09-14T20:59:59Z", true], ["2026-09-14T21:00:00Z", false],
 ])("KST quiet boundary %s", (time, quiet) => expect(isXQuietTime(new Date(time))).toBe(quiet));
 
@@ -70,8 +72,8 @@ test("does not initialize on an incomplete or empty crawl", async () => {
 
 test("persists night posts, batches at 06:00 and never sends the same IDs again", async () => {
   mockFetch.mockResolvedValue({ posts: [post("102"), post("101"), post("99")], complete: true });
-  await runXMonitor(client, clock("2026-09-14T11:00:00Z"));
-  await runXMonitor(client, clock("2026-09-14T11:20:00Z"));
+  await runXMonitor(client, clock("2026-09-14T14:00:00Z"));
+  await runXMonitor(client, clock("2026-09-14T14:20:00Z"));
   expect(send).not.toHaveBeenCalled();
   expect(stored.pending).toHaveLength(2);
   mockFetch.mockResolvedValue({ posts: [post("103"), post("102")], complete: true });
@@ -98,7 +100,7 @@ test("drains saved posts at 06:00 even when X fails", async () => {
 test("night failures retain the outbox and cannot send", async () => {
   stored.pending = [post("101")];
   mockFetch.mockRejectedValue(new Error("blocked: X 접근 제한"));
-  expect((await runXMonitor(client, clock("2026-09-14T12:00:00Z"))).status).toBe("failure");
+  expect((await runXMonitor(client, clock("2026-09-14T15:00:00Z"))).status).toBe("failure");
   expect(stored.pending).toHaveLength(1);
   expect(send).not.toHaveBeenCalled();
 });
@@ -137,10 +139,10 @@ test("skips concurrent manual/scheduled runs without overwriting the ledger", as
   await first;
 });
 
-test("rechecks 20:00 before every chunk", async () => {
-  let time = "2026-09-14T10:59:59Z";
+test("rechecks 23:00 before every chunk", async () => {
+  let time = "2026-09-14T13:59:59Z";
   stored.pending = [post("101", "a".repeat(1300)), post("102", "b".repeat(1300))];
-  send.mockImplementation(async () => { time = "2026-09-14T11:00:00Z"; return { id: "456", channelId: "789" }; });
+  send.mockImplementation(async () => { time = "2026-09-14T14:00:00Z"; return { id: "456", channelId: "789" }; });
   await runXMonitor(client, () => new Date(time));
   expect(send).toHaveBeenCalledTimes(1);
   expect(stored.pending.map(p => p.id)).toEqual(["102"]);
@@ -169,7 +171,7 @@ test("keeps Unicode, mention-like text and long posts within Discord limits", ()
 
 test("night collection does not translate until delivery time", async () => {
   mockFetch.mockResolvedValue({ posts: [post("101")], complete: true });
-  await runXMonitor(client, clock("2026-09-14T11:00:00Z"));
+  await runXMonitor(client, clock("2026-09-14T14:00:00Z"));
   expect(mockTranslate).not.toHaveBeenCalled();
   await runXMonitor(client, clock("2026-09-14T21:00:00Z"));
   expect(mockTranslate).toHaveBeenCalledWith("Post 101");
@@ -241,7 +243,7 @@ test("translation is cached and partially sent long text resumes without repeati
 test("recovers old baseline-only state using delivery history, not collected IDs", async () => {
   stored.notifiedIds = [];
   mockFetch.mockResolvedValue({ posts: [post("99"), post("100")], complete: true });
-  await runXMonitor(client, clock("2026-09-14T11:00:00Z"));
+  await runXMonitor(client, clock("2026-09-14T14:00:00Z"));
   expect(mockFetch).toHaveBeenLastCalledWith(undefined);
   expect(stored.pending.map(p => p.id)).toEqual(["99", "100"]);
   expect(stored.notifiedIds).toEqual([]);
@@ -317,3 +319,5 @@ test.each([
   const messages = buildXMessages([{ ...post("101"), translatedText: "번역" }], new Date(time));
   expect(messages[0].content).toContain(title);
 });
+
+afterAll(() => { process.env.NOTIFICATION_QUIET_HOURS = "off"; });

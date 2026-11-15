@@ -21,3 +21,5 @@ src/data/gmail-monitor-history.json
 src/data/gmail-monitor-history.json.corrupt-*
 src/data/admin-conversation-history.json
 src/data/admin-conversation-history.json.corrupt-*
+src/data/notification-queue.json
+src/data/notification-queue.json.corrupt-*

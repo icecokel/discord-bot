@@ -9,6 +9,9 @@ import type {
   ScheduleRunRecord,
   ScheduleRunStatus,
 } from "../../../utils/schedule-run-store";
+import { loadNotificationQueue } from "../../../utils/notification-queue-store";
+import type { NotificationQueueState } from "../../../utils/notification-queue-store";
+import { formatQuietHours, isQuietHours } from "../../../utils/quiet-hours";
 
 const STATUS_LABELS: Record<ScheduleRunStatus, string> = {
   never: "⚪ 실행 전",
@@ -51,6 +54,24 @@ export const formatScheduleRunRecord = (
   return lines.join("\n");
 };
 
+export const formatNotificationQueueStatus = (
+  state: NotificationQueueState,
+  now: Date = new Date(),
+): string => {
+  const retrying = state.entries.filter((entry) => entry.attempts > 0).length;
+  const quiet = isQuietHours(now);
+  const held = quiet ? state.entries.filter((entry) => !entry.immediate && entry.attempts === 0).length : 0;
+  const lines = [
+    `대기: ${state.entries.length}건${held ? ` (야간 홀드 ${held}건)` : ""}${retrying ? ` · 재시도 대기 ${retrying}건` : ""}`,
+    `야간 홀드: ${formatQuietHours()}${quiet ? " · 지금 홀드 중" : ""}`,
+    `최근 발송: ${formatKstDateTime(state.lastDeliveredAt)}`,
+    `최근 실패: ${formatKstDateTime(state.lastFailureAt)}`,
+  ];
+  if (state.lastError && retrying) lines.push(`메모: ${state.lastError.slice(0, 200)}`);
+  if (state.droppedCount) lines.push(`한도 초과로 버린 알림: ${state.droppedCount}건`);
+  return lines.join("\n");
+};
+
 const handleScheduleStatus = async (message: Message): Promise<void> => {
   const storedRecords = new Map(
     getScheduleRunRecords().map((record) => [record.jobId, record]),
@@ -81,6 +102,15 @@ const handleScheduleStatus = async (message: Message): Promise<void> => {
       inline: false,
     });
   }
+
+  // Schedules only queue notifications; the queue shows whether they actually went out.
+  let queueStatus: string;
+  try {
+    queueStatus = formatNotificationQueueStatus(loadNotificationQueue(), now);
+  } catch (error) {
+    queueStatus = "알림 큐를 읽지 못했습니다.";
+  }
+  embed.addFields({ name: "알림 큐", value: queueStatus, inline: false });
 
   await message.reply({ embeds: [embed] });
 };

@@ -57,6 +57,7 @@ describe("admin schedule status command", () => {
       "채용공고",
       "GitHub Actions 감시",
       "깃 트렌드",
+      "알림 큐",
     ]);
   });
 });
@@ -86,5 +87,30 @@ test("GitHub Actions 감시를 끄면 스케줄 상태에서 숨긴다", async (
   } finally {
     if (previous === undefined) delete process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
     else process.env.GITHUB_ACTIONS_MONITOR_ENABLED = previous;
+  }
+});
+
+test("summarizes the notification queue: holds, retries, last delivery and drops", () => {
+  const { formatNotificationQueueStatus } = require("../src/features/admin/commands/admin-schedule");
+  const previous = process.env.NOTIFICATION_QUIET_HOURS;
+  delete process.env.NOTIFICATION_QUIET_HOURS;
+  try {
+    const entry = (extra = {}) => ({ id: "1", ownerId: "o", content: "a", embeds: [], enqueuedAt: "2026-11-15T16:00:00Z", attempts: 0, ...extra });
+    const text = formatNotificationQueueStatus({
+      version: 1,
+      entries: [entry(), entry(), entry({ attempts: 2 })],
+      lastDeliveredAt: "2026-11-15T13:00:00Z",
+      lastFailureAt: "2026-11-15T16:10:00Z",
+      lastError: "Cannot send messages to this user",
+      droppedCount: 3,
+    }, new Date("2026-11-15T17:00:00Z")); // 02:00 KST
+    expect(text).toContain("대기: 3건 (야간 홀드 2건) · 재시도 대기 1건");
+    expect(text).toContain("야간 홀드: 23:00~06:00 · 지금 홀드 중");
+    expect(text).toContain("메모: Cannot send messages to this user");
+    expect(text).toContain("한도 초과로 버린 알림: 3건");
+    expect(formatNotificationQueueStatus({ version: 1, entries: [] }, new Date("2026-11-15T03:00:00Z")))
+      .toMatch(/^대기: 0건\n야간 홀드: 23:00~06:00\n/);
+  } finally {
+    process.env.NOTIFICATION_QUIET_HOURS = previous;
   }
 });

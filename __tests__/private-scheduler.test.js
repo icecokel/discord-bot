@@ -544,7 +544,7 @@ describe("private scheduler morning briefing", () => {
     expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
   });
 
-  test("does not mark a job as notified when the DM fails", async () => {
+  test("a DM failure leaves the posting in the queue for retry after it is marked notified", async () => {
     const posting = {
       id: "P-2",
       companyId: "kakao",
@@ -572,11 +572,28 @@ describe("private scheduler morning briefing", () => {
 
     const result = await scheduler.sendJobPostingNotifications();
 
+    // Queued means durable: the source is done and the queue retries the DM with backoff.
+    expect(result).toMatchObject({ status: "success" });
+    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([posting]);
+    const { loadNotificationQueue } = require("../src/utils/notification-queue-store");
+    expect(loadNotificationQueue().entries).toEqual([
+      expect.objectContaining({ content: `공고 (<${posting.url}>)`, attempts: 1, lastError: "DM blocked" }),
+    ]);
+  });
+
+  test("does not mark a job as notified when it cannot be queued", async () => {
+    const posting = { id: "P-9", companyId: "kakao", companyName: "카카오", title: "FE", url: "https://careers.kakao.com/jobs/P-9" };
+    mockCheckForNewJobPostings.mockResolvedValue({
+      newPostings: [posting], initializedCompanies: [], successfulCompanyCount: 5, totalPostingCount: 1, failures: [],
+    });
+    mockBuildJobPostingNotificationChunks.mockReturnValue([{ content: "x".repeat(2_001), postings: [posting] }]);
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
+    const result = await scheduler.sendJobPostingNotifications();
     expect(result).toMatchObject({ status: "failure" });
     expect(mockMarkJobPostingsAsNotified).not.toHaveBeenCalled();
   });
 
-  test("marks only postings from chunks sent before a later DM failure", async () => {
+  test("queues every chunk at once so a later DM failure loses nothing", async () => {
     const first = {
       id: "P-3",
       companyId: "kakao",
@@ -598,8 +615,9 @@ describe("private scheduler morning briefing", () => {
       failures: [],
     });
     mockBuildJobPostingNotificationChunks.mockReturnValue([
-      { content: `첫 메시지 (<${first.url}>)`, postings: [first] },
-      { content: `두 번째 메시지 (<${second.url}>)`, postings: [second] },
+      // Long enough that the dispatcher cannot pack both chunks into one DM.
+      { content: `첫 메시지 (<${first.url}>)${" ".repeat(1_200)}.`, postings: [first] },
+      { content: `두 번째 메시지 (<${second.url}>)${" ".repeat(1_200)}.`, postings: [second] },
     ]);
     const send = jest
       .fn()
@@ -611,9 +629,10 @@ describe("private scheduler morning briefing", () => {
 
     const result = await scheduler.sendJobPostingNotifications();
 
-    expect(result.status).toBe("failure");
-    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledTimes(1);
-    expect(mockMarkJobPostingsAsNotified).toHaveBeenCalledWith([first]);
+    expect(result.status).toBe("success");
+    expect(mockMarkJobPostingsAsNotified.mock.calls).toEqual([[[first]], [[second]]]);
+    const { loadNotificationQueue } = require("../src/utils/notification-queue-store");
+    expect(loadNotificationQueue().entries.map((entry) => entry.content.trimEnd())).toEqual([`두 번째 메시지 (<${second.url}>)${" ".repeat(1_200)}.`]);
   });
 
   test("records the scheduled job monitor result in the execution ledger", async () => {
@@ -771,6 +790,48 @@ describe("private scheduler morning briefing", () => {
       expect(mockRunGitHubActionsMonitor).not.toHaveBeenCalled();
     },
   );
+
+  test("holds the queue overnight and releases it at 06:00 with that minute's schedules", async () => {
+    const { enqueueNotifications, loadNotificationQueue } = require("../src/utils/notification-queue-store");
+    delete process.env.NOTIFICATION_QUIET_HOURS;
+    try {
+      enqueueNotifications([{ ownerId: "admin-id", content: "🚨 GitHub Actions 실패", embeds: [] }],
+        new Date("2026-07-17T17:30:00Z")); // 02:30 KST
+      const send = jest.fn().mockResolvedValue({ id: "1", channelId: "dm" });
+      const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+
+      await scheduler.runDueSchedules(new Date("2026-07-17T20:59:00Z")); // 05:59 KST
+      expect(send).not.toHaveBeenCalled();
+      expect(loadNotificationQueue().entries).toHaveLength(1);
+
+      await scheduler.runDueSchedules(new Date("2026-07-17T21:00:00Z")); // 06:00 KST
+      expect(send).toHaveBeenCalledTimes(1);
+      const content = send.mock.calls[0][0].content;
+      expect(content.startsWith("🌙 야간(23:00~06:00)에 쌓인 알림 1건\n\n🕐 02:30\n🚨 GitHub Actions 실패\n\n")).toBe(true);
+      expect(content).toContain("오늘의 브리핑");
+      expect(loadNotificationQueue().entries).toEqual([]);
+    } finally {
+      process.env.NOTIFICATION_QUIET_HOURS = "off";
+    }
+  });
+
+  test("retries a failed DM from the queue after its backoff", async () => {
+    const { loadNotificationQueue } = require("../src/utils/notification-queue-store");
+    mockSendGitHubTrending.mockImplementationOnce(async (ownerId, deliver) => {
+      await deliver(ownerId, [{ content: "🔥 트렌딩" }]);
+      return { status: "success", detail: "ok" };
+    });
+    const send = jest.fn().mockRejectedValueOnce(new Error("DM closed")).mockResolvedValue({ id: "2", channelId: "dm" });
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date("2026-07-18T01:00:00Z")); // 10:00 KST, DM fails
+    expect(loadNotificationQueue().entries[0]).toMatchObject({ attempts: 1 });
+    await scheduler.runDueSchedules(new Date("2026-07-18T01:00:30Z")); // backoff (1분) not over
+    expect(send).toHaveBeenCalledTimes(1);
+    await scheduler.runDueSchedules(new Date("2026-07-18T01:01:00Z"));
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0].content).toBe("🔥 트렌딩");
+    expect(loadNotificationQueue().entries).toEqual([]);
+  });
 
   test("sends the GitHub trending digest at 10:00 KST and records it", async () => {
     mockSendGitHubTrending.mockImplementation(async (ownerId, deliver) => {
