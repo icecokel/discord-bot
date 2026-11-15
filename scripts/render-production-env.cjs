@@ -3,10 +3,14 @@
  * Builds the production .env from GitHub Actions secrets and variables.
  *
  * Usage (in the deploy workflow):
- *   BOT_SECRETS_JSON='${{ toJSON(secrets) }}' BOT_VARS_JSON='${{ toJSON(vars) }}' \
+ *   BOT_SECRETS_JSON='{"NAME": ${{ toJSON(secrets.NAME) }}, ...}' BOT_VARS_JSON='${{ toJSON(vars) }}' \
  *     node scripts/render-production-env.cjs <output-file>
  *
- * - Every repository secret and variable becomes one KEY=value line.
+ * Secrets are listed one by one in the workflow: passing toJSON(secrets) wholesale into a script
+ * on a self-hosted runner looks like exfiltration and GitHub holds such runs for approval.
+ *
+ * - Every listed secret and every repository variable becomes one KEY=value line; empty or
+ *   unset ones are skipped (the workflow lists secrets explicitly, so optional ones may be unset).
  * - GitHub forbids names starting with GITHUB_, so a GH_ prefix is written as GITHUB_
  *   (GH_TOKEN -> GITHUB_TOKEN, GH_ACTIONS_MONITOR_REPO -> GITHUB_ACTIONS_MONITOR_REPO).
  * - With no bot settings at all, nothing is written and the server keeps its current .env.
@@ -47,7 +51,7 @@ const render = (secrets, vars) => {
   const sources = { secret: [], variable: [] };
   for (const [kind, context] of [["secret", secrets], ["variable", vars]]) {
     for (const [rawName, value] of Object.entries(context)) {
-      if (IGNORED.has(rawName)) continue;
+      if (IGNORED.has(rawName) || value === null || value === undefined || String(value) === "") continue;
       if (!NAME_PATTERN.test(rawName)) throw new Error(`Unsupported name "${rawName}": use upper-case letters, digits and _.`);
       const name = toEnvName(rawName);
       if (entries.has(name)) throw new Error(`${name} is defined more than once (secret and variable, or GH_ and plain name).`);

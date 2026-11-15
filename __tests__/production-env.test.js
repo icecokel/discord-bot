@@ -43,6 +43,20 @@ test("renders secrets and variables into a 600 .env that dotenv reads back exact
   expect(result.stdout).not.toMatch(/discord"|github_pat_x|ghs_workflow|p@ss/);
 });
 
+test("skips listed secrets that are not set (toJSON of an unset secret is an empty string)", () => {
+  const { entries } = render({ DISCORD_BOT_TOKEN: "d", ADMIN_ID: "1", GH_TOKEN: "", GMAIL_APP_PASSWORD: null }, { X_MONITOR_ENABLED: "true" });
+  expect([...entries.keys()].sort()).toEqual(["ADMIN_ID", "DISCORD_BOT_TOKEN", "X_MONITOR_ENABLED"]);
+});
+
+test("every secret uploaded by the migration script is listed in the deploy workflow", () => {
+  const workflow = fs.readFileSync(path.resolve(__dirname, "../.github/workflows/main.yml"), "utf8");
+  expect(workflow).not.toMatch(/toJSON\(secrets\)/);
+  for (const name of ["ADMIN_ID", "ANTHROPIC_API_KEY", "DISCORD_BOT_TOKEN", "GH_TOKEN", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD",
+    "NAVER_APP_CLIENT_ID", "NAVER_APP_CLIENT_SECRET", "PRIVATE_CHANNEL_ID", "WEATHER_MIDDLE_API_KEY", "WEATHER_SHORT_API_KRY"]) {
+    expect(workflow).toContain(`"${name}": \${{ toJSON(secrets.${name}) }}`);
+  }
+});
+
 test("keeps the server .env when GitHub has no bot settings yet", () => {
   const result = runRender({ github_token: "ghs_workflow" }, {});
   expect(result.status).toBe(0);

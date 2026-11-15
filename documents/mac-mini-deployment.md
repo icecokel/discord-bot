@@ -26,6 +26,7 @@
 - **서버의 `.env`를 직접 고치지 않는다.** 다음 배포에서 GitHub 값으로 덮어쓴다. GitHub에 없는 키는 운영 `.env`에서 사라진다.
 - 값을 바꾸면 배포를 다시 실행해야 반영된다(`main` push 또는 Actions에서 `Deploy to OCI` 재실행).
 - 비밀값(토큰, API 키, 비밀번호, 이메일 주소, ID)은 **Secret**, 켜고 끄는 값·모델·지역·엔드포인트 같은 설정은 **Variable**에 둔다. 같은 이름을 양쪽에 두면 배포가 실패한다.
+- **Variable은 전부 자동으로 들어가지만, Secret은 [워크플로](../.github/workflows/main.yml)에 이름을 하나씩 적은 것만 들어간다.** 새 Secret을 추가하면 워크플로의 `BOT_SECRETS_JSON` 목록에 한 줄을 더한다. 모든 Secret을 통째로 넘기는 `toJSON(secrets)`는 self-hosted 러너에서 유출 패턴으로 보여 GitHub이 실행을 승인 대기로 묶는다(웹에서만 승인 가능). 목록에 있지만 설정하지 않은 Secret(`GH_TOKEN`, `GMAIL_*` 등)은 건너뛴다.
 - GitHub은 `GITHUB_`로 시작하는 이름을 막으므로 `GH_`로 저장한다. `GH_TOKEN`은 `.env`의 `GITHUB_TOKEN`, `GH_ACTIONS_MONITOR_REPO`는 `GITHUB_ACTIONS_MONITOR_REPO`가 된다.
 - `DISCORD_BOT_TOKEN`과 `ADMIN_ID`가 없으면 서버를 건드리지 않고 배포가 실패한다. GitHub에 봇 설정이 하나도 없으면 서버의 기존 `.env`를 그대로 쓴다(전환 전 상태).
 - 배포 로그에는 키 이름만 나오고 값은 나오지 않는다.

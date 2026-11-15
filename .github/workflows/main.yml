@@ -30,9 +30,24 @@ jobs:
       - run: npm run build
       # Production settings live in repository secrets and variables (Settings > Secrets and
       # variables > Actions). GitHub reserves the GITHUB_ prefix, so GH_X is written as GITHUB_X.
+      # Secrets are listed one by one (least privilege): a new secret needs a line here.
+      # Every repository variable is included automatically. Unset secrets are skipped.
       - name: Render production .env from GitHub secrets and variables
         env:
-          BOT_SECRETS_JSON: ${{ toJSON(secrets) }}
+          BOT_SECRETS_JSON: >-
+            {
+            "ADMIN_ID": ${{ toJSON(secrets.ADMIN_ID) }},
+            "ANTHROPIC_API_KEY": ${{ toJSON(secrets.ANTHROPIC_API_KEY) }},
+            "DISCORD_BOT_TOKEN": ${{ toJSON(secrets.DISCORD_BOT_TOKEN) }},
+            "GH_TOKEN": ${{ toJSON(secrets.GH_TOKEN) }},
+            "GMAIL_ADDRESS": ${{ toJSON(secrets.GMAIL_ADDRESS) }},
+            "GMAIL_APP_PASSWORD": ${{ toJSON(secrets.GMAIL_APP_PASSWORD) }},
+            "NAVER_APP_CLIENT_ID": ${{ toJSON(secrets.NAVER_APP_CLIENT_ID) }},
+            "NAVER_APP_CLIENT_SECRET": ${{ toJSON(secrets.NAVER_APP_CLIENT_SECRET) }},
+            "PRIVATE_CHANNEL_ID": ${{ toJSON(secrets.PRIVATE_CHANNEL_ID) }},
+            "WEATHER_MIDDLE_API_KEY": ${{ toJSON(secrets.WEATHER_MIDDLE_API_KEY) }},
+            "WEATHER_SHORT_API_KRY": ${{ toJSON(secrets.WEATHER_SHORT_API_KRY) }}
+            }
           BOT_VARS_JSON: ${{ toJSON(vars) }}
         run: node scripts/render-production-env.cjs "$RUNNER_TEMP/production.env"
       - name: Deploy locally and verify Discord login
