@@ -23,6 +23,8 @@ OCI의 `/srv/discord-bot/.env`는 discord-bot 계정 소유·권한 600으로 �
 
 날씨는 `WEATHER_ADMIN_REGION`, `WEATHER_SHORT_END_POINT`, `WEATHER_SHORT_API_KRY`, `WEATHER_MIDDLE_END_POINT`, `WEATHER_MIDDLE_API_KEY`를, 뉴스는 `NAVER_APP_CLIENT_ID`, `NAVER_APP_CLIENT_SECRET`을 사용한다. 디스크 조회 대상은 `ADMIN_DISK_PATHS`로 지정한다.
 
+VSCoke GitHub Actions 실패 감시는 별도 설정 없이 기본 활성이다. 끄려면 `GITHUB_ACTIONS_MONITOR_ENABLED=false`를 두고, 대상은 `GITHUB_ACTIONS_MONITOR_REPO`·`GITHUB_ACTIONS_MONITOR_WORKFLOWS`로 바꾼다. 공개 저장소라 토큰은 필요 없으며 `GITHUB_TOKEN`은 한도를 높일 때만 선택으로 둔다. 배포 후 `/관리자 스케줄상태`의 `GitHub Actions 감시` 항목이 10분 안에 성공(첫 실행은 `기준선 생성`)으로 바뀌는지 확인하고, VSCoke의 Production Chat Smoke를 `force_failure=true`로 실행해 실패 DM을 확인한다. 자세한 동작은 [README](../README.md#github-actions-실패-감시)에 있다.
+
 ## 운영 전환
 
 - OCI 앱 번들·의존성·ARM64 Chromium을 준비하고 운영 `.env` 권한을 600으로 설정한다. Discord REST 인증, Claude 응답, 단기 날씨, 네이버 API는 준비 단계에서 확인했다.

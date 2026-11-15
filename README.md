@@ -5,7 +5,7 @@
 ## 현재 컨셉
 
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
-- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고와 활성화된 X 감시 알림을 관리자 DM으로 발송합니다.
+- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X 감시 알림을 관리자 DM으로 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Claude API로 처리하며 최근 대화 10턴을 전달합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Claude는 봇 프로세스 내부 provider로만 호출합니다.
@@ -22,10 +22,37 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 - 긱뉴스: 매일 07:50 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보냅니다.
 - 내일 날씨: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 내일 날씨를 보냅니다.
 - 채용공고: 매일 07:00, 13:00, 19:00 KST에 공식 채용 사이트를 확인하고 새 공고만 `ADMIN_ID` 관리자 DM으로 보냅니다.
+- GitHub Actions 감시: 10분마다 VSCoke 저장소의 운영 smoke·API 배포 워크플로를 확인하고 새 실패를 `ADMIN_ID` 관리자 DM으로 바로 보냅니다. 아래 [GitHub Actions 실패 감시](#github-actions-실패-감시)를 참고하세요.
 
 날씨 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용합니다. 긱뉴스는 이력 저장소를 사용합니다. 채용공고 감시는 처음 성공한 수집 결과를 기준선으로 저장하므로 배포 직후 기존 공고가 한꺼번에 발송되지 않습니다. 이후 처음 확인한 공고 ID만 알림을 보내며, 일부 회사 조회가 실패해도 다른 회사 수집은 계속합니다. 스케줄 실행 결과는 `schedule-run-history.json`에 성공, 일부 성공, 실패 상태와 최근 시각, 다음 실행 시각을 기록합니다. 같은 시각에 실행되는 작업은 내용을 모두 준비한 뒤 같은 수신자의 DM으로 합칩니다. 06:00에는 오늘 날씨와 티보 야간 업데이트를, 07:00·13:00·19:00에는 새 채용공고와 티보 업데이트를 함께 보냅니다. 내용이 길면 기존 본문 분할 단위를 유지하며 첫 메시지 이후에는 알림음을 억제합니다. 실제 발송은 해당 작업들의 수집·번역 완료 후이며, 실패하거나 보낼 내용이 없는 작업은 다른 알림을 막지 않습니다.
 
 채용공고는 공고 제목을 기준으로 **프론트엔드, 풀스택, AX 엔지니어, Product Engineer** 직군만 감시합니다. 백엔드만 명시된 공고와 다른 직군은 알림 및 채용공고 이력 비교 대상에서 제외하며, 기존 이력은 배포 후 회사별 첫 정상 수집에서 현재 필터에 맞게 정리합니다.
+
+#### GitHub Actions 실패 감시
+
+공개 저장소 `icecokel/VSCoke`의 워크플로 실행 결과를 GitHub REST API(`GET /repos/{repo}/actions/workflows/{workflow}/runs?status=completed&per_page=20`)로 매시 00·10·20·30·40·50분에 확인합니다. 기본 감시 대상은 `production-chat-smoke.yml`(Production Chat Smoke)과 `deploy-api.yml`(Deploy API to OCI (native))입니다. 공개 저장소라 토큰 없이 동작하며 워크플로 2개 기준 시간당 12회로, 토큰 없는 한도(IP당 시간당 60회)의 1/5만 사용합니다.
+
+- 알림 대상 결과는 `failure`, `timed_out`, `startup_failure`입니다. `startup_failure`는 워크플로 파일 오류 등으로 시작조차 못 한 경우라 함께 알립니다. `cancelled`·`skipped`·`neutral`은 사람이 취소했거나 의도적으로 건너뛴 경우라 알리지 않습니다.
+- DM에는 워크플로 이름, 결과, 브랜치, 짧은 SHA, 트리거(`schedule`·`workflow_dispatch`·`push` 등), 재실행 회차(2회차 이상), 완료 시각(KST), 실행 링크가 들어갑니다.
+- 실패 알림을 보낸 워크플로가 다음에 성공하면 복구 DM을 한 번 보냅니다. 알림을 보내지 않은 실패(기준선 이전) 뒤의 성공에는 복구 DM을 보내지 않습니다.
+- 실패 알림은 X 감시와 달리 **야간에도 보류하지 않고 바로 보냅니다.** smoke는 09:17 KST에 돌고 배포 실패는 즉시 조치가 필요하기 때문입니다. 같은 시각에 다른 스케줄 알림이 있으면 기존 규칙대로 한 DM으로 합칩니다.
+- 실행 키(`run.id:run_attempt`)를 `github-actions-monitor-history.json`에 저장하므로 재시작해도 같은 실행을 다시 보내지 않습니다. 실패한 실행을 재실행해 다시 실패하면 새 회차로 한 번 더 알립니다. 알림 대상 실행은 DM 전송에 성공한 뒤에만 기록하므로 전송 실패 시 다음 주기에 다시 보냅니다.
+- 이력이 없는 첫 확인은 기준선입니다. 최근 20건 중 **24시간 이내에 끝난 실패만** 알리고 그보다 오래된 실행은 조용히 기록합니다. 하루 한 번 도는 smoke가 배포 직전에 실패했다면 놓치지 않고, 그 전 실패는 쏟아내지 않기 위해서입니다. 감시 대상에 새 워크플로를 추가해도 같은 규칙이 워크플로별로 적용됩니다.
+- 네트워크·HTTP 오류는 DM 없이 로그와 `schedule-run-history.json`에만 남기고 다음 주기에 다시 시도합니다. 한 워크플로가 실패해도 나머지는 계속 확인합니다. 403/429 속도 제한 응답은 `retry-after` 또는 `x-ratelimit-reset` 시각까지 요청을 멈추고, 정상 응답에서 `x-ratelimit-remaining`이 0이면 다음 요청을 reset 이후로 미룹니다. 대기 시각은 이력 파일에 저장해 재시작 후에도 지킵니다.
+- 결과는 `/관리자 스케줄상태`의 `GitHub Actions 감시` 항목에서 확인합니다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `GITHUB_ACTIONS_MONITOR_ENABLED` | 활성 | `false`·`0`·`off`·`no`이면 등록하지 않습니다. 비밀값이 필요 없어 기본 활성입니다. 같은 `ADMIN_ID`로 로컬 봇을 띄울 때는 중복 알림을 막기 위해 `false`로 둡니다. |
+| `GITHUB_ACTIONS_MONITOR_REPO` | `icecokel/VSCoke` | `owner/repo` 형식입니다. |
+| `GITHUB_ACTIONS_MONITOR_WORKFLOWS` | `production-chat-smoke.yml,deploy-api.yml` | 쉼표나 공백으로 구분한 워크플로 파일명 또는 ID입니다. 토큰이 없으면 최대 5개입니다. |
+| `GITHUB_TOKEN` | 없음 | 선택. 있으면 `Authorization: Bearer`로 보내 한도를 높입니다. 공개 저장소의 Actions 읽기 권한만 있으면 되며 로그·DM·이력에 남기지 않습니다. |
+
+알림 확인은 VSCoke 저장소의 Actions에서 **Production Chat Smoke**를 `force_failure=true`로 수동 실행하면 됩니다. smoke를 돌리지 않고 즉시 실패하므로, 10분 안에 `workflow_dispatch` 트리거의 실패 DM이 와야 합니다. 이어서 같은 워크플로를 기본값으로 실행해 성공하면 복구 DM이 옵니다.
+
+```bash
+gh workflow run production-chat-smoke.yml -R icecokel/VSCoke -f force_failure=true
+```
 
 #### X 업데이트 감시
 
@@ -76,7 +103,7 @@ npm run check:x-profile -- --translate
 
 ### 상태 데이터
 
-운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`, `github-actions-monitor-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
 
 ### 관리자 명령어
 
@@ -173,13 +200,17 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/core/ai/providers/claude-provider.ts` | Claude Messages API 공급자 |
 | `src/core/ai/providers/codex-provider.ts` | Legacy Codex app-server 공급자 |
 | `src/core/ai/providers/hermes-provider.ts` | Legacy Hermes CLI 공급자 |
-| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고와 선택적 X 감시 스케줄러 |
+| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고/GitHub Actions 감시와 선택적 X 감시 스케줄러 |
 | `src/utils/schedule-run-store.ts` | 스케줄 실행 결과 영속 저장소 |
 | `src/utils/server-health.ts` | 브리핑용 서버 디스크·메모리 상태 수집 |
 | `src/features/daily_news/geek-news-service.ts` | 긱뉴스 조회, 번역, 이력 처리 |
 | `src/features/job-monitor/company-job-sources.ts` | 공식 채용 사이트 목록과 회사별 공고 수집기 |
 | `src/features/job-monitor/job-monitor-service.ts` | 신규 공고 비교와 기준선/알림 이력 처리 |
 | `src/utils/job-monitor-store.ts` | 회사별 확인 완료 공고 ID 영속 저장소 |
+| `src/features/github-actions-monitor/github-actions-source.ts` | GitHub Actions 감시 설정, API 조회, 응답 파싱, 속도 제한 판단 |
+| `src/features/github-actions-monitor/github-actions-monitor-service.ts` | 실패·복구 판단과 기준선/알림 이력 처리 |
+| `src/features/github-actions-monitor/github-actions-message.ts` | GitHub Actions 알림 DM 메시지 생성 |
+| `src/utils/github-actions-monitor-store.ts` | 워크플로별 확인 완료 실행 키 영속 저장소 |
 | `src/features/tools/weather-notification-message.ts` | 날씨 스케줄러 DM 메시지 생성 |
 | `scripts/generate-registry.ts` | prefix 명령어 레지스트리 자동 생성 |
 
