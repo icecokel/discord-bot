@@ -3,6 +3,10 @@ const mockRunGitHubActionsMonitor = jest.fn();
 jest.mock("../src/features/github-actions-monitor/github-actions-monitor-service", () => ({
   runGitHubActionsMonitor: (...args) => mockRunGitHubActionsMonitor(...args),
 }));
+const mockSendGitHubTrending = jest.fn();
+jest.mock("../src/features/github-trending/github-trending-service", () => ({
+  sendGitHubTrending: (...args) => mockSendGitHubTrending(...args),
+}));
 jest.mock("../src/features/x-monitor/x-monitor-service", () => ({ runXMonitor: (...args) => mockRunXMonitor(...args) }));
 const mockCronSchedule = jest.fn();
 const mockFetchFeaturedItemResult = jest.fn();
@@ -67,6 +71,7 @@ jest.mock("../src/features/job-monitor/job-notification-message", () => ({
 const {
   GEEK_NEWS_SCHEDULE,
   GITHUB_ACTIONS_SCHEDULE,
+  GITHUB_TRENDING_SCHEDULE,
   JOB_POSTINGS_SCHEDULE,
   MORNING_BRIEFING_SCHEDULE,
   SCHEDULE_DEFINITIONS,
@@ -149,7 +154,10 @@ describe("private scheduler morning briefing", () => {
     mockRunXMonitor.mockReset();
     mockRunGitHubActionsMonitor.mockReset();
     mockRunGitHubActionsMonitor.mockResolvedValue({ status: "success", detail: "새 실패 없음" });
+    mockSendGitHubTrending.mockReset();
+    mockSendGitHubTrending.mockResolvedValue({ status: "success", detail: "트렌딩 10개 DM 전송" });
     delete process.env.X_MONITOR_ENABLED;
+    delete process.env.GITHUB_TRENDING_ENABLED;
     delete process.env.GITHUB_ACTIONS_MONITOR_ENABLED;
     process.env.ADMIN_ID = "admin-id";
     delete process.env.WEATHER_ADMIN_REGION;
@@ -205,6 +213,7 @@ describe("private scheduler morning briefing", () => {
     expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith([
       ...SCHEDULE_DEFINITIONS,
       GITHUB_ACTIONS_SCHEDULE,
+      GITHUB_TRENDING_SCHEDULE,
     ]);
     expect(mockCronSchedule).toHaveBeenCalledTimes(1);
     expect(mockCronSchedule).toHaveBeenCalledWith(
@@ -757,13 +766,37 @@ describe("private scheduler morning briefing", () => {
       process.env.GITHUB_ACTIONS_MONITOR_ENABLED = value;
       const scheduler = new PrivateScheduler({ users: { fetch: jest.fn() } });
       scheduler.start();
-      expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith(SCHEDULE_DEFINITIONS);
+      expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith([...SCHEDULE_DEFINITIONS, GITHUB_TRENDING_SCHEDULE]);
       await scheduler.runDueSchedules(new Date("2026-07-18T03:10:00Z"));
       expect(mockRunGitHubActionsMonitor).not.toHaveBeenCalled();
     },
   );
 
+  test("sends the GitHub trending digest at 10:00 KST and records it", async () => {
+    mockSendGitHubTrending.mockImplementation(async (ownerId, deliver) => {
+      await deliver(ownerId, [{ content: "🔥 GitHub 트렌딩 Top 10" }]);
+      return { status: "partial", detail: "트렌딩 10개 DM 전송 · 기여 여부 확인 실패 1건" };
+    });
+    const send = jest.fn().mockResolvedValue({ id: "1", channelId: "dm" });
+    const scheduler = new PrivateScheduler({ users: { fetch: jest.fn().mockResolvedValue({ send }) } });
+    await scheduler.runDueSchedules(new Date("2026-07-18T01:00:00Z"));
+    expect(mockSendGitHubTrending).toHaveBeenCalledWith("admin-id", expect.any(Function));
+    expect(send.mock.calls[0][0].content).toBe("🔥 GitHub 트렌딩 Top 10");
+    expect(mockRecordScheduleRunCompletion).toHaveBeenCalledWith(
+      GITHUB_TRENDING_SCHEDULE, "partial", "트렌딩 10개 DM 전송 · 기여 여부 확인 실패 1건",
+    );
+    await scheduler.runDueSchedules(new Date("2026-07-18T01:10:00Z"));
+    expect(mockSendGitHubTrending).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["false", "off"])("GITHUB_TRENDING_ENABLED=%s이면 깃 트렌드를 등록하지 않는다", value => {
+    process.env.GITHUB_TRENDING_ENABLED = value;
+    new PrivateScheduler({ users: { fetch: jest.fn() } }).start();
+    expect(mockRegisterScheduleDefinitions).toHaveBeenCalledWith([...SCHEDULE_DEFINITIONS, GITHUB_ACTIONS_SCHEDULE]);
+  });
+
   test("uses the expected schedule definitions", () => {
+    expect(GITHUB_TRENDING_SCHEDULE.cron).toBe("0 10 * * *");
     expect(GITHUB_ACTIONS_SCHEDULE.cron).toBe("*/10 * * * *");
     expect(GITHUB_ACTIONS_SCHEDULE.minutes).toEqual([0, 10, 20, 30, 40, 50]);
     expect(GEEK_NEWS_SCHEDULE.cron).toBe("50 7 * * *");

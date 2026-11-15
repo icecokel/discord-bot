@@ -24,6 +24,7 @@ import "./features/admin/commands/admin-schedule";
 import "./features/admin/commands/admin-job-postings";
 import "./features/admin/commands/admin-x-monitor";
 import "./features/admin/commands/admin-gmail";
+import "./features/admin/commands/admin-github-trending";
 
 // Discord Client에 prefix 명령어 레지스트리를 연결한다.
 declare module "discord.js" {

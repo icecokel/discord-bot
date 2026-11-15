@@ -6,7 +6,8 @@ export interface ScheduleDefinition {
     | "job-postings"
     | "x-profile"
     | "github-actions"
-    | "gmail";
+    | "gmail"
+    | "github-trending";
   label: string;
   cron: string;
   hour: number;
@@ -49,6 +50,15 @@ export const JOB_POSTINGS_SCHEDULE: ScheduleDefinition = {
   cron: "0 7,13,19 * * *",
   hour: 7,
   hours: [7, 13, 19],
+  minute: 0,
+  timezone: "Asia/Seoul",
+};
+
+export const GITHUB_TRENDING_SCHEDULE: ScheduleDefinition = {
+  id: "github-trending",
+  label: "깃 트렌드",
+  cron: "0 10 * * *",
+  hour: 10,
   minute: 0,
   timezone: "Asia/Seoul",
 };
@@ -97,6 +107,10 @@ export const GMAIL_SCHEDULE: ScheduleDefinition = {
 
 export const isXMonitorEnabled = (): boolean => process.env.X_MONITOR_ENABLED === "true";
 
+// 공개 데이터라 비밀값 없이 동작하므로 기본 활성화하고, 명시적으로 끌 때만 비활성화한다.
+export const isGitHubTrendingEnabled = (): boolean =>
+  !/^(false|0|off|no)$/i.test(process.env.GITHUB_TRENDING_ENABLED?.trim() || "");
+
 export const isGmailMonitorEnabled = (): boolean => process.env.GMAIL_MONITOR_ENABLED === "true";
 
 // 공개 저장소라 토큰 없이 동작하므로 기본 활성화하고, 명시적으로 끌 때만 비활성화한다.
@@ -108,4 +122,5 @@ export const getEnabledScheduleDefinitions = (): ScheduleDefinition[] => [
   ...(isXMonitorEnabled() ? [X_PROFILE_SCHEDULE] : []),
   ...(isGitHubActionsMonitorEnabled() ? [GITHUB_ACTIONS_SCHEDULE] : []),
   ...(isGmailMonitorEnabled() ? [GMAIL_SCHEDULE] : []),
+  ...(isGitHubTrendingEnabled() ? [GITHUB_TRENDING_SCHEDULE] : []),
 ];

@@ -1,5 +1,6 @@
 import { runXMonitor } from "../../features/x-monitor/x-monitor-service";
 import { runGmailMonitor } from "../../features/gmail-monitor/gmail-monitor-service";
+import { sendGitHubTrending } from "../../features/github-trending/github-trending-service";
 import { runGitHubActionsMonitor } from "../../features/github-actions-monitor/github-actions-monitor-service";
 import cron from "node-cron";
 import { Client } from "discord.js";
@@ -132,6 +133,7 @@ export class PrivateScheduler {
             case "job-postings": return this.sendJobPostingNotifications(undefined, send);
             // 실패 알림은 야간에도 미루지 않고 즉시 보낸다.
             case "github-actions": return runGitHubActionsMonitor(send);
+            case "github-trending": return sendGitHubTrending(process.env.ADMIN_ID, send);
             default: throw new Error(`알 수 없는 스케줄: ${definition.id}`);
           }
         });

@@ -25,6 +25,8 @@ OCI의 `/srv/discord-bot/.env`는 discord-bot 계정 소유·권한 600으로 �
 
 VSCoke GitHub Actions 실패 감시는 별도 설정 없이 기본 활성이다. 끄려면 `GITHUB_ACTIONS_MONITOR_ENABLED=false`를 두고, 대상은 `GITHUB_ACTIONS_MONITOR_REPO`·`GITHUB_ACTIONS_MONITOR_WORKFLOWS`로 바꾼다. 공개 저장소라 토큰은 필요 없으며 `GITHUB_TOKEN`은 한도를 높일 때만 선택으로 둔다. 배포 후 `/관리자 스케줄상태`의 `GitHub Actions 감시` 항목이 10분 안에 성공(첫 실행은 `기준선 생성`)으로 바뀌는지 확인하고, VSCoke의 Production Chat Smoke를 `force_failure=true`로 실행해 실패 DM을 확인한다. 자세한 동작은 [README](../README.md#github-actions-실패-감시)에 있다.
 
+깃 트렌드는 별도 설정 없이 매일 10:00에 발송되며, 끄려면 `GITHUB_TRENDING_ENABLED=false`를 둔다. 기여 여부 확인이 GitHub API 속도 제한에 걸리면 `GITHUB_TOKEN`을 설정한다.
+
 Gmail 새 메일 알림은 `GMAIL_MONITOR_ENABLED=true`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`(Google 앱 비밀번호)를 모두 둘 때 등록된다. 알림 대상을 좁히려면 `GMAIL_MONITOR_QUERY`(예: `category:primary`)를 둔다. 배포 후 `/관리자 메일확인`을 실행해 `기준선 생성` 응답을 확인하고, 자신에게 테스트 메일을 보낸 뒤 다시 실행해 DM이 오는지 확인한다. 자세한 동작은 [README](../README.md#gmail-새-메일-알림)에 있다. `GMAIL_ADDRESS`와 `GMAIL_APP_PASSWORD`만 있어도 관리자 DM의 Claude가 메일을 읽기 전용으로 조회하며, 끄려면 `GMAIL_AI_ENABLED=false`를 둔다.
 
 ## 운영 전환

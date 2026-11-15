@@ -56,6 +56,7 @@ describe("admin schedule status command", () => {
       "내일 날씨",
       "채용공고",
       "GitHub Actions 감시",
+      "깃 트렌드",
     ]);
   });
 });

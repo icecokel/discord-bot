@@ -9,12 +9,12 @@
 | 구분 | 설명 | 예 | 추가하는 곳 |
 | --- | --- | --- | --- |
 | Claude 도구 | Claude가 답변하면서 직접 호출해 데이터를 조회합니다. | Gmail 검색·읽기 | `src/core/ai/admin-ai-tools.ts`에 toolset 등록 |
-| 스케줄 | 정해진 시각에 스스로 실행하고 결과를 관리자 DM으로 보냅니다. | 아침 브리핑, 긱뉴스, 날씨, 채용공고, X·GitHub Actions·Gmail 감시 | `src/core/scheduler/schedule-definitions.ts`와 `private-scheduler.ts` |
+| 스케줄 | 정해진 시각에 스스로 실행하고 결과를 관리자 DM으로 보냅니다. | 아침 브리핑, 긱뉴스, 깃 트렌드, 날씨, 채용공고, X·GitHub Actions·Gmail 감시 | `src/core/scheduler/schedule-definitions.ts`와 `private-scheduler.ts` |
 
 새 기능은 우선 Claude 도구로 노출하는 것을 기본으로 하고, 시간에 맞춰 알려야 하는 것만 스케줄로 둡니다. `/관리자 ...` 명령은 운영 점검과 수동 실행용으로 유지합니다.
 
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
-- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X·Gmail 감시 알림을 관리자 DM으로 발송합니다.
+- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 깃 트렌드, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X·Gmail 감시 알림을 관리자 DM으로 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Claude API로 처리합니다. 최근 대화와 봇이 보낸 알림을 최대 40개, 40,000자까지 함께 전달하며 재시작해도 유지합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Claude는 봇 프로세스 내부 provider로만 호출합니다.
@@ -29,6 +29,7 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 
 - 아침 브리핑: 매일 06:00 KST에 `ADMIN_ID` 관리자 DM으로 오늘 날씨를 보내고, 서버 디스크 사용률이 85% 이상이거나 여유 메모리가 10% 이하이거나 상태 확인에 실패했을 때 서버 상태를 함께 보냅니다. OCI에서는 Node.js의 `os.freemem()`과 `os.totalmem()`으로 여유 메모리 비율을 계산합니다.
 - 긱뉴스: 매일 07:50 KST에 `ADMIN_ID` 관리자 DM으로 긱뉴스 상단 기사 번역을 보냅니다.
+- 깃 트렌드: 매일 10:00 KST에 GitHub 트렌딩 Top 10을 기여 가능 여부와 한국어 한 줄 설명으로 보냅니다. 아래 [깃 트렌드](#깃-트렌드)를 참고하세요.
 - 내일 날씨: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 내일 날씨를 보냅니다.
 - 채용공고: 매일 07:00, 13:00, 19:00 KST에 공식 채용 사이트를 확인하고 새 공고만 `ADMIN_ID` 관리자 DM으로 보냅니다.
 - GitHub Actions 감시: 10분마다 VSCoke 저장소의 운영 smoke·API 배포 워크플로를 확인하고 새 실패를 `ADMIN_ID` 관리자 DM으로 바로 보냅니다. 아래 [GitHub Actions 실패 감시](#github-actions-실패-감시)를 참고하세요.
@@ -63,6 +64,35 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 ```bash
 gh workflow run production-chat-smoke.yml -R icecokel/VSCoke -f force_failure=true
 ```
+
+#### 깃 트렌드
+
+매일 10:00 KST에 [GitHub 트렌딩](https://github.com/trending?since=daily)(오늘 기준) 상위 10개 저장소를 관리자 DM으로 보냅니다. `/관리자 깃트렌드`로 즉시 받을 수 있습니다.
+
+```
+🔥 GitHub 트렌딩 Top 10 · 11. 16. (월)
+
+1. <https://github.com/owner/repo> (✅ 기여 가능 · 입문 이슈 3개)
+ - 한국어 한 줄 설명
+
+2. ...
+```
+
+- GitHub에는 트렌딩 공식 API가 없어 트렌딩 페이지 HTML을 읽습니다. 페이지 구조가 바뀌어 저장소를 하나도 찾지 못하면 실패로 기록하고 DM을 보내지 않습니다.
+- 기여 가능 여부는 저장소마다 GitHub API를 2번(저장소 정보, 최근 열린 이슈 50건) 호출해 판단합니다.
+
+  | 표시 | 기준 |
+  | --- | --- |
+  | ✅ 기여 가능 · 입문 이슈 N개 | 열린 이슈에 `good first issue`, `help wanted`, `beginner`, `easy` 같은 라벨이 있음 |
+  | ✅ 기여 가능 · 열린 이슈 N개 | 입문 라벨은 없지만 열린 이슈(PR 제외)가 있음 |
+  | 🟡 기여 어려움 | 열린 이슈가 없거나 이슈 기능이 꺼져 있음 |
+  | ⛔ 기여 불가 | 보관(archived)된 저장소 |
+  | ❔ 확인 실패 | API 오류나 속도 제한 |
+
+- 이슈 수는 최근 50건까지만 세므로 50 이상은 `50개+`로 표시합니다.
+- 한 줄 설명은 저장소 설명을 Claude가 한 번의 요청으로 한국어로 요약합니다. 요약에 실패하면 원문 설명을 그대로 보내고 `일부 성공`으로 기록합니다.
+- 토큰 없이도 동작하지만 하루 20회 호출이 IP당 시간당 60회 한도를 GitHub Actions 감시와 나눠 씁니다. `GITHUB_TOKEN`이 있으면 함께 사용하며, 속도 제한으로 확인에 실패하면 실행 메모에 토큰 설정을 권장합니다.
+- 끄려면 `GITHUB_TRENDING_ENABLED=false`를 둡니다. 공개 데이터만 쓰므로 기본 활성입니다.
 
 #### Gmail 새 메일 알림
 
@@ -154,6 +184,7 @@ npm run check:x-profile -- --translate
 | `/관리자 채용공고` | 현재 감시 직군 채용공고를 즉시 조회합니다. |
 | `/관리자 X확인` | X 게시물을 즉시 확인합니다. 야간에는 발송을 보류합니다. |
 | `/관리자 메일확인` | Gmail 새 메일을 즉시 확인하고 새 메일을 DM으로 보냅니다. |
+| `/관리자 깃트렌드` | GitHub 트렌딩 Top 10을 즉시 DM으로 받습니다. |
 | `/질문 <질문>` | 관리자 AI 답변을 생성합니다. |
 
 ### 관리자 AI 제어(Claude)
@@ -262,6 +293,10 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/features/github-actions-monitor/github-actions-monitor-service.ts` | 실패·복구 판단과 기준선/알림 이력 처리 |
 | `src/features/github-actions-monitor/github-actions-message.ts` | GitHub Actions 알림 DM 메시지 생성 |
 | `src/utils/github-actions-monitor-store.ts` | 워크플로별 확인 완료 실행 키 영속 저장소 |
+| `src/features/github-trending/github-trending-source.ts` | GitHub 트렌딩 페이지 파싱과 기여 가능 여부 판단 |
+| `src/features/github-trending/github-trending-service.ts` | 깃 트렌드 수집·요약·DM 전송 |
+| `src/features/github-trending/github-trending-summary.ts` | 저장소 설명 Claude 한국어 요약 |
+| `src/features/github-trending/github-trending-message.ts` | 깃 트렌드 DM 메시지 생성과 분할 |
 | `src/features/gmail-monitor/gmail-source.ts` | Gmail IMAP 접속, 새 메일 조회, 검색·본문 읽기, 미리보기 추출 |
 | `src/features/gmail-monitor/gmail-monitor-service.ts` | Gmail 기준선/확인 위치 처리와 DM 전송 |
 | `src/features/gmail-monitor/gmail-message.ts` | Gmail 알림 DM 메시지 생성과 분할 |
