@@ -23,6 +23,7 @@ import "./features/admin/commands/admin-server";
 import "./features/admin/commands/admin-schedule";
 import "./features/admin/commands/admin-job-postings";
 import "./features/admin/commands/admin-x-monitor";
+import "./features/admin/commands/admin-gmail";
 
 // Discord Client에 prefix 명령어 레지스트리를 연결한다.
 declare module "discord.js" {
@@ -51,7 +52,7 @@ client.on("error", (error) => {
 client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 
-  // 스케줄러 초기화 (아침 브리핑, 긱뉴스, 내일 날씨, 채용공고)
+  // 스케줄러 초기화 (아침 브리핑, 긱뉴스, 내일 날씨, 채용공고, X·Gmail 감시)
   initializeSchedulers(client);
   await notifyServerReady(client);
 });

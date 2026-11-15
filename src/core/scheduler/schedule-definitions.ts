@@ -5,7 +5,8 @@ export interface ScheduleDefinition {
     | "tomorrow-weather"
     | "job-postings"
     | "x-profile"
-    | "github-actions";
+    | "github-actions"
+    | "gmail";
   label: string;
   cron: string;
   hour: number;
@@ -83,7 +84,20 @@ export const GITHUB_ACTIONS_SCHEDULE: ScheduleDefinition = {
   timezone: "Asia/Seoul",
 };
 
+export const GMAIL_SCHEDULE: ScheduleDefinition = {
+  id: "gmail",
+  label: "Gmail",
+  cron: "*/10 * * * *",
+  hour: 0,
+  hours: Array.from({ length: 24 }, (_, hour) => hour),
+  minute: 0,
+  minutes: [0, 10, 20, 30, 40, 50],
+  timezone: "Asia/Seoul",
+};
+
 export const isXMonitorEnabled = (): boolean => process.env.X_MONITOR_ENABLED === "true";
+
+export const isGmailMonitorEnabled = (): boolean => process.env.GMAIL_MONITOR_ENABLED === "true";
 
 // 공개 저장소라 토큰 없이 동작하므로 기본 활성화하고, 명시적으로 끌 때만 비활성화한다.
 export const isGitHubActionsMonitorEnabled = (): boolean =>
@@ -93,4 +107,5 @@ export const getEnabledScheduleDefinitions = (): ScheduleDefinition[] => [
   ...SCHEDULE_DEFINITIONS,
   ...(isXMonitorEnabled() ? [X_PROFILE_SCHEDULE] : []),
   ...(isGitHubActionsMonitorEnabled() ? [GITHUB_ACTIONS_SCHEDULE] : []),
+  ...(isGmailMonitorEnabled() ? [GMAIL_SCHEDULE] : []),
 ];

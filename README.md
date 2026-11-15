@@ -5,7 +5,7 @@
 ## 현재 컨셉
 
 - 서버 채널과 일반 사용자 DM의 일반 기능 요청은 처리하지 않습니다.
-- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X 감시 알림을 관리자 DM으로 발송합니다.
+- 스케줄러는 봇 프로세스 안에서 아침 브리핑, 긱뉴스, 내일 날씨, 신규 채용공고, VSCoke GitHub Actions 실패와 활성화된 X·Gmail 감시 알림을 관리자 DM으로 발송합니다.
 - 관리자 기능은 DM과 `ADMIN_ID` 조건을 확인한 뒤 실행합니다.
 - 관리자 DM의 prefix 없는 메시지는 운영 기본값에서 Claude API로 처리하며 최근 대화 10턴을 전달합니다.
 - `discord.js` 봇이 유일한 Discord gateway이고, Claude는 봇 프로세스 내부 provider로만 호출합니다.
@@ -23,6 +23,7 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 - 내일 날씨: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 내일 날씨를 보냅니다.
 - 채용공고: 매일 07:00, 13:00, 19:00 KST에 공식 채용 사이트를 확인하고 새 공고만 `ADMIN_ID` 관리자 DM으로 보냅니다.
 - GitHub Actions 감시: 10분마다 VSCoke 저장소의 운영 smoke·API 배포 워크플로를 확인하고 새 실패를 `ADMIN_ID` 관리자 DM으로 바로 보냅니다. 아래 [GitHub Actions 실패 감시](#github-actions-실패-감시)를 참고하세요.
+- Gmail 감시: `GMAIL_MONITOR_ENABLED=true`일 때 10분마다 Gmail 받은편지함을 확인하고 새 메일을 `ADMIN_ID` 관리자 DM으로 보냅니다. 아래 [Gmail 새 메일 알림](#gmail-새-메일-알림)을 참고하세요.
 
 날씨 지역은 `WEATHER_ADMIN_REGION`을 우선 사용하고, 값이 없으면 운영자의 기존 `user-preferences.json` 지역 설정, 그마저 없으면 `서울`을 사용합니다. 긱뉴스는 이력 저장소를 사용합니다. 채용공고 감시는 처음 성공한 수집 결과를 기준선으로 저장하므로 배포 직후 기존 공고가 한꺼번에 발송되지 않습니다. 이후 처음 확인한 공고 ID만 알림을 보내며, 일부 회사 조회가 실패해도 다른 회사 수집은 계속합니다. 스케줄 실행 결과는 `schedule-run-history.json`에 성공, 일부 성공, 실패 상태와 최근 시각, 다음 실행 시각을 기록합니다. 같은 시각에 실행되는 작업은 내용을 모두 준비한 뒤 같은 수신자의 DM으로 합칩니다. 06:00에는 오늘 날씨와 티보 야간 업데이트를, 07:00·13:00·19:00에는 새 채용공고와 티보 업데이트를 함께 보냅니다. 내용이 길면 기존 본문 분할 단위를 유지하며 첫 메시지 이후에는 알림음을 억제합니다. 실제 발송은 해당 작업들의 수집·번역 완료 후이며, 실패하거나 보낼 내용이 없는 작업은 다른 알림을 막지 않습니다.
 
@@ -53,6 +54,27 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 ```bash
 gh workflow run production-chat-smoke.yml -R icecokel/VSCoke -f force_failure=true
 ```
+
+#### Gmail 새 메일 알림
+
+`GMAIL_MONITOR_ENABLED=true`로 활성화하면 Gmail IMAP(`imap.gmail.com:993`)에 앱 비밀번호로 접속해 매시 00·10·20·30·40·50분에 새 메일을 확인합니다. 메일함은 **읽기 전용**으로 열기 때문에 읽음 표시, 라벨, 삭제 등 Gmail 상태를 바꾸지 않습니다.
+
+- DM에는 제목, 보낸 사람, 받은 시각(KST), 본문 앞부분 180자 미리보기, Gmail 웹 링크가 들어갑니다. 한 번에 최대 10건을 보내고, 더 많으면 오래된 메일은 건수만 알립니다.
+- 첫 확인은 기준선입니다. 그 시점의 메일함 위치(UID)만 저장하고 기존 메일은 보내지 않습니다. 주소·메일함·검색 조건을 바꾸거나 Gmail이 UIDVALIDITY를 바꾸면 다시 기준선을 만듭니다.
+- 확인 위치는 `gmail-monitor-history.json`에 저장하며, DM 전송에 성공한 메시지까지만 진행합니다. 전송에 실패하면 다음 주기에 다시 보냅니다.
+- 야간에도 보류하지 않습니다. 같은 시각에 다른 스케줄 알림이 있으면 한 DM으로 합칩니다.
+- 로그인·네트워크 오류는 DM 없이 로그와 `/관리자 스케줄상태`의 `Gmail` 항목에만 남깁니다. IMAP 서버 응답 원문은 남기지 않습니다.
+- `/관리자 메일확인`으로 즉시 확인할 수 있습니다.
+
+| 환경변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `GMAIL_MONITOR_ENABLED` | 비활성 | `true`일 때만 스케줄에 등록합니다. |
+| `GMAIL_ADDRESS` | 없음 | 확인할 Gmail 주소입니다. |
+| `GMAIL_APP_PASSWORD` | 없음 | Google 계정의 [앱 비밀번호](https://myaccount.google.com/apppasswords) 16자리입니다. 2단계 인증이 켜져 있어야 만들 수 있고, 공백은 무시합니다. 로그·DM·이력에 남기지 않습니다. |
+| `GMAIL_MONITOR_QUERY` | 없음 | 선택. Gmail 검색어(`X-GM-RAW`)로 알림 대상을 좁힙니다. 예: `category:primary`, `from:boss@example.com`, `label:중요 -from:noreply`. |
+| `GMAIL_MONITOR_MAILBOX` | `INBOX` | 선택. 확인할 IMAP 메일함입니다. 전체 메일은 `[Gmail]/All Mail`입니다. |
+
+받은편지함에는 프로모션·소셜 탭 메일도 포함되므로, 알림이 많으면 `GMAIL_MONITOR_QUERY=category:primary`로 기본 탭만 받는 것을 권장합니다.
 
 #### X 업데이트 감시
 
@@ -103,7 +125,7 @@ npm run check:x-profile -- --translate
 
 ### 상태 데이터
 
-운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`, `github-actions-monitor-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
+운영 상태는 배포 번들 옆의 `dist/data/`에 저장합니다. 현재 `user-preferences.json`, `geek-news-history.json`, `job-monitor-history.json`, `schedule-run-history.json`, `x-profile-history.json`, `github-actions-monitor-history.json`, `gmail-monitor-history.json`이 이 경로를 사용합니다. 저장할 때는 같은 디렉터리의 임시 파일을 만든 뒤 교체하므로 기존 파일이 부분적으로 덮어써지는 일을 피합니다. 파일이 없을 때만 기본값을 사용합니다. JSON이 손상되면 원본은 그대로 두고 `*.corrupt-<timestamp>-<pid>` 복구 사본을 만든 뒤 오류를 전파하므로, 빈 상태로 자동 덮어쓰지 않습니다.
 
 ### 관리자 명령어
 
@@ -122,6 +144,7 @@ npm run check:x-profile -- --translate
 | `/관리자 스케줄상태` | 최근 스케줄 실행 결과와 다음 실행 시간을 확인합니다. |
 | `/관리자 채용공고` | 현재 감시 직군 채용공고를 즉시 조회합니다. |
 | `/관리자 X확인` | X 게시물을 즉시 확인합니다. 야간에는 발송을 보류합니다. |
+| `/관리자 메일확인` | Gmail 새 메일을 즉시 확인하고 새 메일을 DM으로 보냅니다. |
 | `/질문 <질문>` | 관리자 AI 답변을 생성합니다. |
 
 ### 관리자 AI 제어(Claude)
@@ -200,7 +223,7 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/core/ai/providers/claude-provider.ts` | Claude Messages API 공급자 |
 | `src/core/ai/providers/codex-provider.ts` | Legacy Codex app-server 공급자 |
 | `src/core/ai/providers/hermes-provider.ts` | Legacy Hermes CLI 공급자 |
-| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고/GitHub Actions 감시와 선택적 X 감시 스케줄러 |
+| `src/core/scheduler/private-scheduler.ts` | 아침 브리핑/긱뉴스/내일 날씨/채용공고/GitHub Actions 감시와 선택적 X·Gmail 감시 스케줄러 |
 | `src/utils/schedule-run-store.ts` | 스케줄 실행 결과 영속 저장소 |
 | `src/utils/server-health.ts` | 브리핑용 서버 디스크·메모리 상태 수집 |
 | `src/features/daily_news/geek-news-service.ts` | 긱뉴스 조회, 번역, 이력 처리 |
@@ -211,6 +234,10 @@ Codex/Hermes provider는 과거 운영 호환을 위해 남겼으며 `AI_PROVIDE
 | `src/features/github-actions-monitor/github-actions-monitor-service.ts` | 실패·복구 판단과 기준선/알림 이력 처리 |
 | `src/features/github-actions-monitor/github-actions-message.ts` | GitHub Actions 알림 DM 메시지 생성 |
 | `src/utils/github-actions-monitor-store.ts` | 워크플로별 확인 완료 실행 키 영속 저장소 |
+| `src/features/gmail-monitor/gmail-source.ts` | Gmail IMAP 접속, 새 메일 조회, 미리보기 추출 |
+| `src/features/gmail-monitor/gmail-monitor-service.ts` | Gmail 기준선/확인 위치 처리와 DM 전송 |
+| `src/features/gmail-monitor/gmail-message.ts` | Gmail 알림 DM 메시지 생성과 분할 |
+| `src/utils/gmail-monitor-store.ts` | Gmail 확인 위치(UID) 영속 저장소 |
 | `src/features/tools/weather-notification-message.ts` | 날씨 스케줄러 DM 메시지 생성 |
 | `scripts/generate-registry.ts` | prefix 명령어 레지스트리 자동 생성 |
 

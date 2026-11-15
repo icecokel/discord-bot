@@ -1,4 +1,5 @@
 import { runXMonitor } from "../../features/x-monitor/x-monitor-service";
+import { runGmailMonitor } from "../../features/gmail-monitor/gmail-monitor-service";
 import { runGitHubActionsMonitor } from "../../features/github-actions-monitor/github-actions-monitor-service";
 import cron from "node-cron";
 import { Client } from "discord.js";
@@ -117,6 +118,10 @@ export class PrivateScheduler {
       try {
         if (definition.id === "x-profile") {
           await runXMonitor(this.client, undefined, send);
+          return;
+        }
+        if (definition.id === "gmail") {
+          await runGmailMonitor(this.client, undefined, send);
           return;
         }
         await this.runTrackedJob(definition, () => {
