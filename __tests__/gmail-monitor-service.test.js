@@ -12,6 +12,11 @@ jest.mock("../src/utils/gmail-monitor-store", () => ({
   loadGmailMonitorState: () => mockLoad(),
   saveGmailMonitorState: (state) => mockSave(state),
 }));
+const mockFindRecruiting = jest.fn();
+jest.mock("../src/features/gmail-monitor/gmail-recruiting-filter", () => ({
+  ...jest.requireActual("../src/features/gmail-monitor/gmail-recruiting-filter"),
+  findRecruitingMails: (...args) => mockFindRecruiting(...args),
+}));
 jest.mock("../src/utils/schedule-run-store", () => ({
   recordScheduleRunStart: (...args) => mockStart(...args),
   recordScheduleRunCompletion: (...args) => mockComplete(...args),
@@ -22,7 +27,7 @@ const { runGmailMonitor } = require("../src/features/gmail-monitor/gmail-monitor
 const { buildGmailNotificationChunks } = require("../src/features/gmail-monitor/gmail-message");
 const { findTextPart, toSnippet, gmailMessageUrl, htmlToText, listAttachmentNames } = require("../src/features/gmail-monitor/gmail-source");
 
-const ENV_KEYS = ["GMAIL_MONITOR_ENABLED", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "GMAIL_MONITOR_QUERY", "GMAIL_MONITOR_MAILBOX", "ADMIN_ID"];
+const ENV_KEYS = ["GMAIL_MONITOR_FILTER", "GMAIL_MONITOR_ENABLED", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "GMAIL_MONITOR_QUERY", "GMAIL_MONITOR_MAILBOX", "ADMIN_ID"];
 const previousEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 const clock = () => new Date("2026-11-15T03:00:00Z");
 const mail = (uid, subject = `메일 ${uid}`) => ({
@@ -39,6 +44,8 @@ beforeEach(() => {
   delete process.env.GMAIL_MONITOR_QUERY;
   delete process.env.GMAIL_MONITOR_MAILBOX;
   process.env.ADMIN_ID = "123";
+  // Most tests cover delivery mechanics; the recruiting filter has its own tests below.
+  process.env.GMAIL_MONITOR_FILTER = "all";
   stored = {
     version: 1, address: "me@gmail.com", mailbox: "INBOX", query: "",
     uidValidity: "7", lastUid: 100,
@@ -76,7 +83,7 @@ test("first run stores a baseline without sending existing mail", async () => {
   expect(result.status).toBe("success");
   expect(mockFetchUpdates).toHaveBeenCalledWith(
     expect.objectContaining({ address: "me@gmail.com", appPassword: "abcdefghijklmnop", mailbox: "INBOX" }),
-    null, 10,
+    null, 50,
   );
   expect(stored).toMatchObject({ lastUid: 500, uidValidity: "7" });
   expect(send).not.toHaveBeenCalled();
@@ -179,4 +186,48 @@ test("converts HTML bodies to readable text and lists attachments", () => {
     { part: "2", type: "application/pdf", disposition: "attachment", dispositionParameters: { filename: "영수증.pdf" } },
     { part: "3", type: "image/png", parameters: { name: "logo.png" } },
   ] })).toEqual(["영수증.pdf", "logo.png"]);
+});
+
+describe("recruiting filter (default)", () => {
+  beforeEach(() => { delete process.env.GMAIL_MONITOR_FILTER; });
+
+  test("sends only recruiting mail with its category and summary, and moves past the rest", async () => {
+    mockFindRecruiting.mockResolvedValue(new Map([[102, { category: "interview", summary: "토스 프론트엔드 1차 면접 일정 안내 (11/20 14:00)" }]]));
+    mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 104, maxUid: 103, messages: [mail(101, "광고"), mail(102, "[토스] 면접 안내"), mail(103, "보안 알림")], omittedCount: 0 });
+    const result = await runGmailMonitor(client, clock);
+    expect(result).toEqual({ status: "success", detail: "채용 메일 1건 알림 (새 메일 3건 중)" });
+    expect(mockFetchUpdates.mock.calls[0][2]).toBe(50);
+    expect(mockFindRecruiting.mock.calls[0][0].map((message) => message.uid)).toEqual([101, 102, 103]);
+    const { content } = send.mock.calls[0][0];
+    expect(content).toContain("💼 채용 관련 메일 1건 (새 메일 3건 중)");
+    expect(content).toContain("[면접·과제 일정] 토스 프론트엔드 1차 면접 일정 안내");
+    expect(content).not.toContain("광고");
+    expect(content).not.toContain("보안 알림");
+    expect(stored.lastUid).toBe(103);
+  });
+
+  test("sends nothing when no mail is about recruiting, but still advances", async () => {
+    mockFindRecruiting.mockResolvedValue(new Map());
+    mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 103, maxUid: 102, messages: [mail(101), mail(102)], omittedCount: 4 });
+    const result = await runGmailMonitor(client, clock);
+    expect(result).toEqual({ status: "success", detail: "새 메일 6건 · 채용 관련 없음 · 오래된 4건은 분류하지 않음" });
+    expect(send).not.toHaveBeenCalled();
+    expect(stored.lastUid).toBe(102);
+  });
+
+  test("keeps the checkpoint when classification fails so the same mail is retried next hour", async () => {
+    mockFindRecruiting.mockRejectedValue(new Error("Claude 응답 시간이 초과되었습니다."));
+    mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 102, maxUid: 101, messages: [mail(101)], omittedCount: 0 });
+    const result = await runGmailMonitor(client, clock);
+    expect(result.status).toBe("failure");
+    expect(result.detail).toContain("채용 메일 분류 실패");
+    expect(stored.lastUid).toBe(100);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  test("does not call Claude when there is no new mail", async () => {
+    mockFetchUpdates.mockResolvedValue({ uidValidity: "7", uidNext: 101, maxUid: 100, messages: [], omittedCount: 0 });
+    expect(await runGmailMonitor(client, clock)).toEqual({ status: "success", detail: "새 메일 없음" });
+    expect(mockFindRecruiting).not.toHaveBeenCalled();
+  });
 });

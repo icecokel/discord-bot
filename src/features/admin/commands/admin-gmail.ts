@@ -10,4 +10,4 @@ export const handleGmailMonitor = async (message: Message): Promise<void> => {
   await message.reply({ content: result.detail, allowedMentions: { parse: [] } });
 };
 
-registerAdminCommand("메일확인", handleGmailMonitor, "Gmail 새 메일 즉시 확인 (새 메일은 DM으로 전송)");
+registerAdminCommand("메일확인", handleGmailMonitor, "Gmail 새 메일 즉시 확인 (채용 관련 메일만 DM으로 전송, 매시 정각 자동)");

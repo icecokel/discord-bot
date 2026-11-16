@@ -33,7 +33,7 @@ Claude API 연동 기준은 [Claude provider 문서](documents/claude-api-provid
 - 내일 날씨: 매일 22:30 KST에 `ADMIN_ID` 운영자에게 내일 날씨를 보냅니다.
 - 채용공고: 매일 07:00, 13:00, 19:00 KST에 공식 채용 사이트를 확인하고 새 공고만 `ADMIN_ID` 관리자 DM으로 보냅니다.
 - GitHub Actions 감시: 10분마다 VSCoke 저장소의 운영 smoke·API 배포 워크플로를 확인하고 새 실패를 `ADMIN_ID` 관리자 DM으로 바로 보냅니다. 아래 [GitHub Actions 실패 감시](#github-actions-실패-감시)를 참고하세요.
-- Gmail 감시: `GMAIL_MONITOR_ENABLED=true`일 때 10분마다 Gmail 받은편지함을 확인하고 새 메일을 `ADMIN_ID` 관리자 DM으로 보냅니다. 아래 [Gmail 새 메일 알림](#gmail-새-메일-알림)을 참고하세요.
+- Gmail 채용 메일: `GMAIL_MONITOR_ENABLED=true`일 때 매시 정각에 새 메일을 확인하고, 봇이 채용 관련 메일만 골라 `ADMIN_ID` 관리자 DM으로 보냅니다. 아래 [Gmail 채용 메일 알림](#gmail-채용-메일-알림)을 참고하세요.
 
 #### 알림 큐와 야간 홀드
 
@@ -112,11 +112,14 @@ gh workflow run production-chat-smoke.yml -R icecokel/VSCoke -f force_failure=tr
 - 토큰 없이도 동작하지만 하루 20회 호출이 IP당 시간당 60회 한도를 GitHub Actions 감시와 나눠 씁니다. `GITHUB_TOKEN`이 있으면 함께 사용하며, 속도 제한으로 확인에 실패하면 실행 메모에 토큰 설정을 권장합니다.
 - 끄려면 `GITHUB_TRENDING_ENABLED=false`를 둡니다. 공개 데이터만 쓰므로 기본 활성입니다.
 
-#### Gmail 새 메일 알림
+#### Gmail 채용 메일 알림
 
-`GMAIL_MONITOR_ENABLED=true`로 활성화하면 Gmail IMAP(`imap.gmail.com:993`)에 앱 비밀번호로 접속해 매시 00·10·20·30·40·50분에 새 메일을 확인합니다. 메일함은 **읽기 전용**으로 열기 때문에 읽음 표시, 라벨, 삭제 등 Gmail 상태를 바꾸지 않습니다.
+`GMAIL_MONITOR_ENABLED=true`로 활성화하면 Gmail IMAP(`imap.gmail.com:993`)에 앱 비밀번호로 접속해 **매시 정각에 한 번** 새 메일을 확인합니다. 메일함은 **읽기 전용**으로 열기 때문에 읽음 표시, 라벨, 삭제 등 Gmail 상태를 바꾸지 않습니다.
 
-- DM에는 제목, 보낸 사람, 받은 시각(KST), 본문 앞부분 180자 미리보기, Gmail 웹 링크가 들어갑니다. 한 번에 최대 10건을 보내고, 더 많으면 오래된 메일은 건수만 알립니다.
+- **채용 관련 메일만 보냅니다.** 지난 확인 이후 새 메일(최대 50건)의 제목·보낸 사람·미리보기를 봇(Claude)에 한 번에 보내 분류하고, 지원·전형 결과, 면접·과제 일정, 처우·오퍼, 리크루터·포지션 제안, 채용공고·추천만 고릅니다. 뉴스레터, 광고, 강의 홍보, 보안 알림, 영수증, CI 알림은 보내지 않습니다. 분류에 실패하면 확인 위치를 그대로 두고 다음 정각에 같은 메일을 다시 분류합니다.
+- 모든 새 메일을 받으려면 `GMAIL_MONITOR_FILTER=all`로 둡니다(분류 없이 미리보기 표시).
+
+- DM은 `💼 채용 관련 메일 N건 (새 메일 M건 중)` 아래에 메일마다 제목, 보낸 사람, 받은 시각(KST), `[분류] 한 줄 요약`, Gmail 웹 링크를 담습니다. 50건을 넘는 오래된 메일은 분류하지 않고 건너뜁니다.
 - 첫 확인은 기준선입니다. 그 시점의 메일함 위치(UID)만 저장하고 기존 메일은 보내지 않습니다. 주소·메일함·검색 조건을 바꾸거나 Gmail이 UIDVALIDITY를 바꾸면 다시 기준선을 만듭니다.
 - 확인 위치는 `gmail-monitor-history.json`에 저장하며, DM 전송에 성공한 메시지까지만 진행합니다. 전송에 실패하면 다음 주기에 다시 보냅니다.
 - 23:00~06:00에 온 메일 알림은 [알림 큐](#알림-큐와-야간-홀드)의 야간 홀드에 따라 06:00에 모아서 보냅니다. `/관리자 메일확인`은 야간에도 바로 보냅니다. 같은 시각에 다른 스케줄 알림이 있으면 한 DM으로 합칩니다.
@@ -126,6 +129,7 @@ gh workflow run production-chat-smoke.yml -R icecokel/VSCoke -f force_failure=tr
 | 환경변수 | 기본값 | 설명 |
 | --- | --- | --- |
 | `GMAIL_MONITOR_ENABLED` | 비활성 | `true`일 때만 스케줄에 등록합니다. |
+| `GMAIL_MONITOR_FILTER` | `recruiting` | `recruiting`이면 채용 관련 메일만, `all`이면 모든 새 메일을 보냅니다. |
 | `GMAIL_ADDRESS` | 없음 | 확인할 Gmail 주소입니다. |
 | `GMAIL_APP_PASSWORD` | 없음 | Google 계정의 [앱 비밀번호](https://myaccount.google.com/apppasswords) 16자리입니다. 2단계 인증이 켜져 있어야 만들 수 있고, 공백은 무시합니다. 로그·DM·이력에 남기지 않습니다. |
 | `GMAIL_MONITOR_QUERY` | 없음 | 선택. Gmail 검색어(`X-GM-RAW`)로 알림 대상을 좁힙니다. 예: `category:primary`, `from:boss@example.com`, `label:중요 -from:noreply`. |
@@ -201,7 +205,7 @@ npm run check:x-profile -- --translate
 | `/관리자 스케줄상태` | 최근 스케줄 실행 결과, 다음 실행 시간, 알림 큐 상태(대기·야간 홀드·재시도)를 확인합니다. |
 | `/관리자 채용공고` | 현재 감시 직군 채용공고를 즉시 조회합니다. |
 | `/관리자 X확인` | X 게시물을 즉시 확인합니다. 야간에는 발송을 보류합니다. |
-| `/관리자 메일확인` | Gmail 새 메일을 즉시 확인하고 새 메일을 DM으로 보냅니다. |
+| `/관리자 메일확인` | Gmail 새 메일을 즉시 확인하고 채용 관련 메일만 DM으로 보냅니다(평소에는 매시 정각 자동). |
 | `/관리자 깃트렌드` | GitHub 트렌딩 Top 10을 즉시 DM으로 받습니다. |
 | `/질문 <질문>` | 관리자 AI 답변을 생성합니다. |
 

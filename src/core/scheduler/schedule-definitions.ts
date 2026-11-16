@@ -94,14 +94,14 @@ export const GITHUB_ACTIONS_SCHEDULE: ScheduleDefinition = {
   timezone: "Asia/Seoul",
 };
 
+// 채용 관련 메일은 급하지 않으므로 매시 정각에 한 번 모아서 확인한다.
 export const GMAIL_SCHEDULE: ScheduleDefinition = {
   id: "gmail",
-  label: "Gmail",
-  cron: "*/10 * * * *",
+  label: "Gmail 채용 메일",
+  cron: "0 * * * *",
   hour: 0,
   hours: Array.from({ length: 24 }, (_, hour) => hour),
   minute: 0,
-  minutes: [0, 10, 20, 30, 40, 50],
   timezone: "Asia/Seoul",
 };
 

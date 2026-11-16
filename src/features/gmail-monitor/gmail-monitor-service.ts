@@ -18,13 +18,20 @@ import {
 import { fetchGmailUpdates } from "./gmail-source";
 import type { GmailConfig } from "./gmail-source";
 import { buildGmailNotificationChunks } from "./gmail-message";
+import type { GmailMessageView } from "./gmail-message";
+import { findRecruitingMails, RECRUITING_CATEGORIES } from "./gmail-recruiting-filter";
 
 export interface GmailMonitorResult {
   status: "success" | "partial" | "failure" | "skipped";
   detail: string;
 }
 
-const MAX_MESSAGES_PER_RUN = 10;
+// Hourly runs classify up to this many new mails in one Claude call; older ones beyond it are skipped.
+const MAX_MESSAGES_PER_RUN = 50;
+
+/** "recruiting" (default): only job-search mail, picked by Claude. "all": every new mail. */
+export const getGmailFilterMode = (): "recruiting" | "all" =>
+  process.env.GMAIL_MONITOR_FILTER?.trim().toLowerCase() === "all" ? "all" : "recruiting";
 const DEFAULT_MAILBOX = "INBOX";
 
 // Process-wide lock, same as the X monitor; a single bot process is assumed.
@@ -102,18 +109,43 @@ const checkGmail = async (
   }
 
   const state: GmailMonitorState = { ...previous, lastCheckedAt: checkedAt };
-  const chunks = buildGmailNotificationChunks(
-    updates.messages,
-    updates.omittedCount,
-    updates.maxUid,
-  );
+  const newCount = updates.messages.length + updates.omittedCount;
+  const skipped = updates.omittedCount ? ` · 오래된 ${updates.omittedCount}건은 분류하지 않음` : "";
+  let shown: GmailMessageView[] = updates.messages;
+  let header: string | undefined;
+
+  if (getGmailFilterMode() === "recruiting" && updates.messages.length) {
+    let recruiting;
+    try {
+      recruiting = await findRecruitingMails(updates.messages);
+    } catch (error) {
+      // Keep the checkpoint so the same mails are classified again next hour.
+      saveGmailMonitorState({ ...previous, lastCheckedAt: checkedAt });
+      return {
+        status: "failure",
+        detail: `새 메일 ${newCount}건 · 채용 메일 분류 실패(다음 확인 때 재시도): ${error instanceof Error ? error.message.slice(0, 120) : "알 수 없는 오류"}`,
+      };
+    }
+    shown = updates.messages
+      .filter((message) => recruiting.has(message.uid))
+      .map((message) => {
+        const match = recruiting.get(message.uid)!;
+        return { ...message, label: RECRUITING_CATEGORIES[match.category], summary: match.summary || undefined };
+      });
+    header = `💼 채용 관련 메일 ${shown.length}건 (새 메일 ${newCount}건 중)`;
+  }
+
+  const chunks = buildGmailNotificationChunks(shown, shown === updates.messages ? updates.omittedCount : 0, updates.maxUid, header);
   if (!chunks.length) {
     state.lastUid = Math.max(state.lastUid, updates.maxUid);
     saveGmailMonitorState(state);
-    return { status: "success", detail: "새 메일 없음" };
+    return {
+      status: "success",
+      detail: (newCount ? `새 메일 ${newCount}건 · 채용 관련 없음` : "새 메일 없음") + skipped,
+    };
   }
 
-  const total = updates.messages.length + updates.omittedCount;
+  const total = shown.length;
   try {
     await send(ownerId, chunks.map((chunk) => ({
       content: chunk.content,
@@ -132,7 +164,10 @@ const checkGmail = async (
       detail: `새 메일 ${total}건 중 DM 전송 실패: ${error instanceof Error ? error.message.slice(0, 120) : "알 수 없는 오류"}`,
     };
   }
-  return { status: "success", detail: `새 메일 ${total}건 DM 전송` };
+  return {
+    status: "success",
+    detail: (getGmailFilterMode() === "recruiting" ? `채용 메일 ${total}건 알림 (새 메일 ${newCount}건 중)` : `새 메일 ${total}건 DM 전송`) + skipped,
+  };
 };
 
 export const runGmailMonitor = async (
